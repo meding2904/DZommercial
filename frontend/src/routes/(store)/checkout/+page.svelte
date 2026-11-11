@@ -9,9 +9,18 @@
 	} from '#lib/components/store/shipping';
 	import { money } from '#lib/format';
 	import { cart } from '#lib/stores/cart.svelte';
-	import type { Order } from '#lib/types';
+	import type { Commune, Order, StopDesk, Wilaya } from '#lib/types';
 
-	const FIELD_ORDER = ['name', 'email', 'phone', 'address', 'city'] as const;
+	const FIELD_ORDER = [
+		'name',
+		'email',
+		'phone',
+		'wilaya_code',
+		'commune_name',
+		'delivery_type',
+		'stop_desk_id',
+		'address'
+	] as const;
 	type FieldKey = (typeof FIELD_ORDER)[number];
 
 	let mounted = $state(false);
@@ -24,20 +33,137 @@
 		name: '',
 		email: '',
 		phone: '',
+		wilayaCode: '',
+		communeName: '',
+		deliveryType: 'home' as 'home' | 'stopdesk',
+		stopDeskId: '',
 		address: '',
-		city: '',
 		notes: ''
 	});
 
-	onMount(() => {
-		mounted = true;
-	});
+	let wilayas = $state<Wilaya[]>([]);
+	let communes = $state<Commune[]>([]);
+	let desks = $state<StopDesk[]>([]);
+	let wilayaState = $state<'loading' | 'ready' | 'error'>('loading');
+	let communeState = $state<'idle' | 'loading' | 'ready' | 'error'>('idle');
+	let deskState = $state<'idle' | 'loading' | 'ready' | 'error'>('idle');
+	let mapError = $state('');
+	let communeError = $state('');
+	let deskError = $state('');
+	let communeRequest = 0;
+	let deskRequest = 0;
 
+	const selectedDesk = $derived(desks.find((desk) => desk.id === form.stopDeskId));
+	const communeLocked = $derived(
+		form.deliveryType === 'stopdesk' && Boolean(selectedDesk?.communeName)
+	);
+	const deliveryReady = $derived(
+		wilayaState === 'ready' &&
+			Boolean(form.wilayaCode) &&
+			communeState === 'ready' &&
+			Boolean(form.communeName) &&
+			(form.deliveryType === 'home' ||
+				(deskState === 'ready' && Boolean(form.stopDeskId)))
+	);
 	const shipping = $derived(shippingFor(cart.subtotal));
 	const total = $derived(cart.subtotal + shipping);
 	const hasStockIssue = $derived(
 		cart.items.some((line) => line.stock < 1 || line.quantity > line.stock)
 	);
+
+	onMount(() => {
+		mounted = true;
+		if (cart.items.length > 0) void loadWilayas();
+	});
+
+	async function loadWilayas(): Promise<void> {
+		wilayaState = 'loading';
+		mapError = '';
+		try {
+			const data = await apiFetch<{ wilayas: Wilaya[] }>('/shipping/wilayas');
+			wilayas = data.wilayas;
+			wilayaState = 'ready';
+			if (form.wilayaCode) void loadCommunes(Number(form.wilayaCode));
+		} catch {
+			wilayaState = 'error';
+			mapError = 'The delivery map could not be read. Check your connection and try again.';
+		}
+	}
+
+	async function loadCommunes(wilayaCode: number): Promise<void> {
+		const request = ++communeRequest;
+		communeState = 'loading';
+		communeError = '';
+		communes = [];
+		try {
+			const data = await apiFetch<{ communes: Commune[] }>(
+				`/shipping/communes?wilaya=${wilayaCode}`
+			);
+			if (request !== communeRequest) return;
+			communes = data.communes;
+			communeState = 'ready';
+		} catch {
+			if (request !== communeRequest) return;
+			communeState = 'error';
+			communeError = 'The communes could not be read. Try again.';
+		}
+	}
+
+	async function loadDesks(wilayaCode: number): Promise<void> {
+		const request = ++deskRequest;
+		deskState = 'loading';
+		deskError = '';
+		desks = [];
+		try {
+			const data = await apiFetch<{ desks: StopDesk[] }>(`/shipping/desks?wilaya=${wilayaCode}`);
+			if (request !== deskRequest) return;
+			desks = data.desks;
+			deskState = 'ready';
+		} catch {
+			if (request !== deskRequest) return;
+			deskState = 'error';
+			deskError = 'The stop desks could not be read. Try again, or choose home delivery.';
+		}
+	}
+
+	function onWilayaChange(value: string): void {
+		form.wilayaCode = value;
+		form.communeName = '';
+		form.stopDeskId = '';
+		communes = [];
+		desks = [];
+		communeState = 'idle';
+		deskState = 'idle';
+		errors = {};
+
+		const code = Number(value);
+		if (!code) return;
+		void loadCommunes(code);
+		if (form.deliveryType === 'stopdesk') void loadDesks(code);
+	}
+
+	function onDeliveryTypeChange(next: 'home' | 'stopdesk'): void {
+		form.deliveryType = next;
+		form.stopDeskId = '';
+		desks = [];
+		deskState = 'idle';
+		errors = {};
+
+		if (next === 'stopdesk' && form.wilayaCode) {
+			void loadDesks(Number(form.wilayaCode));
+		}
+	}
+
+	function onDeskChange(value: string): void {
+		form.stopDeskId = value;
+		const desk = desks.find((item) => item.id === value);
+		if (desk?.communeName) form.communeName = desk.communeName;
+	}
+
+	function validMobile(value: string): boolean {
+		const digits = value.replace(/[\s()+-]/g, '').replace(/^213/, '0');
+		return /^0[567]\d{8}$/.test(digits);
+	}
 
 	function validate(): FieldKey | null {
 		const next: Record<string, string> = {};
@@ -48,8 +174,16 @@
 			next.email = 'Enter a valid email.';
 		}
 		if (!form.phone.trim()) next.phone = 'Enter a phone number the courier can call.';
-		if (!form.address.trim()) next.address = 'Enter the delivery address.';
-		if (!form.city.trim()) next.city = 'Enter the city.';
+		else if (!validMobile(form.phone)) {
+			next.phone = 'Use an Algerian mobile number, for example 0550 12 34 56.';
+		}
+		if (!form.wilayaCode) next.wilaya_code = 'Choose a wilaya.';
+		if (!form.communeName) next.commune_name = 'Choose a commune.';
+		if (form.deliveryType === 'stopdesk') {
+			if (!form.stopDeskId) next.stop_desk_id = 'Choose a stop desk.';
+		} else if (!form.address.trim()) {
+			next.address = 'Enter the delivery address.';
+		}
 
 		errors = next;
 		return FIELD_ORDER.find((key) => next[key]) ?? null;
@@ -65,7 +199,8 @@
 		if (firstInvalid) {
 			formError = 'Check the marked fields.';
 			await tick();
-			document.getElementById(firstInvalid)?.focus();
+			const focusId = firstInvalid === 'delivery_type' ? 'delivery-home' : firstInvalid;
+			document.getElementById(focusId)?.focus();
 			return;
 		}
 
@@ -78,8 +213,11 @@
 					name: form.name.trim(),
 					email: form.email.trim(),
 					phone: form.phone.trim(),
-					address: form.address.trim(),
-					city: form.city.trim(),
+					address: form.deliveryType === 'home' ? form.address.trim() : '',
+					wilaya_code: Number(form.wilayaCode),
+					commune_name: form.communeName,
+					delivery_type: form.deliveryType,
+					stop_desk_id: form.deliveryType === 'stopdesk' ? form.stopDeskId : '',
 					notes: form.notes.trim(),
 					items: cart.items.map((line) => ({
 						product_id: line.product_id,
@@ -134,7 +272,7 @@
 
 <div class="wrap">
 	{#if !mounted}
-		<p class="loading">Loading your bag.</p>
+		<p class="loading" aria-live="polite">Loading your bag.</p>
 	{:else if cart.items.length === 0}
 		<div class="empty-state">
 			<p class="meta">Empty bag</p>
@@ -211,46 +349,170 @@
 							required
 							bind:value={form.phone}
 							aria-invalid={errors.phone ? 'true' : undefined}
-							aria-describedby={errors.phone ? 'phone-error' : undefined}
+							aria-describedby={errors.phone ? 'phone-error' : 'phone-hint'}
 						/>
 						{#if errors.phone}
 							<p class="field-error" id="phone-error">{errors.phone}</p>
-						{/if}
-					</div>
-
-					<div class="field field-full">
-						<label for="address">Address</label>
-						<input
-							id="address"
-							name="address"
-							type="text"
-							autocomplete="street-address"
-							required
-							bind:value={form.address}
-							aria-invalid={errors.address ? 'true' : undefined}
-							aria-describedby={errors.address ? 'address-error' : undefined}
-						/>
-						{#if errors.address}
-							<p class="field-error" id="address-error">{errors.address}</p>
+						{:else}
+							<p class="meta" id="phone-hint">Algerian mobile, for example 0550 12 34 56.</p>
 						{/if}
 					</div>
 
 					<div class="field">
-						<label for="city">City</label>
-						<input
-							id="city"
-							name="city"
-							type="text"
-							autocomplete="address-level2"
+						<label for="wilaya_code">Wilaya</label>
+						<select
+							id="wilaya_code"
+							name="wilaya_code"
 							required
-							bind:value={form.city}
-							aria-invalid={errors.city ? 'true' : undefined}
-							aria-describedby={errors.city ? 'city-error' : undefined}
-						/>
-						{#if errors.city}
-							<p class="field-error" id="city-error">{errors.city}</p>
+							bind:value={form.wilayaCode}
+							onchange={(event) => onWilayaChange(event.currentTarget.value)}
+							disabled={wilayaState !== 'ready'}
+							aria-invalid={errors.wilaya_code ? 'true' : undefined}
+							aria-describedby={errors.wilaya_code ? 'wilaya-error' : undefined}
+						>
+							{#if wilayaState === 'loading'}
+								<option value="">Reading wilayas...</option>
+							{:else if wilayaState === 'error'}
+								<option value="">Wilayas unavailable</option>
+							{:else}
+								<option value="" disabled>Choose a wilaya</option>
+								{#each wilayas as wilaya (wilaya.code)}
+									<option value={String(wilaya.code)}>{wilaya.nameFr}</option>
+								{/each}
+							{/if}
+						</select>
+						{#if errors.wilaya_code}
+							<p class="field-error" id="wilaya-error">{errors.wilaya_code}</p>
 						{/if}
 					</div>
+
+					<div class="field">
+						<label for="commune_name">Commune</label>
+						<select
+							id="commune_name"
+							name="commune_name"
+							required
+							bind:value={form.communeName}
+							disabled={!form.wilayaCode || communeState !== 'ready' || communeLocked}
+							aria-invalid={errors.commune_name ? 'true' : undefined}
+							aria-describedby={errors.commune_name
+								? 'commune-error'
+								: communeLocked
+									? 'commune-hint'
+									: undefined}
+						>
+							{#if !form.wilayaCode}
+								<option value="">Choose a wilaya first</option>
+							{:else if communeState === 'loading'}
+								<option value="">Reading communes...</option>
+							{:else if communeState === 'error'}
+								<option value="">Communes unavailable</option>
+							{:else}
+								<option value="" disabled>Choose a commune</option>
+								{#each communes as commune (commune.nameFr)}
+									<option value={commune.nameFr}>{commune.nameFr}</option>
+								{/each}
+							{/if}
+						</select>
+						{#if errors.commune_name}
+							<p class="field-error" id="commune-error">{errors.commune_name}</p>
+						{:else if communeLocked}
+							<p class="meta" id="commune-hint">The stop desk sets the commune.</p>
+						{/if}
+					</div>
+
+					<fieldset class="field field-full delivery-choice">
+						<legend>Delivery</legend>
+						<label class="delivery-option">
+							<input
+								type="radio"
+								id="delivery-home"
+								name="delivery_type"
+								value="home"
+								checked={form.deliveryType === 'home'}
+								onchange={() => onDeliveryTypeChange('home')}
+							/>
+							<span>
+								<span>Home delivery</span>
+								<span class="meta">To your door.</span>
+							</span>
+						</label>
+						<label class="delivery-option">
+							<input
+								type="radio"
+								id="delivery-stopdesk"
+								name="delivery_type"
+								value="stopdesk"
+								checked={form.deliveryType === 'stopdesk'}
+								onchange={() => onDeliveryTypeChange('stopdesk')}
+							/>
+							<span>
+								<span>Stop desk</span>
+								<span class="meta">Collect from a courier desk.</span>
+							</span>
+						</label>
+					</fieldset>
+
+					{#if form.deliveryType === 'home'}
+						<div class="field field-full">
+							<label for="address">Address</label>
+							<input
+								id="address"
+								name="address"
+								type="text"
+								autocomplete="street-address"
+								required
+								bind:value={form.address}
+								aria-invalid={errors.address ? 'true' : undefined}
+								aria-describedby={errors.address ? 'address-error' : 'address-hint'}
+							/>
+							{#if errors.address}
+								<p class="field-error" id="address-error">{errors.address}</p>
+							{:else}
+								<p class="meta" id="address-hint">Street, building, floor.</p>
+							{/if}
+						</div>
+					{:else}
+						<div class="field field-full">
+							<label for="stop_desk_id">Stop desk</label>
+							<select
+								id="stop_desk_id"
+								name="stop_desk_id"
+								required
+								bind:value={form.stopDeskId}
+								onchange={(event) => onDeskChange(event.currentTarget.value)}
+								disabled={deskState !== 'ready' || desks.length === 0}
+								aria-invalid={errors.stop_desk_id ? 'true' : undefined}
+								aria-describedby={errors.stop_desk_id ? 'stop-desk-error' : 'stop-desk-hint'}
+							>
+								{#if !form.wilayaCode}
+									<option value="">Choose a wilaya first</option>
+								{:else if deskState === 'loading'}
+									<option value="">Reading stop desks...</option>
+								{:else if deskState === 'error'}
+									<option value="">Stop desks unavailable</option>
+								{:else if desks.length === 0}
+									<option value="">No stop desks in this wilaya</option>
+								{:else}
+									<option value="" disabled>Choose a stop desk</option>
+									{#each desks as desk (desk.id)}
+										<option value={desk.id}>
+											{desk.name}{desk.communeName ? `, ${desk.communeName}` : ''}
+										</option>
+									{/each}
+								{/if}
+							</select>
+							{#if errors.stop_desk_id}
+								<p class="field-error" id="stop-desk-error">{errors.stop_desk_id}</p>
+							{:else if deskState === 'ready' && desks.length === 0}
+								<p class="meta" id="stop-desk-hint">No stop desks here. Choose home delivery.</p>
+							{:else if selectedDesk?.address}
+								<p class="meta" id="stop-desk-hint">{selectedDesk.address}</p>
+							{:else}
+								<p class="meta" id="stop-desk-hint">The desk that suits you.</p>
+							{/if}
+						</div>
+					{/if}
 
 					<div class="field field-full">
 						<label for="notes">Notes</label>
@@ -268,6 +530,37 @@
 					</div>
 				</div>
 
+				{#if wilayaState === 'error'}
+					<div class="form-error" role="alert">
+						<p>{mapError}</p>
+						<button class="inline-action" type="button" onclick={loadWilayas}>Try again</button>
+					</div>
+				{:else if communeState === 'error'}
+					<div class="form-error" role="alert">
+						<p>{communeError}</p>
+						<button
+							class="inline-action"
+							type="button"
+							onclick={() => loadCommunes(Number(form.wilayaCode))}
+						>
+							Try again
+						</button>
+					</div>
+				{:else if form.deliveryType === 'stopdesk' && deskState === 'error'}
+					<div class="form-error" role="alert">
+						<p>{deskError}</p>
+						<button
+							class="inline-action"
+							type="button"
+							onclick={() => loadDesks(Number(form.wilayaCode))}
+						>
+							Try again
+						</button>
+					</div>
+				{:else if wilayaState === 'loading'}
+					<p class="meta" aria-live="polite">Reading the delivery map.</p>
+				{/if}
+
 				<fieldset class="payment">
 					<legend>Payment</legend>
 					<label class="pay-option">
@@ -280,7 +573,7 @@
 				<button
 					class="btn btn-primary btn-block place-order"
 					type="submit"
-					disabled={busy || hasStockIssue}
+					disabled={busy || hasStockIssue || !deliveryReady}
 				>
 					{busy ? 'Placing the order...' : 'Place the order'}
 				</button>
@@ -377,6 +670,61 @@
 
 	.pay-option span {
 		font-size: 15px;
+	}
+
+	.delivery-choice {
+		margin: 0;
+		padding: 0;
+		border: 0;
+	}
+
+	.delivery-choice legend {
+		padding: 0;
+		font-size: 13px;
+		color: var(--ink);
+	}
+
+	.delivery-option {
+		display: flex;
+		align-items: start;
+		gap: 10px;
+		min-height: 44px;
+		padding: 10px 0;
+		cursor: pointer;
+	}
+
+	.delivery-option input {
+		width: 18px;
+		height: 18px;
+		margin-top: 2px;
+		accent-color: var(--accent);
+	}
+
+	.delivery-option > span {
+		display: grid;
+		gap: 2px;
+	}
+
+	.delivery-option > span > span:first-child {
+		font-size: 15px;
+	}
+
+	.inline-action {
+		justify-self: start;
+		min-height: 44px;
+		padding: 0;
+		border: 0;
+		background: none;
+		color: var(--accent);
+		font: inherit;
+		text-decoration: underline;
+		text-underline-offset: 3px;
+		cursor: pointer;
+	}
+
+	.inline-action:focus-visible {
+		outline: 2px solid var(--accent);
+		outline-offset: 3px;
 	}
 
 	.place-order {

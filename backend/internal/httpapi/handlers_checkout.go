@@ -16,13 +16,16 @@ import (
 )
 
 type checkoutPayload struct {
-	Name    string         `json:"name"`
-	Email   string         `json:"email"`
-	Phone   string         `json:"phone"`
-	Address string         `json:"address"`
-	City    string         `json:"city"`
-	Notes   string         `json:"notes"`
-	Items   []checkoutLine `json:"items"`
+	Name         string         `json:"name"`
+	Email        string         `json:"email"`
+	Phone        string         `json:"phone"`
+	Address      string         `json:"address"`
+	WilayaCode   int            `json:"wilaya_code"`
+	CommuneName  string         `json:"commune_name"`
+	DeliveryType string         `json:"delivery_type"`
+	StopDeskID   string         `json:"stop_desk_id"`
+	Notes        string         `json:"notes"`
+	Items        []checkoutLine `json:"items"`
 }
 
 type checkoutLine struct {
@@ -40,8 +43,13 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 	payload.Email = strings.ToLower(strings.TrimSpace(payload.Email))
 	payload.Phone = strings.TrimSpace(payload.Phone)
 	payload.Address = strings.TrimSpace(payload.Address)
-	payload.City = strings.TrimSpace(payload.City)
+	payload.CommuneName = strings.TrimSpace(payload.CommuneName)
+	payload.DeliveryType = strings.ToLower(strings.TrimSpace(payload.DeliveryType))
+	payload.StopDeskID = strings.TrimSpace(payload.StopDeskID)
 	payload.Notes = strings.TrimSpace(payload.Notes)
+	if payload.DeliveryType == "" {
+		payload.DeliveryType = "home"
+	}
 
 	fields := make(map[string]string)
 	if runeLen(payload.Name) < 2 || runeLen(payload.Name) > 120 {
@@ -50,14 +58,27 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 	if !validEmail(payload.Email) {
 		fields["email"] = "Enter a valid email."
 	}
-	if !validPhone(payload.Phone) {
-		fields["phone"] = "Use digits, spaces, +, - or parentheses."
+	if !validAlgerianMobile(payload.Phone) {
+		fields["phone"] = "Use an Algerian mobile number, for example 0550 12 34 56."
 	}
-	if runeLen(payload.Address) < 5 || runeLen(payload.Address) > 200 {
+	if payload.WilayaCode < 1 || payload.WilayaCode > 58 {
+		fields["wilaya_code"] = "Choose a wilaya."
+	}
+	if runeLen(payload.CommuneName) < 2 || runeLen(payload.CommuneName) > 80 {
+		fields["commune_name"] = "Choose a commune."
+	}
+	if payload.DeliveryType != "home" && payload.DeliveryType != "stopdesk" {
+		fields["delivery_type"] = "Choose home delivery or a stop desk."
+	}
+	if payload.DeliveryType == "stopdesk" {
+		if runeLen(payload.StopDeskID) < 1 || runeLen(payload.StopDeskID) > 100 {
+			fields["stop_desk_id"] = "Choose a stop desk."
+		}
+	} else if runeLen(payload.Address) < 5 || runeLen(payload.Address) > 200 {
 		fields["address"] = "Use between 5 and 200 characters."
 	}
-	if runeLen(payload.City) < 2 || runeLen(payload.City) > 80 {
-		fields["city"] = "Use between 2 and 80 characters."
+	if runeLen(payload.Address) > 200 {
+		fields["address"] = "Keep the address under 200 characters."
 	}
 	if runeLen(payload.Notes) > 500 {
 		fields["notes"] = "Keep the notes under 500 characters."
@@ -106,19 +127,37 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	destination, destinationProblem := s.resolveDestination(
+		r.Context(), payload.WilayaCode, payload.CommuneName, payload.DeliveryType, payload.StopDeskID)
+	if destinationProblem != nil {
+		writeProblem(w, destinationProblem)
+		return
+	}
+
 	now := time.Now().UTC()
 	order := store.Order{
-		ID:        ids.New("ord"),
-		Status:    "pending",
-		Name:      payload.Name,
-		Email:     payload.Email,
-		Phone:     payload.Phone,
-		Address:   payload.Address,
-		City:      payload.City,
-		Notes:     payload.Notes,
-		Currency:  "DZD",
-		CreatedAt: now,
-		UpdatedAt: now,
+		ID:           ids.New("ord"),
+		Status:       "pending",
+		Name:         payload.Name,
+		Email:        payload.Email,
+		Phone:        payload.Phone,
+		Address:      payload.Address,
+		City:         destination.Commune,
+		Notes:        payload.Notes,
+		Currency:     "DZD",
+		CreatedAt:    now,
+		UpdatedAt:    now,
+		WilayaCode:   destination.Wilaya.Code,
+		WilayaName:   destination.Wilaya.NameFr,
+		CommuneName:  destination.Commune,
+		DeliveryType: payload.DeliveryType,
+	}
+	if destination.Desk != nil {
+		order.StopDeskID = destination.Desk.ID
+		order.StopDeskName = destination.Desk.Name
+		if order.Address == "" {
+			order.Address = destination.Desk.Address
+		}
 	}
 	if user := s.optionalUser(r); user != nil {
 		order.UserID = &user.ID

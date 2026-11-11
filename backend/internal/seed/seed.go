@@ -407,6 +407,19 @@ func seedOrders(ctx context.Context, db *sql.DB, repo *store.Store) (int, error)
 	now := time.Now().UTC()
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
 	cities := []string{"Algiers", "Oran", "Constantine", "Tlemcen", "Annaba", "Blida"}
+	type destination struct {
+		code    int
+		wilaya  string
+		commune string
+	}
+	destinations := map[string]destination{
+		"Algiers":     {code: 16, wilaya: "Alger", commune: "Alger Centre"},
+		"Oran":        {code: 31, wilaya: "Oran", commune: "Oran"},
+		"Constantine": {code: 25, wilaya: "Constantine", commune: "Constantine"},
+		"Tlemcen":     {code: 13, wilaya: "Tlemcen", commune: "Tlemcen"},
+		"Annaba":      {code: 23, wilaya: "Annaba", commune: "Annaba"},
+		"Blida":       {code: 9, wilaya: "Blida", commune: "Blida"},
+	}
 	guestCount := 0
 	created := 0
 
@@ -484,6 +497,8 @@ func seedOrders(ctx context.Context, db *sql.DB, repo *store.Store) (int, error)
 			if rng.Intn(4) == 0 {
 				notes = "Leave with the concierge"
 			}
+			city := cities[rng.Intn(len(cities))]
+			destination := destinations[city]
 			order := store.Order{
 				ID:            orderID,
 				Number:        number,
@@ -492,7 +507,7 @@ func seedOrders(ctx context.Context, db *sql.DB, repo *store.Store) (int, error)
 				Email:         email,
 				Phone:         fmt.Sprintf("0550 %02d %02d %02d", 10+rng.Intn(80), 10+rng.Intn(80), 10+rng.Intn(80)),
 				Address:       fmt.Sprintf("%d rue des Oliviers", 4+rng.Intn(80)),
-				City:          cities[rng.Intn(len(cities))],
+				City:          destination.commune,
 				Notes:         notes,
 				SubtotalCents: subtotal,
 				ShippingCents: shipping,
@@ -502,6 +517,10 @@ func seedOrders(ctx context.Context, db *sql.DB, repo *store.Store) (int, error)
 				TokenHash:     auth.HashToken(token),
 				CreatedAt:     createdAt,
 				UpdatedAt:     createdAt,
+				WilayaCode:    destination.code,
+				WilayaName:    destination.wilaya,
+				CommuneName:   destination.commune,
+				DeliveryType:  "home",
 			}
 			if err := repo.CreateOrder(ctx, tx, order, items); err != nil {
 				return err

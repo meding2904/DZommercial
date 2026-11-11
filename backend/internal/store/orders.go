@@ -37,15 +37,25 @@ func (s *Store) NextOrderNumber(ctx context.Context, q querier, year int) (strin
 }
 
 func (s *Store) CreateOrder(ctx context.Context, q querier, order Order, items []OrderItem) error {
+	deliveryType := order.DeliveryType
+	if deliveryType == "" {
+		deliveryType = "home"
+	}
 	_, err := q.ExecContext(ctx,
 		`INSERT INTO orders (id, number, user_id, name, email, phone, address, city,
 		 notes, subtotal_cents, shipping_cents, total_cents, currency, status,
-		 token_hash, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		 token_hash, created_at, updated_at, wilaya_code, wilaya_name, commune_name,
+		 delivery_type, stop_desk_id, stop_desk_name, courier_key, tracking_number,
+		 courier_status, courier_events, courier_synced_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		order.ID, order.Number, order.UserID, order.Name, order.Email, order.Phone,
 		order.Address, order.City, order.Notes, order.SubtotalCents,
 		order.ShippingCents, order.TotalCents, defaultCurrency(order.Currency),
 		order.Status, order.TokenHash, FormatTime(order.CreatedAt), FormatTime(order.UpdatedAt),
+		order.WilayaCode, order.WilayaName, order.CommuneName, deliveryType,
+		order.StopDeskID, order.StopDeskName, order.CourierKey, order.TrackingNumber,
+		order.CourierStatus, encodeCourierEvents(order.CourierEvents),
+		FormatOptionalTime(order.CourierSyncedAt),
 	)
 	if err != nil {
 		return fmt.Errorf("create order: %w", err)
@@ -135,9 +145,9 @@ func (s *Store) AdminOrders(ctx context.Context, filter AdminOrderFilter) ([]Ord
 	}
 	if filter.Query != "" {
 		where = append(where,
-			"(o.number LIKE ? OR o.name LIKE ? OR o.email LIKE ? OR o.phone LIKE ?)")
+			"(o.number LIKE ? OR o.name LIKE ? OR o.email LIKE ? OR o.phone LIKE ? OR o.tracking_number LIKE ?)")
 		like := "%" + filter.Query + "%"
-		args = append(args, like, like, like, like)
+		args = append(args, like, like, like, like, like)
 	}
 	query := `SELECT ` + orderColumns + ` FROM orders o`
 	if len(where) > 0 {
@@ -175,6 +185,45 @@ func (s *Store) UpdateOrderStatus(ctx context.Context, q querier, id, from, to s
 	)
 	if err != nil {
 		return fmt.Errorf("update order status: %w", err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func (s *Store) UpdateShipment(ctx context.Context, q querier, id, courierKey, trackingNumber, status string, events []CourierEvent, syncedAt, now time.Time) error {
+	result, err := q.ExecContext(ctx,
+		`UPDATE orders SET courier_key = ?, tracking_number = ?, courier_status = ?,
+		 courier_events = ?, courier_synced_at = ?, updated_at = ? WHERE id = ?`,
+		courierKey, trackingNumber, status, encodeCourierEvents(events),
+		FormatOptionalTime(syncedAt), FormatTime(now), id,
+	)
+	if err != nil {
+		return fmt.Errorf("update shipment: %w", err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func (s *Store) UpdateTracking(ctx context.Context, q querier, id, status string, events []CourierEvent, syncedAt, now time.Time) error {
+	result, err := q.ExecContext(ctx,
+		`UPDATE orders SET courier_status = ?, courier_events = ?,
+		 courier_synced_at = ?, updated_at = ? WHERE id = ?`,
+		status, encodeCourierEvents(events), FormatOptionalTime(syncedAt), FormatTime(now), id,
+	)
+	if err != nil {
+		return fmt.Errorf("update tracking: %w", err)
 	}
 	affected, err := result.RowsAffected()
 	if err != nil {

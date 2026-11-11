@@ -71,6 +71,12 @@ type OrderItem struct {
 	LineTotalCents int64
 }
 
+type CourierEvent struct {
+	Status    string `json:"status"`
+	RawStatus string `json:"rawStatus"`
+	Timestamp string `json:"timestamp"`
+}
+
 type Order struct {
 	ID            string
 	Number        string
@@ -89,6 +95,18 @@ type Order struct {
 	TokenHash     string
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
+
+	WilayaCode      int
+	WilayaName      string
+	CommuneName     string
+	DeliveryType    string
+	StopDeskID      string
+	StopDeskName    string
+	CourierKey      string
+	TrackingNumber  string
+	CourierStatus   string
+	CourierEvents   []CourierEvent
+	CourierSyncedAt time.Time
 }
 
 type CustomerRow struct {
@@ -113,6 +131,13 @@ type AuditEntry struct {
 
 func FormatTime(t time.Time) string {
 	return t.UTC().Format(time.RFC3339)
+}
+
+func FormatOptionalTime(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+	return FormatTime(t)
 }
 
 func ParseTime(value string) time.Time {
@@ -159,6 +184,31 @@ func decodeJSON(value string) []string {
 		return []string{}
 	}
 	return values
+}
+
+func encodeCourierEvents(events []CourierEvent) string {
+	if events == nil {
+		events = []CourierEvent{}
+	}
+	buf, err := json.Marshal(events)
+	if err != nil {
+		return "[]"
+	}
+	return string(buf)
+}
+
+func decodeCourierEvents(value string) []CourierEvent {
+	if value == "" {
+		return []CourierEvent{}
+	}
+	var events []CourierEvent
+	if err := json.Unmarshal([]byte(value), &events); err != nil {
+		return []CourierEvent{}
+	}
+	if events == nil {
+		return []CourierEvent{}
+	}
+	return events
 }
 
 type scanner interface {

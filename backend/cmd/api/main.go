@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"azahar/internal/config"
+	"azahar/internal/courier"
 	"azahar/internal/db"
 	"azahar/internal/httpapi"
 	"azahar/internal/seed"
@@ -64,7 +66,36 @@ func main() {
 	}
 
 	repo := store.New(handle)
-	server := httpapi.New(cfg, repo, logger)
+
+	courierCredentials := map[string]string{}
+	if cfg.CourierCredentials != "" {
+		if err := json.Unmarshal([]byte(cfg.CourierCredentials), &courierCredentials); err != nil {
+			logger.Warn("COURIER_CREDENTIALS must be a JSON object; ignoring the value")
+			courierCredentials = map[string]string{}
+		}
+	}
+	if cfg.CourierKey != "sandbox" && len(courierCredentials) == 0 {
+		logger.Warn("courier credentials are empty; shipment creation will fail until they are set",
+			"courier", cfg.CourierKey)
+	}
+	if cfg.IsProduction() && cfg.CourierKey == "sandbox" {
+		logger.Warn("the sandbox courier is active in production; no real parcels will be created")
+	}
+
+	shipping := courier.New(courier.Options{
+		BaseURL:           cfg.CourierAPIURL,
+		CourierKey:        cfg.CourierKey,
+		Credentials:       courierCredentials,
+		FromWilaya:        cfg.CourierFromWilaya,
+		Timeout:           cfg.CourierTimeout,
+		AllowLocalSandbox: cfg.IsDevelopment(),
+		OnFallback: func(resource string) {
+			logger.Warn("courier API unavailable; using the bundled fallback",
+				"resource", resource, "courier", cfg.CourierKey)
+		},
+	})
+
+	server := httpapi.New(cfg, repo, logger, shipping)
 	httpServer := &http.Server{
 		Addr:              cfg.APIAddr,
 		Handler:           server.Handler(),

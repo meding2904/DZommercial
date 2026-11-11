@@ -7,6 +7,7 @@ import (
 
 	"azahar/internal/auth"
 	"azahar/internal/config"
+	"azahar/internal/courier"
 	"azahar/internal/store"
 
 	"github.com/go-chi/chi/v5"
@@ -15,6 +16,7 @@ import (
 type Server struct {
 	cfg             config.Config
 	store           *store.Store
+	shipping        *courier.Client
 	logger          *slog.Logger
 	generalLimiter  *rateLimiter
 	authLimiter     *rateLimiter
@@ -23,11 +25,12 @@ type Server struct {
 	handler         http.Handler
 }
 
-func New(cfg config.Config, st *store.Store, logger *slog.Logger) *Server {
+func New(cfg config.Config, st *store.Store, logger *slog.Logger, shipping *courier.Client) *Server {
 	_ = auth.DummyHash()
 	server := &Server{
 		cfg:             cfg,
 		store:           st,
+		shipping:        shipping,
 		logger:          logger,
 		generalLimiter:  newRateLimiter(120, time.Minute),
 		authLimiter:     newRateLimiter(10, 15*time.Minute),
@@ -71,6 +74,9 @@ func (s *Server) routes() http.Handler {
 		r.Get("/products", s.handleProducts)
 		r.Get("/products/{slug}", s.handleProduct)
 		r.Get("/orders/{token}", s.handleOrderByToken)
+		r.Get("/shipping/wilayas", s.handleShippingWilayas)
+		r.Get("/shipping/communes", s.handleShippingCommunes)
+		r.Get("/shipping/desks", s.handleShippingDesks)
 
 		r.With(s.rateLimit(s.authLimiter)).Post("/auth/register", s.handleRegister)
 		r.With(s.rateLimit(s.authLimiter)).Post("/auth/login", s.handleLogin)
@@ -96,6 +102,8 @@ func (s *Server) routes() http.Handler {
 			r.Delete("/products/{id}", s.handleArchiveProduct)
 			r.Get("/orders", s.handleAdminOrders)
 			r.Patch("/orders/{id}/status", s.handleOrderStatus)
+			r.Post("/orders/{id}/shipment", s.handleCreateShipment)
+			r.Post("/orders/{id}/tracking", s.handleRefreshTracking)
 			r.Get("/customers", s.handleCustomers)
 			r.Get("/preferences", s.handleGetPreferences)
 			r.Put("/preferences", s.handlePutPreferences)

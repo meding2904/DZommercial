@@ -76,6 +76,42 @@ func TestValidPhone(t *testing.T) {
 	}
 }
 
+func TestValidAlgerianMobile(t *testing.T) {
+	valid := []string{
+		"0550123456",
+		"0550 12 34 56",
+		"+213 550 12 34 56",
+		"(0550) 123456",
+		"0550-12-34-56",
+	}
+	for _, phone := range valid {
+		if !validAlgerianMobile(phone) {
+			t.Errorf("%q should be valid", phone)
+		}
+	}
+	invalid := []string{
+		"", "12345", "061234567", "0812345678", "055012345678",
+		"call me", "0550 12 34 56<script>", "+33123456789",
+	}
+	for _, phone := range invalid {
+		if validAlgerianMobile(phone) {
+			t.Errorf("%q should be invalid", phone)
+		}
+	}
+}
+
+func TestTruncateRunes(t *testing.T) {
+	if got := truncateRunes("hello", 10); got != "hello" {
+		t.Errorf("unexpected truncation: %q", got)
+	}
+	if got := truncateRunes("hello", 3); got != "hel" {
+		t.Errorf("unexpected truncation: %q", got)
+	}
+	if got := truncateRunes("olive", 0); got != "" {
+		t.Errorf("unexpected empty truncation: %q", got)
+	}
+}
+
 func validTestProduct() store.Product {
 	return store.Product{
 		Name:        "Test oil",

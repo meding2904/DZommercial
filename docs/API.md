@@ -119,9 +119,12 @@ computes the subtotal and total, and writes the order and items in one transacti
 {
   "name": "Amina B.",
   "email": "amina@example.com",
-  "phone": "0550 00 00 00",
+  "phone": "0550 12 34 56",
+  "wilaya_code": 16,
+  "commune_name": "Bab Ezzouar",
+  "delivery_type": "home",
+  "stop_desk_id": "",
   "address": "12 rue des Oliviers",
-  "city": "Algiers",
   "notes": "Leave with the concierge",
   "items": [ { "product_id": "prd_01", "quantity": 2 } ]
 }
@@ -131,6 +134,12 @@ computes the subtotal and total, and writes the order and items in one transacti
 random bytes, base64url, and only its SHA-256 hash is stored. The confirmation page is
 `/order/{token}`.
 
+`delivery_type` is `home` or `stopdesk`. A stop desk sends the desk `id` as `stop_desk_id`.
+The server checks the wilaya, commune and stop desk against the courier reference data and
+stores the canonical French spelling. `address` is required for home delivery and optional
+for a stop desk. `phone` must be an Algerian mobile: 05, 06 or 07, with spaces, `+`, `-` or
+parentheses allowed.
+
 Rules:
 
 - 1 to 10 units per line, at most 20 lines.
@@ -138,11 +147,35 @@ Rules:
 - `shipping_cents` is 0 for orders over 800000 centimes, otherwise 60000.
 - `status` starts at `pending`.
 - `number` is `AZ-{year}-{sequence}`.
+- The courier reference service being unavailable returns `503 courier_unavailable`.
 
 ### `GET /api/orders/{token}`
 
 Public, token is the capability. `200 { "order": Order }` or `404`. The address is included
 because the token is unguessable and the page is the customer's own confirmation.
+
+The order shape also carries `wilaya_code`, `wilaya_name`, `commune_name`, `delivery_type`,
+`stop_desk_id`, `stop_desk_name`, `courier_key`, `tracking_number`, `courier_status`,
+`courier_events` and `courier_synced_at` when they exist.
+
+## Shipping reference
+
+These public endpoints wrap the dzship reference data and cache it for a day.
+
+### `GET /api/shipping/wilayas`
+
+`200 { "wilayas": [ { "code": 16, "nameFr": "Alger", "nameAr": "...", "isDeepSouth": false, "communeCount": 57, "courierSupported": true } ] }`
+
+### `GET /api/shipping/communes?wilaya=16`
+
+`200 { "communes": [ { "wilayaCode": 16, "nameFr": "Bab Ezzouar", "nameAr": "..." } ] }`
+
+### `GET /api/shipping/desks?wilaya=16`
+
+`200 { "desks": [ { "id": "SBX-16", "name": "Sandbox desk Alger", "wilayaCode": 16, "communeName": "Ain Benian", "address": "..." } ] }`
+
+A courier that publishes no desk list returns an empty list. An unknown wilaya returns
+`422`. An upstream failure returns `503 courier_unavailable`.
 
 ## Admin
 
@@ -216,8 +249,9 @@ Archives the product: sets `active = 0`. It is not deleted, so old orders keep t
 
 ### `GET /api/admin/orders?status=pending&q=AZ-2026`
 
-Returns `{ "orders": [AdminOrder] }`. `AdminOrder` includes the customer, address, items and
-status. Search matches order number, name, email or phone.
+Returns `{ "orders": [AdminOrder] }`. `AdminOrder` includes the customer, address, items,
+delivery details, courier tracking and status. Search matches order number, name, email,
+phone or tracking number.
 
 ### `PATCH /api/admin/orders/{id}/status`
 
@@ -234,6 +268,24 @@ Allowed transitions:
 - `delivered` and `cancelled` are terminal
 
 Invalid transition: `409`. `200 { "order": AdminOrder }`.
+
+### `POST /api/admin/orders/{id}/shipment`
+
+Creates the parcel on the configured courier account. Requires a stored wilaya, commune and
+delivery type. Home delivery requires an address; a stop desk requires its id. An order that
+already has a shipment returns `409`; a cancelled or delivered order also returns `409`.
+
+`200 { "order": AdminOrder }` with `courier_key`, `tracking_number`, `courier_status` and
+`courier_synced_at`. The order status is not advanced; mark the order shipped when the
+courier collects it.
+
+Errors: `422` for missing delivery details or a courier field error, `429` with `Retry-After`
+when the courier rate limit is hit, `502` for a courier or network failure.
+
+### `POST /api/admin/orders/{id}/tracking`
+
+Refreshes the courier status and event history. Requires an existing tracking number.
+`200 { "order": AdminOrder }`. The same courier error statuses apply.
 
 ### `GET /api/admin/customers`
 

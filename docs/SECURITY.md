@@ -82,9 +82,11 @@ hard requirement, not a suggestion.
 - JSON bodies are limited to 1 MiB and decoded with `DisallowUnknownFields`. The web proxy
   enforces the same cap before buffering a request body.
 - All queries use placeholders. No SQL is built by string concatenation.
-- Slugs match `^[a-z0-9]+(?:-[a-z0-9]+)*$`. Emails are validated with `net/mail`. Phone is
-  limited to digits, spaces, `+`, `-` and parentheses. Address, city and notes have length
-  caps.
+- Slugs match `^[a-z0-9]+(?:-[a-z0-9]+)*$`. Emails are validated with `net/mail`. Phone
+  must be an Algerian mobile: 05, 06 or 07, with spaces, `+`, `-` or parentheses allowed.
+- `wilaya_code` is 1 to 58. `commune_name` and `stop_desk_id` are checked against the
+  courier reference data when it is reachable; the canonical French spelling is stored.
+- Address, notes and stop-desk fields have length caps.
 - Checkout re-reads every product price and stock inside a transaction. The client never
   sends a price or a total. Stock is decremented with a conditional update, so two
   simultaneous orders cannot sell the last unit twice.
@@ -92,6 +94,27 @@ hard requirement, not a suggestion.
 - A request with more than 20 lines or more than 10 units per line is rejected.
 - Product image paths must start with `/images/` and contain no `..`, or be an `https://`
   URL. This keeps the admin form from injecting `javascript:` or local file paths.
+
+## Courier integration
+
+- All courier calls happen on the Go server. Courier credentials come from
+  `COURIER_CREDENTIALS` and are never sent to the browser, included in order responses or
+  written to logs.
+- The client only calls the configured `COURIER_API_URL`; user input cannot choose a host,
+  path, tenant or credential. Redirects are not followed.
+- Reference data (wilayas, communes and desks) is public and cached for a day. Parcel
+  creation and tracking are admin-only and write to `audit_log`.
+- A bundled snapshot of the public wilaya and commune lists is used when the live reference
+  service is unreachable, so checkout does not depend on the network for address lists.
+- The default `sandbox` courier validates orders but creates no real parcel. Production must
+  set a real courier key and its credentials before shipping real orders. A development
+  process using the sandbox key may fall back to a local sandbox (`SBX-` tracking) when the
+  service is unreachable; real courier keys never use that fallback.
+- The COD amount is the order total in whole dinars. `freeShipping` is sent as true so the
+  courier does not add its own delivery fee on top of the amount the store collects.
+- `COURIER_API_URL` must use https in production. A courier 429 is returned as 429 with
+  `Retry-After`; other upstream failures are returned as 502 without credentials or internal
+  addresses.
 
 ## Abuse limits
 
@@ -105,6 +128,10 @@ In memory token buckets, keyed by client IP:
 The buckets are cleaned every 10 minutes. They are per process. Before running more than one
 API replica, move the limiter to a shared store. `TRUST_PROXY=true` makes the limiter use the
 first `X-Forwarded-For` hop. Leave it false unless a trusted proxy sets that header.
+
+The courier service has its own limits: 200 parcels per hour per IP, 1 000 per day, 60
+tracking calls per minute and 60 desk lists per minute. Reference data is cached for a day.
+Parcel creation and tracking are admin actions, so they stay well inside those limits.
 
 ## Headers
 
@@ -121,8 +148,8 @@ API:
 SvelteKit document:
 
 - `Content-Security-Policy` with a nonce for scripts, `'self'` for connect, img, font and
-  form actions, `'unsafe-inline'` for styles only, `frame-ancestors 'none'`,
-  `base-uri 'self'`, `object-src 'none'`.
+  form actions, `data:` for the inlined font subsets, `'unsafe-inline'` for styles only,
+  `frame-ancestors 'none'`, `base-uri 'self'`, `object-src 'none'`.
 - `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`.
 - HSTS in production.
 
@@ -146,6 +173,8 @@ SvelteKit document:
 ## Before production
 
 - Replace the demo product photography and sample orders.
+- Set `COURIER_KEY` and `COURIER_CREDENTIALS` for a real courier. The `sandbox` key creates
+  no parcels and must not be used for live orders.
 - Add email verification, password reset and a change-password flow.
 - Move rate limiting to a shared store if the API runs more than one replica.
 - Connect a real payment provider. Cash on delivery is the only method now.

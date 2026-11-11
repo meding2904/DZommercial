@@ -73,12 +73,17 @@ const productColumns = `p.id, p.slug, p.name, p.subtitle, p.description,
 func scanOrder(row scanner) (Order, error) {
 	var o Order
 	var userID sql.NullString
+	var wilayaCode sql.NullInt64
 	var createdAt, updatedAt string
+	var courierEvents, courierSyncedAt string
 	err := row.Scan(
 		&o.ID, &o.Number, &userID, &o.Name, &o.Email, &o.Phone,
 		&o.Address, &o.City, &o.Notes, &o.SubtotalCents,
 		&o.ShippingCents, &o.TotalCents, &o.Currency, &o.Status,
 		&o.TokenHash, &createdAt, &updatedAt,
+		&wilayaCode, &o.WilayaName, &o.CommuneName, &o.DeliveryType,
+		&o.StopDeskID, &o.StopDeskName, &o.CourierKey, &o.TrackingNumber,
+		&o.CourierStatus, &courierEvents, &courierSyncedAt,
 	)
 	if err != nil {
 		return Order{}, err
@@ -87,6 +92,11 @@ func scanOrder(row scanner) (Order, error) {
 		value := userID.String
 		o.UserID = &value
 	}
+	if wilayaCode.Valid {
+		o.WilayaCode = int(wilayaCode.Int64)
+	}
+	o.CourierEvents = decodeCourierEvents(courierEvents)
+	o.CourierSyncedAt = ParseTime(courierSyncedAt)
 	o.CreatedAt = ParseTime(createdAt)
 	o.UpdatedAt = ParseTime(updatedAt)
 	return o, nil
@@ -94,4 +104,7 @@ func scanOrder(row scanner) (Order, error) {
 
 const orderColumns = `o.id, o.number, o.user_id, o.name, o.email, o.phone,
 	o.address, o.city, o.notes, o.subtotal_cents, o.shipping_cents,
-	o.total_cents, o.currency, o.status, o.token_hash, o.created_at, o.updated_at`
+	o.total_cents, o.currency, o.status, o.token_hash, o.created_at, o.updated_at,
+	o.wilaya_code, o.wilaya_name, o.commune_name, o.delivery_type,
+	o.stop_desk_id, o.stop_desk_name, o.courier_key, o.tracking_number,
+	o.courier_status, o.courier_events, o.courier_synced_at`

@@ -27,3 +27,14 @@ site keeps a single credit line in the footer and this file for clarity.
 
 The product names, prices, story and sample orders are demo content. No testimonial,
 certification, clinical result or customer statistic on the site is real.
+
+## License
+
+The source code and written documentation in this repository are licensed under the
+Apache License 2.0. See `LICENSE` and `NOTICE`.
+
+The photographs listed above are stand-ins from Pexels. They are used under the Pexels
+license, not the Apache License 2.0. Replace them before a real launch.
+
+The font packages are third-party software under the SIL Open Font License. The files in
+`.opencode/skills` are third-party antislop tooling and keep their upstream terms.

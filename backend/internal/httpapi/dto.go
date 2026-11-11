@@ -106,24 +106,35 @@ type orderCustomerDTO struct {
 }
 
 type orderDTO struct {
-	ID            string           `json:"id"`
-	Number        string           `json:"number"`
-	Token         string           `json:"token,omitempty"`
-	Status        string           `json:"status"`
-	Name          string           `json:"name"`
-	Email         string           `json:"email"`
-	Phone         string           `json:"phone"`
-	Address       string           `json:"address,omitempty"`
-	City          string           `json:"city"`
-	Notes         string           `json:"notes"`
-	SubtotalCents int64            `json:"subtotal_cents"`
-	ShippingCents int64            `json:"shipping_cents"`
-	TotalCents    int64            `json:"total_cents"`
-	Currency      string           `json:"currency"`
-	Items         []orderItemDTO   `json:"items"`
-	Customer      orderCustomerDTO `json:"customer"`
-	CreatedAt     string           `json:"created_at"`
-	UpdatedAt     string           `json:"updated_at"`
+	ID            string               `json:"id"`
+	Number        string               `json:"number"`
+	Token         string               `json:"token,omitempty"`
+	Status        string               `json:"status"`
+	Name          string               `json:"name"`
+	Email         string               `json:"email"`
+	Phone         string               `json:"phone"`
+	Address       string               `json:"address,omitempty"`
+	City          string               `json:"city"`
+	Notes         string               `json:"notes"`
+	WilayaCode    int                  `json:"wilaya_code,omitempty"`
+	WilayaName    string               `json:"wilaya_name,omitempty"`
+	CommuneName   string               `json:"commune_name,omitempty"`
+	DeliveryType  string               `json:"delivery_type"`
+	StopDeskID    string               `json:"stop_desk_id,omitempty"`
+	StopDeskName  string               `json:"stop_desk_name,omitempty"`
+	CourierKey    string               `json:"courier_key,omitempty"`
+	Tracking      string               `json:"tracking_number,omitempty"`
+	CourierStatus string               `json:"courier_status,omitempty"`
+	CourierEvents []store.CourierEvent `json:"courier_events,omitempty"`
+	CourierSynced string               `json:"courier_synced_at,omitempty"`
+	SubtotalCents int64                `json:"subtotal_cents"`
+	ShippingCents int64                `json:"shipping_cents"`
+	TotalCents    int64                `json:"total_cents"`
+	Currency      string               `json:"currency"`
+	Items         []orderItemDTO       `json:"items"`
+	Customer      orderCustomerDTO     `json:"customer"`
+	CreatedAt     string               `json:"created_at"`
+	UpdatedAt     string               `json:"updated_at"`
 }
 
 func toOrder(order store.Order, items []store.OrderItem, token string, includeAddress bool) orderDTO {
@@ -137,6 +148,17 @@ func toOrder(order store.Order, items []store.OrderItem, token string, includeAd
 		Phone:         order.Phone,
 		City:          order.City,
 		Notes:         order.Notes,
+		WilayaCode:    order.WilayaCode,
+		WilayaName:    order.WilayaName,
+		CommuneName:   order.CommuneName,
+		DeliveryType:  order.DeliveryType,
+		StopDeskID:    order.StopDeskID,
+		StopDeskName:  order.StopDeskName,
+		CourierKey:    order.CourierKey,
+		Tracking:      order.TrackingNumber,
+		CourierStatus: order.CourierStatus,
+		CourierEvents: order.CourierEvents,
+		CourierSynced: store.FormatOptionalTime(order.CourierSyncedAt),
 		SubtotalCents: order.SubtotalCents,
 		ShippingCents: order.ShippingCents,
 		TotalCents:    order.TotalCents,

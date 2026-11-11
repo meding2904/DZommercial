@@ -9,7 +9,7 @@
 	import LoadingState from '#lib/components/admin/LoadingState.svelte';
 	import OrderDialog from '#lib/components/admin/OrderDialog.svelte';
 	import StatusPill from '#lib/components/admin/StatusPill.svelte';
-	import { formatDate, money, titleCase } from '#lib/format';
+	import { formatDate, money, titleCase, courierLabel } from '#lib/format';
 	import type { OrderStatus } from '#lib/types';
 
 	const tabs: Array<{ value: '' | OrderStatus; label: string }> = [
@@ -192,7 +192,7 @@
 				type="search"
 				value={searchInput}
 				oninput={(event) => onSearchInput(event.currentTarget.value)}
-				placeholder="Number, name, email or phone"
+				placeholder="Number, name, email, phone or tracking"
 				autocomplete="off"
 			/>
 		</form>
@@ -250,6 +250,7 @@
 							<th scope="col" class="right">Items</th>
 							<th scope="col" class="right">Total</th>
 							<th scope="col">Status</th>
+							<th scope="col">Courier</th>
 							<th scope="col">Date</th>
 						</tr>
 					</thead>
@@ -278,6 +279,16 @@
 								<td class="right a-num">{itemCount(order)}</td>
 								<td class="right a-num">{money(order.total_cents, order.currency)}</td>
 								<td><StatusPill status={order.status} /></td>
+								<td>
+									{#if order.tracking_number}
+										<div class="customer-cell">
+											<span>{courierLabel(order.courier_key)}</span>
+											<span>{order.tracking_number}</span>
+										</div>
+									{:else}
+										<span class="a-muted-sm">Not sent</span>
+									{/if}
+								</td>
 								<td>{formatDate(order.created_at)}</td>
 							</tr>
 						{/each}

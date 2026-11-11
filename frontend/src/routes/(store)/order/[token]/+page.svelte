@@ -1,13 +1,18 @@
 <script lang="ts">
 	import ProductImage from '#lib/components/ProductImage.svelte';
 	import StatusPill from '#lib/components/StatusPill.svelte';
-	import { formatDate, money } from '#lib/format';
+	import { courierStatusLabel, deliveryTypeLabel, formatDate, money } from '#lib/format';
 	import type { OrderStatus } from '#lib/types';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
 
 	const order = $derived(data.order);
+	const placeLine = $derived.by(() => {
+		const commune = order.commune_name || order.city;
+		const wilaya = order.wilaya_name || (order.wilaya_code ? `Wilaya ${order.wilaya_code}` : '');
+		return [commune, wilaya].filter(Boolean).join(', ');
+	});
 
 	const heading = $derived(
 		order.status === 'cancelled'
@@ -93,15 +98,32 @@
 
 		<div class="order-delivery">
 			<h2>Delivery</h2>
+			<p class="meta">{deliveryTypeLabel(order.delivery_type)}</p>
 			<address>
 				{order.name}<br />
-				{order.address}<br />
-				{order.city}<br />
+				{#if order.delivery_type === 'stopdesk'}
+					{#if order.stop_desk_name}
+						Stop desk: {order.stop_desk_name}<br />
+					{/if}
+					{#if order.address}
+						{order.address}<br />
+					{/if}
+				{:else}
+					{order.address}<br />
+				{/if}
+				{placeLine}<br />
 				{order.phone}
 			</address>
 			<p class="meta">{order.email}</p>
 			{#if order.notes}
 				<p>Notes for the courier: {order.notes}</p>
+			{/if}
+			{#if order.tracking_number}
+				<div class="order-tracking">
+					<p class="meta">Courier tracking</p>
+					<p class="mono">{order.tracking_number}</p>
+					<p>{courierStatusLabel(order.courier_status)}</p>
+				</div>
 			{/if}
 		</div>
 
@@ -136,6 +158,14 @@
 	.order-delivery address {
 		font-style: normal;
 		line-height: 1.6;
+	}
+
+	.order-tracking {
+		display: grid;
+		gap: 2px;
+		margin-top: 12px;
+		padding-top: 12px;
+		border-top: 1px solid var(--line);
 	}
 
 	.cash-note {

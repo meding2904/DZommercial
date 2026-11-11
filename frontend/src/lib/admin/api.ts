@@ -56,6 +56,18 @@ export const adminApi = {
 		return apiFetch<{ customers: Customer[] }>('/admin/customers', { signal });
 	},
 
+	createShipment(id: string) {
+		return apiFetch<{ order: AdminOrder }>(`/admin/orders/${encodeURIComponent(id)}/shipment`, {
+			method: 'POST'
+		});
+	},
+
+	refreshTracking(id: string) {
+		return apiFetch<{ order: AdminOrder }>(`/admin/orders/${encodeURIComponent(id)}/tracking`, {
+			method: 'POST'
+		});
+	},
+
 	preferences() {
 		return apiFetch<{ theme_preset: ThemePreset }>('/admin/preferences');
 	},

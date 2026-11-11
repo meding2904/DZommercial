@@ -56,6 +56,35 @@ export type OrderItem = {
 	image: string;
 };
 
+export type CourierEvent = {
+	status: string;
+	rawStatus: string;
+	timestamp: string;
+};
+
+export type Wilaya = {
+	code: number;
+	nameFr: string;
+	nameAr: string;
+	isDeepSouth: boolean;
+	communeCount: number;
+	courierSupported: boolean;
+};
+
+export type Commune = {
+	wilayaCode: number;
+	nameFr: string;
+	nameAr: string;
+};
+
+export type StopDesk = {
+	id: string;
+	name: string;
+	wilayaCode: number;
+	communeName?: string;
+	address?: string;
+};
+
 export type Order = {
 	id: string;
 	number: string;
@@ -66,6 +95,17 @@ export type Order = {
 	address: string;
 	city: string;
 	notes: string;
+	wilaya_code?: number;
+	wilaya_name?: string;
+	commune_name?: string;
+	delivery_type?: 'home' | 'stopdesk';
+	stop_desk_id?: string;
+	stop_desk_name?: string;
+	courier_key?: string;
+	tracking_number?: string;
+	courier_status?: string;
+	courier_events?: CourierEvent[];
+	courier_synced_at?: string;
 	subtotal_cents: number;
 	shipping_cents: number;
 	total_cents: number;

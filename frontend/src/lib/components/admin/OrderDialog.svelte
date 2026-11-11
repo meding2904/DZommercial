@@ -4,7 +4,13 @@
 	import { errorMessage, adminApi } from '#lib/admin/api';
 	import { formatDateTime, STATUS_TRANSITIONS } from '#lib/admin/format';
 	import type { AdminOrder } from '#lib/admin/types';
-	import { money, titleCase } from '#lib/format';
+	import {
+		courierLabel,
+		courierStatusLabel,
+		deliveryTypeLabel,
+		money,
+		titleCase
+	} from '#lib/format';
 	import type { OrderStatus } from '#lib/types';
 	import StatusPill from './StatusPill.svelte';
 	import Dropdown from '#lib/components/Dropdown.svelte';
@@ -24,9 +30,47 @@
 	let busy = $state(false);
 	let error = $state('');
 	let success = $state('');
+	let shipBusy = $state(false);
+	let shipError = $state('');
+	let shipSuccess = $state('');
 	let dialogEl = $state<HTMLDialogElement | null>(null);
 
 	const allowed = $derived(STATUS_TRANSITIONS[current.status]);
+	const deliveryType = $derived(current.delivery_type ?? 'home');
+	const placeLine = $derived(
+		[current.commune_name || current.city, current.wilaya_name].filter(Boolean).join(', ')
+	);
+	const courierClosed = $derived(
+		current.status === 'cancelled' || current.status === 'delivered'
+	);
+	const courierReady = $derived(
+		(current.wilaya_code ?? 0) >= 1 &&
+			Boolean(current.commune_name) &&
+			(deliveryType === 'stopdesk'
+				? Boolean(current.stop_desk_id)
+				: Boolean(current.address)) &&
+			!courierClosed
+	);
+	const courierHint = $derived(
+		courierClosed
+			? 'This order is closed.'
+			: (current.wilaya_code ?? 0) < 1 || !current.commune_name
+				? 'This order was placed before courier delivery details were captured.'
+				: deliveryType === 'stopdesk' && !current.stop_desk_id
+					? 'This order has no stop desk.'
+					: deliveryType !== 'stopdesk' && !current.address
+						? 'This order has no deliverable address.'
+						: 'Create the parcel when the order is packed.'
+	);
+	const courierState = $derived(
+		current.tracking_number
+			? courierStatusLabel(current.courier_status)
+			: courierClosed
+				? 'Closed'
+				: courierReady
+					? 'Not sent yet'
+					: 'Delivery details incomplete'
+	);
 
 	$effect(() => {
 		if (dialogEl && !dialogEl.open) dialogEl.showModal();
@@ -38,7 +82,7 @@
 
 	async function save(event: SubmitEvent) {
 		event.preventDefault();
-		if (!nextStatus || busy || allowed.length === 0) return;
+		if (!nextStatus || busy || shipBusy || allowed.length === 0) return;
 
 		busy = true;
 		error = '';
@@ -56,15 +100,62 @@
 			busy = false;
 		}
 	}
+
+	async function createShipment(): Promise<void> {
+		if (shipBusy || !courierReady || current.tracking_number) return;
+
+		shipBusy = true;
+		shipError = '';
+		shipSuccess = '';
+		try {
+			const data = await adminApi.createShipment(current.id);
+			current = data.order;
+			shipSuccess = 'Shipment created.';
+			onupdated(data.order);
+		} catch (caught) {
+			if (caught instanceof ApiError) {
+				shipError =
+					caught.fields.delivery ??
+					caught.fields.phone ??
+					caught.fields.commune_name ??
+					caught.fields.stop_desk_id ??
+					caught.fields.address ??
+					caught.message;
+			} else {
+				shipError = errorMessage(caught);
+			}
+		} finally {
+			shipBusy = false;
+		}
+	}
+
+	async function refreshTracking(): Promise<void> {
+		if (shipBusy || !current.tracking_number) return;
+
+		shipBusy = true;
+		shipError = '';
+		shipSuccess = '';
+		try {
+			const data = await adminApi.refreshTracking(current.id);
+			current = data.order;
+			shipSuccess = 'Tracking updated.';
+			onupdated(data.order);
+		} catch (caught) {
+			shipError = errorMessage(caught);
+		} finally {
+			shipBusy = false;
+		}
+	}
 </script>
 
 <dialog
 	bind:this={dialogEl}
 	class="a-dialog"
 	aria-labelledby="order-dialog-title"
+	aria-busy={busy || shipBusy ? 'true' : undefined}
 	onclose={onclose}
 	oncancel={(event) => {
-		if (busy) event.preventDefault();
+		if (busy || shipBusy) event.preventDefault();
 	}}
 >
 	<form class="a-dialog-form" onsubmit={save}>
@@ -78,7 +169,7 @@
 				type="button"
 				aria-label="Close order detail"
 				onclick={close}
-				disabled={busy}
+				disabled={busy || shipBusy}
 			>
 				Close
 			</button>
@@ -106,7 +197,7 @@
 								disabled={busy}
 							/>
 						</div>
-						<button class="a-btn a-btn-secondary" type="submit" disabled={busy || !nextStatus}>
+						<button class="a-btn a-btn-secondary" type="submit" disabled={busy || shipBusy || !nextStatus}>
 							{busy ? 'Saving...' : 'Save status'}
 						</button>
 					</div>
@@ -136,8 +227,17 @@
 				<div class="detail-block">
 					<h3>Delivery</h3>
 					<div class="detail-list">
-						<span>{current.address || 'No address.'}</span>
-						<span>{current.city}</span>
+						<span>{deliveryTypeLabel(deliveryType)}</span>
+						{#if deliveryType === 'stopdesk' && current.stop_desk_name}
+							<span>Stop desk: {current.stop_desk_name}</span>
+						{/if}
+						{#if current.address}
+							<span>{current.address}</span>
+						{/if}
+						{#if placeLine}
+							<span>{placeLine}</span>
+						{/if}
+						<span>{current.phone}</span>
 					</div>
 				</div>
 
@@ -155,6 +255,66 @@
 					</div>
 				</div>
 			</div>
+
+			<section class="order-section courier-section" aria-labelledby="order-courier-title">
+				<div class="courier-head">
+					<h3 id="order-courier-title">Courier</h3>
+					<span class="a-muted-sm">{courierState}</span>
+				</div>
+
+				{#if current.tracking_number}
+					<div class="courier-facts">
+						<span>Courier</span>
+						<span>{courierLabel(current.courier_key)}</span>
+						<span>Tracking</span>
+						<span class="a-num">{current.tracking_number}</span>
+						<span>Status</span>
+						<span>{courierStatusLabel(current.courier_status)}</span>
+						<span>Last checked</span>
+						<span>{formatDateTime(current.courier_synced_at)}</span>
+					</div>
+					<div class="courier-actions">
+						<button
+							class="a-btn a-btn-secondary"
+							type="button"
+							onclick={refreshTracking}
+							disabled={shipBusy}
+						>
+							{shipBusy ? 'Refreshing...' : 'Refresh tracking'}
+						</button>
+					</div>
+				{:else}
+					<p class="a-muted-sm">{courierHint}</p>
+					<div class="courier-actions">
+						<button
+							class="a-btn a-btn-primary"
+							type="button"
+							onclick={createShipment}
+							disabled={shipBusy || !courierReady}
+						>
+							{shipBusy ? 'Creating shipment...' : 'Create shipment'}
+						</button>
+					</div>
+				{/if}
+
+				{#if shipError}
+					<p class="a-form-error" role="alert">{shipError}</p>
+				{/if}
+				{#if shipSuccess}
+					<p class="a-form-success" role="status">{shipSuccess}</p>
+				{/if}
+
+				{#if current.courier_events?.length}
+					<ol class="courier-events">
+						{#each current.courier_events as event, index (index)}
+							<li>
+								<span>{event.rawStatus || courierStatusLabel(event.status)}</span>
+								<span class="a-muted-sm">{formatDateTime(event.timestamp)}</span>
+							</li>
+						{/each}
+					</ol>
+				{/if}
+			</section>
 
 			<section class="order-section" aria-labelledby="order-items-title">
 				<h3 id="order-items-title">Items</h3>
@@ -200,9 +360,72 @@
 		</div>
 
 		<footer class="a-dialog-foot">
-			<button class="a-btn a-btn-secondary" type="button" onclick={close} disabled={busy}>
+			<button class="a-btn a-btn-secondary" type="button" onclick={close} disabled={busy || shipBusy}>
 				Close
 			</button>
 		</footer>
 	</form>
 </dialog>
+
+<style>
+	.courier-section {
+		display: grid;
+		gap: 10px;
+	}
+
+	.courier-head {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 6px 12px;
+	}
+
+	.courier-facts {
+		display: grid;
+		grid-template-columns: max-content minmax(0, 1fr);
+		gap: 4px 16px;
+		font-size: 14px;
+	}
+
+	.courier-facts > span:nth-child(odd) {
+		color: var(--a-muted);
+	}
+
+	.courier-facts > span:nth-child(even) {
+		overflow-wrap: anywhere;
+	}
+
+	.courier-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+	}
+
+	.courier-events {
+		display: grid;
+		gap: 6px;
+		margin: 4px 0 0;
+		padding: 10px 0 0;
+		border-top: 1px solid var(--a-line);
+		list-style: none;
+	}
+
+	.courier-events li {
+		display: flex;
+		justify-content: space-between;
+		gap: 12px;
+		font-size: 13px;
+	}
+
+	@media (max-width: 560px) {
+		.courier-facts {
+			grid-template-columns: 1fr;
+			gap: 2px;
+		}
+
+		.courier-facts > span:nth-child(odd) {
+			margin-top: 6px;
+		}
+	}
+</style>

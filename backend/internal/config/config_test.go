@@ -17,6 +17,10 @@ func setProductionEnv(t *testing.T) {
 	t.Setenv("SEED_DEMO", "false")
 	t.Setenv("COOKIE_SECURE", "false")
 	t.Setenv("SESSION_TTL_HOURS", "168")
+	t.Setenv("COURIER_API_URL", "https://freeship.dzbuild.com")
+	t.Setenv("COURIER_KEY", "sandbox")
+	t.Setenv("COURIER_FROM_WILAYA", "16")
+	t.Setenv("COURIER_TIMEOUT_SECONDS", "12")
 }
 
 func TestProductionRequiresAdminPassword(t *testing.T) {
@@ -76,8 +80,30 @@ func TestDevelopmentDefaultsStillLoad(t *testing.T) {
 	t.Setenv("COOKIE_SECURE", "false")
 	t.Setenv("SEED_DEMO", "false")
 	t.Setenv("SESSION_TTL_HOURS", "168")
+	t.Setenv("COURIER_API_URL", "https://freeship.dzbuild.com")
+	t.Setenv("COURIER_KEY", "sandbox")
+	t.Setenv("COURIER_FROM_WILAYA", "16")
+	t.Setenv("COURIER_TIMEOUT_SECONDS", "12")
 
 	if _, err := Load(); err != nil {
 		t.Fatalf("development configuration should load: %v", err)
+	}
+}
+
+func TestProductionRequiresHTTPSForCourier(t *testing.T) {
+	setProductionEnv(t)
+	t.Setenv("COURIER_API_URL", "http://freeship.example")
+
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "COURIER_API_URL must use https") {
+		t.Fatalf("expected the courier URL to require https, got %v", err)
+	}
+}
+
+func TestCourierFromWilayaMustBeValid(t *testing.T) {
+	setProductionEnv(t)
+	t.Setenv("COURIER_FROM_WILAYA", "0")
+
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "COURIER_FROM_WILAYA") {
+		t.Fatalf("expected an invalid origin wilaya error, got %v", err)
 	}
 }

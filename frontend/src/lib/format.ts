@@ -42,3 +42,34 @@ export function percent(value: number | null): string {
 export function titleCase(value: string): string {
 	return value.charAt(0).toUpperCase() + value.slice(1);
 }
+
+const COURIER_STATUS_LABELS: Record<string, string> = {
+	created: 'Created',
+	pending_pickup: 'Waiting for pickup',
+	picked_up: 'Picked up',
+	in_transit: 'In transit',
+	at_hub: 'At the hub',
+	out_for_delivery: 'Out for delivery',
+	delivery_attempted: 'Delivery attempted',
+	on_hold: 'On hold',
+	return_in_transit: 'Return in transit',
+	returned: 'Returned',
+	cancelled: 'Cancelled',
+	lost: 'Lost',
+	unknown: 'Unknown'
+};
+
+export function courierStatusLabel(status: string | undefined): string {
+	if (!status) return 'Not tracked yet';
+	return COURIER_STATUS_LABELS[status] ?? titleCase(status.replaceAll('_', ' '));
+}
+
+export function courierLabel(key: string | undefined): string {
+	if (!key) return 'No courier';
+	if (key === 'sandbox') return 'Sandbox courier';
+	return titleCase(key.replaceAll('_', ' '));
+}
+
+export function deliveryTypeLabel(type: string | undefined): string {
+	return type === 'stopdesk' ? 'Stop desk' : 'Home delivery';
+}

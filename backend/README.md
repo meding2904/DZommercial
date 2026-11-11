@@ -42,6 +42,11 @@ Defaults in development:
 | `ADMIN_PASSWORD` | `azahar-dev-admin-2026` |
 | `CUSTOMER_EMAIL` | `client@azahar.example` |
 | `CUSTOMER_PASSWORD` | `azahar-dev-client-2026` |
+| `COURIER_API_URL` | `https://freeship.dzbuild.com` |
+| `COURIER_KEY` | `sandbox` |
+| `COURIER_CREDENTIALS` | empty (JSON object for a real courier) |
+| `COURIER_FROM_WILAYA` | `16` |
+| `COURIER_TIMEOUT_SECONDS` | `12` |
 | `SESSION_TTL_HOURS` | `168` (admin sessions are capped at 12 hours) |
 
 The startup log prints the demo credentials only when `APP_ENV=development`.
@@ -52,6 +57,13 @@ password is rejected, the admin password must be at least 14 characters, and `SE
 defaults to false. If the seed is enabled, the development customer password is rejected.
 `APP_ORIGIN` is trimmed of a trailing slash. The token is appended to the database URL as
 `authToken` so `libsql://...` and the local `http://127.0.0.1:8880` both work.
+
+The courier integration talks to `COURIER_API_URL` with `COURIER_KEY` and the JSON object in
+`COURIER_CREDENTIALS`. The default `sandbox` key validates orders but creates no real parcels.
+`COURIER_API_URL` must use https in production. `COURIER_FROM_WILAYA` is the origin wilaya sent
+to the courier and must be between 1 and 58. If the reference service is unreachable, the
+bundled wilaya and commune snapshot is used; development with the sandbox key also falls back
+to a local sandbox shipment. Real courier keys never use the local fallback.
 
 ### Dev credentials
 
@@ -187,3 +199,8 @@ knowing:
 - `GET /api/auth/logout` does not exist. Logout is `POST` and returns `204` even when no
   session cookie is present.
 - No CORS headers are set. The SvelteKit server is the only browser origin.
+
+## License
+
+The API source is licensed under the Apache License 2.0. See `../LICENSE` and `../NOTICE`.
+Third-party software keeps its own license.

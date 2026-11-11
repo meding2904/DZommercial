@@ -11,19 +11,24 @@ import (
 )
 
 type Config struct {
-	AppEnv           string
-	APIAddr          string
-	AppOrigin        string
-	TursoURL         string
-	TursoToken       string
-	CookieSecure     bool
-	TrustProxy       bool
-	SeedDemo         bool
-	AdminEmail       string
-	AdminPassword    string
-	CustomerEmail    string
-	CustomerPassword string
-	SessionTTL       time.Duration
+	AppEnv             string
+	APIAddr            string
+	AppOrigin          string
+	TursoURL           string
+	TursoToken         string
+	CookieSecure       bool
+	TrustProxy         bool
+	SeedDemo           bool
+	AdminEmail         string
+	AdminPassword      string
+	CustomerEmail      string
+	CustomerPassword   string
+	SessionTTL         time.Duration
+	CourierAPIURL      string
+	CourierKey         string
+	CourierCredentials string
+	CourierFromWilaya  int
+	CourierTimeout     time.Duration
 }
 
 func Load() (Config, error) {
@@ -39,6 +44,12 @@ func Load() (Config, error) {
 		CustomerEmail:    strings.ToLower(strings.TrimSpace(getenv("CUSTOMER_EMAIL", "client@azahar.example"))),
 		CustomerPassword: getenv("CUSTOMER_PASSWORD", "azahar-dev-client-2026"),
 		SessionTTL:       time.Duration(getint("SESSION_TTL_HOURS", 168)) * time.Hour,
+
+		CourierAPIURL:      strings.TrimRight(strings.TrimSpace(getenv("COURIER_API_URL", "https://freeship.dzbuild.com")), "/"),
+		CourierKey:         strings.ToLower(strings.TrimSpace(getenv("COURIER_KEY", "sandbox"))),
+		CourierCredentials: strings.TrimSpace(os.Getenv("COURIER_CREDENTIALS")),
+		CourierFromWilaya:  getint("COURIER_FROM_WILAYA", 16),
+		CourierTimeout:     time.Duration(getint("COURIER_TIMEOUT_SECONDS", 12)) * time.Second,
 	}
 	cfg.SeedDemo = getbool("SEED_DEMO", strings.EqualFold(appEnv, "development"))
 
@@ -87,6 +98,23 @@ func Load() (Config, error) {
 	}
 	if strings.TrimSpace(cfg.APIAddr) == "" {
 		return Config{}, errors.New("API_ADDR must not be empty")
+	}
+
+	courierURL, err := url.Parse(cfg.CourierAPIURL)
+	if err != nil || (courierURL.Scheme != "http" && courierURL.Scheme != "https") || courierURL.Host == "" {
+		return Config{}, errors.New("COURIER_API_URL must be an absolute http(s) URL")
+	}
+	if cfg.IsProduction() && courierURL.Scheme != "https" {
+		return Config{}, errors.New("COURIER_API_URL must use https when APP_ENV=production")
+	}
+	if cfg.CourierKey == "" || len(cfg.CourierKey) > 64 {
+		return Config{}, errors.New("COURIER_KEY must be between 1 and 64 characters")
+	}
+	if cfg.CourierFromWilaya < 1 || cfg.CourierFromWilaya > 58 {
+		return Config{}, errors.New("COURIER_FROM_WILAYA must be between 1 and 58")
+	}
+	if cfg.CourierTimeout < time.Second || cfg.CourierTimeout > 30*time.Second {
+		return Config{}, errors.New("COURIER_TIMEOUT_SECONDS must be between 1 and 30")
 	}
 	return cfg, nil
 }

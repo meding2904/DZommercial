@@ -1,56 +1,14 @@
-# sv
+# Azahar frontend
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+This is the SvelteKit shop and admin for the Azahar demo. It is not a separate product.
 
-## Creating a project
+Start the full demo from the repository root:
 
-If you're seeing this, you've probably already done this step. Congrats!
-
-```sh
-# create a new project
-npx sv create my-app
+```bash
+./deploy/kiri-up.sh
 ```
 
-To recreate this project with the same configuration:
+For frontend development, read the main `README.md`. The API contract is in `docs/API.md`.
 
-```sh
-# recreate this project
-pnpm dlx sv@1.3.0 create --template minimal --types ts --install pnpm frontend
-```
-
-## Adding features
-
-Add features to your project with `sv add`:
-
-```sh
-npx sv add
-```
-
-For example, to add Tailwind CSS:
-
-```sh
-npx sv add tailwindcss
-```
-
-## Developing
-
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
-
-```sh
-npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
-```
-
-## Building
-
-To create a production version of your app:
-
-```sh
-npm run build
-```
-
-You can preview the production build with `npm run preview`.
-
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+The source code is licensed under the Apache License 2.0. See `../LICENSE` and `../NOTICE`.
+The photographs and third-party font packages keep their own licenses; see `../CREDITS.md`.

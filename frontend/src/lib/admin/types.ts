@@ -21,6 +21,17 @@ export type AdminOrder = {
 	address: string;
 	city: string;
 	notes: string;
+	wilaya_code?: number;
+	wilaya_name?: string;
+	commune_name?: string;
+	delivery_type?: 'home' | 'stopdesk';
+	stop_desk_id?: string;
+	stop_desk_name?: string;
+	courier_key?: string;
+	tracking_number?: string;
+	courier_status?: string;
+	courier_events?: Array<{ status: string; rawStatus: string; timestamp: string }>;
+	courier_synced_at?: string;
 	subtotal_cents: number;
 	shipping_cents: number;
 	total_cents: number;

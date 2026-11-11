@@ -1,0 +1,15 @@
+.env
+.env.local
+.env.*.local
+node_modules/
+frontend/.svelte-kit/
+frontend/build/
+frontend/node_modules/
+backend/bin/
+deploy/bin/
+backend/data/
+backend/azahar.db
+.taste-skill/
+shots/
+*.log
+.DS_Store

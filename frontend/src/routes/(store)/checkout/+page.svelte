@@ -8,6 +8,7 @@
 		SHIPPING_CENTS,
 		shippingFor
 	} from '#lib/components/store/shipping';
+	import Dropdown from '#lib/components/Dropdown.svelte';
 	import { money } from '#lib/format';
 	import { TERMS_VERSION } from '#lib/legal';
 	import { cart } from '#lib/stores/cart.svelte';
@@ -105,6 +106,36 @@
 	const hasStockIssue = $derived(
 		cart.items.some((line) => line.stock < 1 || line.quantity > line.stock)
 	);
+	const wilayaOptions = $derived.by(() => {
+		if (wilayaState === 'loading') return [{ value: '', label: 'Reading wilayas...' }];
+		if (wilayaState === 'error') return [{ value: '', label: 'Wilayas unavailable' }];
+		return [
+			{ value: '', label: 'Choose a wilaya' },
+			...wilayas.map((wilaya) => ({ value: String(wilaya.code), label: wilaya.nameFr }))
+		];
+	});
+	const communeOptions = $derived.by(() => {
+		if (!form.wilayaCode) return [{ value: '', label: 'Choose a wilaya first' }];
+		if (communeState === 'loading') return [{ value: '', label: 'Reading communes...' }];
+		if (communeState === 'error') return [{ value: '', label: 'Communes unavailable' }];
+		return [
+			{ value: '', label: 'Choose a commune' },
+			...communes.map((commune) => ({ value: commune.nameFr, label: commune.nameFr }))
+		];
+	});
+	const deskOptions = $derived.by(() => {
+		if (!form.wilayaCode) return [{ value: '', label: 'Choose a wilaya first' }];
+		if (deskState === 'loading') return [{ value: '', label: 'Reading stop desks...' }];
+		if (deskState === 'error') return [{ value: '', label: 'Stop desks unavailable' }];
+		if (desks.length === 0) return [{ value: '', label: 'No stop desks in this wilaya' }];
+		return [
+			{ value: '', label: 'Choose a stop desk' },
+			...desks.map((desk) => ({
+				value: desk.id,
+				label: `${desk.name}${desk.communeName ? `, ${desk.communeName}` : ''}`
+			}))
+		];
+	});
 
 	onMount(() => {
 		mounted = true;
@@ -575,61 +606,42 @@
 					</div>
 
 					<div class="field">
-						<label for="wilaya_code">Wilaya</label>
-						<select
+						<span class="field-label" id="wilaya-label">Wilaya</span>
+						<Dropdown
 							id="wilaya_code"
-							name="wilaya_code"
-							required
-							bind:value={form.wilayaCode}
-							onchange={(event) => onWilayaChange(event.currentTarget.value)}
+							class="checkout-dropdown"
+							label="Wilaya"
+							labelId="wilaya-label"
+							value={form.wilayaCode}
+							options={wilayaOptions}
+							onchange={onWilayaChange}
 							disabled={wilayaState !== 'ready'}
-							aria-invalid={errors.wilaya_code ? 'true' : undefined}
-							aria-describedby={errors.wilaya_code ? 'wilaya-error' : undefined}
-						>
-							{#if wilayaState === 'loading'}
-								<option value="">Reading wilayas...</option>
-							{:else if wilayaState === 'error'}
-								<option value="">Wilayas unavailable</option>
-							{:else}
-								<option value="" disabled>Choose a wilaya</option>
-								{#each wilayas as wilaya (wilaya.code)}
-									<option value={String(wilaya.code)}>{wilaya.nameFr}</option>
-								{/each}
-							{/if}
-						</select>
+							invalid={Boolean(errors.wilaya_code)}
+							describedBy={errors.wilaya_code ? 'wilaya-error' : undefined}
+						/>
 						{#if errors.wilaya_code}
 							<p class="field-error" id="wilaya-error">{errors.wilaya_code}</p>
 						{/if}
 					</div>
 
 					<div class="field">
-						<label for="commune_name">Commune</label>
-						<select
+						<span class="field-label" id="commune-label">Commune</span>
+						<Dropdown
 							id="commune_name"
-							name="commune_name"
-							required
-							bind:value={form.communeName}
+							class="checkout-dropdown"
+							label="Commune"
+							labelId="commune-label"
+							value={form.communeName}
+							options={communeOptions}
+							onchange={(value) => (form.communeName = value)}
 							disabled={!form.wilayaCode || communeState !== 'ready' || communeLocked}
-							aria-invalid={errors.commune_name ? 'true' : undefined}
-							aria-describedby={errors.commune_name
+							invalid={Boolean(errors.commune_name)}
+							describedBy={errors.commune_name
 								? 'commune-error'
 								: communeLocked
 									? 'commune-hint'
 									: undefined}
-						>
-							{#if !form.wilayaCode}
-								<option value="">Choose a wilaya first</option>
-							{:else if communeState === 'loading'}
-								<option value="">Reading communes...</option>
-							{:else if communeState === 'error'}
-								<option value="">Communes unavailable</option>
-							{:else}
-								<option value="" disabled>Choose a commune</option>
-								{#each communes as commune (commune.nameFr)}
-									<option value={commune.nameFr}>{commune.nameFr}</option>
-								{/each}
-							{/if}
-						</select>
+						/>
 						{#if errors.commune_name}
 							<p class="field-error" id="commune-error">{errors.commune_name}</p>
 						{:else if communeLocked}
@@ -690,34 +702,21 @@
 						</div>
 					{:else}
 						<div class="field field-full">
-							<label for="stop_desk_id">Stop desk</label>
-							<select
+							<span class="field-label" id="stop-desk-label">Stop desk</span>
+							<Dropdown
 								id="stop_desk_id"
-								name="stop_desk_id"
-								required
-								bind:value={form.stopDeskId}
-								onchange={(event) => onDeskChange(event.currentTarget.value)}
+								class="checkout-dropdown"
+								label="Stop desk"
+								labelId="stop-desk-label"
+								value={form.stopDeskId}
+								options={deskOptions}
+								onchange={onDeskChange}
 								disabled={deskState !== 'ready' || desks.length === 0}
-								aria-invalid={errors.stop_desk_id ? 'true' : undefined}
-								aria-describedby={errors.stop_desk_id ? 'stop-desk-error' : 'stop-desk-hint'}
-							>
-								{#if !form.wilayaCode}
-									<option value="">Choose a wilaya first</option>
-								{:else if deskState === 'loading'}
-									<option value="">Reading stop desks...</option>
-								{:else if deskState === 'error'}
-									<option value="">Stop desks unavailable</option>
-								{:else if desks.length === 0}
-									<option value="">No stop desks in this wilaya</option>
-								{:else}
-									<option value="" disabled>Choose a stop desk</option>
-									{#each desks as desk (desk.id)}
-										<option value={desk.id}>
-											{desk.name}{desk.communeName ? `, ${desk.communeName}` : ''}
-										</option>
-									{/each}
-								{/if}
-							</select>
+								invalid={Boolean(errors.stop_desk_id)}
+								describedBy={errors.stop_desk_id
+									? 'stop-desk-error'
+									: 'stop-desk-hint'}
+							/>
 							{#if errors.stop_desk_id}
 								<p class="field-error" id="stop-desk-error">{errors.stop_desk_id}</p>
 							{:else if deskState === 'ready' && desks.length === 0}
@@ -1009,6 +1008,26 @@
 
 	.form-title {
 		font-size: clamp(28px, 3vw, 38px);
+	}
+
+	.field-label {
+		font-size: 13px;
+		color: var(--ink);
+	}
+
+	:global(.checkout-dropdown .dropdown-trigger) {
+		min-height: 48px;
+		padding: 11px 13px;
+		border-radius: var(--radius-sm);
+		font-size: 15px;
+	}
+
+	:global(.checkout-dropdown .dropdown-option) {
+		font-size: 15px;
+	}
+
+	:global(.checkout-dropdown .dropdown-menu) {
+		border-radius: var(--radius-sm);
 	}
 
 	.form-error a {

@@ -3,14 +3,22 @@ import { ServerApiError, serverGet } from '#lib/server/api';
 import type { Order } from '#lib/types';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ params }) => {
+export const load: PageServerLoad = async ({ params, getClientAddress, setHeaders }) => {
+	setHeaders({
+		'cache-control': 'no-store',
+		'referrer-policy': 'no-referrer',
+		'x-robots-tag': 'noindex'
+	});
+
 	try {
 		const data = await serverGet<{ order: Order }>(
-			`/api/orders/${encodeURIComponent(params.token)}`
+			`/api/orders/${encodeURIComponent(params.token)}`,
+			getClientAddress()
 		);
 
+		const { token, ...orderData } = data.order;
 		const order: Order = {
-			...data.order,
+			...orderData,
 			items: data.order.items.map((item) => {
 				const line = item as Order['items'][number] & { unit_price_cents?: number };
 				return {

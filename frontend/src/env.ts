@@ -15,5 +15,11 @@ export const variables = defineEnvVars({
 		public: false,
 		description: 'Random token for the hidden admin gate. Kiri prints the gate URL.',
 		schema: (value) => value ?? 'devtoken'
+	},
+	PUBLIC_TURNSTILE_SITE_KEY: {
+		public: true,
+		description:
+			'Cloudflare Turnstile site key. Empty keeps the local captcha as the development fallback.',
+		schema: (value) => value ?? ''
 	}
 });

@@ -40,7 +40,7 @@
 		<button
 			class="btn btn-secondary btn-small product-add"
 			type="button"
-			aria-label={`Add ${product.name} to the bag`}
+			aria-label={`Add to bag: ${product.name}`}
 			onclick={add}
 		>
 			Add to bag
@@ -49,7 +49,7 @@
 		<button
 			class="btn btn-secondary btn-small product-add"
 			type="button"
-			aria-label={`${product.name} is sold out`}
+			aria-label={`Sold out: ${product.name}`}
 			disabled
 		>
 			Sold out

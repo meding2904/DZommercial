@@ -11,9 +11,15 @@ export class ServerApiError extends Error {
 	}
 }
 
-export async function serverGet<T>(path: string): Promise<T> {
+export async function serverGet<T>(path: string, clientAddress?: string): Promise<T> {
+	const headers: Record<string, string> = {
+		'X-Requested-With': 'azahar-web',
+		Accept: 'application/json'
+	};
+	if (clientAddress) headers['X-Forwarded-For'] = clientAddress;
+
 	const res = await fetch(`${base}${path}`, {
-		headers: { 'X-Requested-With': 'azahar-web', Accept: 'application/json' },
+		headers,
 		signal: AbortSignal.timeout(8000)
 	});
 

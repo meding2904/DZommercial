@@ -20,21 +20,22 @@ import (
 const checkoutTermsVersion = "2026-11-14"
 
 type checkoutPayload struct {
-	Name          string         `json:"name"`
-	Email         string         `json:"email"`
-	Phone         string         `json:"phone"`
-	Address       string         `json:"address"`
-	WilayaCode    int            `json:"wilaya_code"`
-	CommuneName   string         `json:"commune_name"`
-	DeliveryType  string         `json:"delivery_type"`
-	StopDeskID    string         `json:"stop_desk_id"`
-	Notes         string         `json:"notes"`
-	Items         []checkoutLine `json:"items"`
-	Website       string         `json:"website"`
-	CaptchaToken  string         `json:"captcha_token"`
-	CaptchaAnswer string         `json:"captcha_answer"`
-	TermsAccepted bool           `json:"terms_accepted"`
-	TermsVersion  string         `json:"terms_version"`
+	Name           string         `json:"name"`
+	Email          string         `json:"email"`
+	Phone          string         `json:"phone"`
+	Address        string         `json:"address"`
+	WilayaCode     int            `json:"wilaya_code"`
+	CommuneName    string         `json:"commune_name"`
+	DeliveryType   string         `json:"delivery_type"`
+	StopDeskID     string         `json:"stop_desk_id"`
+	Notes          string         `json:"notes"`
+	Items          []checkoutLine `json:"items"`
+	Website        string         `json:"website"`
+	CaptchaToken   string         `json:"captcha_token"`
+	CaptchaAnswer  string         `json:"captcha_answer"`
+	TurnstileToken string         `json:"turnstile_token"`
+	TermsAccepted  bool           `json:"terms_accepted"`
+	TermsVersion   string         `json:"terms_version"`
 }
 
 type checkoutLine struct {
@@ -59,6 +60,7 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 	payload.Website = strings.TrimSpace(payload.Website)
 	payload.CaptchaToken = strings.TrimSpace(payload.CaptchaToken)
 	payload.CaptchaAnswer = strings.TrimSpace(payload.CaptchaAnswer)
+	payload.TurnstileToken = strings.TrimSpace(payload.TurnstileToken)
 	payload.TermsVersion = strings.TrimSpace(payload.TermsVersion)
 	if payload.DeliveryType == "" {
 		payload.DeliveryType = "home"
@@ -75,8 +77,12 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 	if !payload.TermsAccepted || payload.TermsVersion != checkoutTermsVersion {
 		fields["terms"] = "Accept the current terms of service before placing the order."
 	}
-	if payload.CaptchaToken == "" || payload.CaptchaAnswer == "" {
-		fields["captcha"] = "Enter the code from the security check."
+	if s.cfg.TurnstileSecret == "" {
+		if payload.CaptchaToken == "" || payload.CaptchaAnswer == "" {
+			fields["captcha"] = "Enter the code from the security check."
+		}
+	} else if payload.TurnstileToken == "" {
+		fields["captcha"] = "Complete the security check and try again."
 	}
 	if runeLen(payload.Name) < 2 || runeLen(payload.Name) > 120 {
 		fields["name"] = "Use between 2 and 120 characters."
@@ -160,7 +166,21 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if reason := s.captcha.verify(payload.CaptchaToken, payload.CaptchaAnswer,
+	if s.cfg.TurnstileSecret != "" {
+		verified, err := verifyTurnstile(r.Context(), s.cfg.TurnstileSecret, payload.TurnstileToken,
+			clientIP(r, s.cfg.TrustProxy))
+		if err != nil {
+			s.logger.Warn("turnstile verification failed", "error", err, "request_id", requestID(r))
+			writeError(w, http.StatusServiceUnavailable, "captcha_unavailable",
+				"The security check is unavailable. Try again in a moment.")
+			return
+		}
+		if !verified {
+			writeProblem(w, problemFields(422, "validation_error", "The security check failed.",
+				map[string]string{"captcha": "Complete the security check and try again."}))
+			return
+		}
+	} else if reason := s.captcha.verify(payload.CaptchaToken, payload.CaptchaAnswer,
 		clientIP(r, s.cfg.TrustProxy), time.Now()); reason != "" {
 		writeProblem(w, problemFields(422, "validation_error", "The security check failed.",
 			map[string]string{"captcha": captchaErrorMessage(reason)}))
@@ -192,7 +212,9 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 			order.Address = destination.Desk.Address
 		}
 	}
+	userID := ""
 	if user := s.optionalUser(r); user != nil {
+		userID = user.ID
 		order.UserID = &user.ID
 	}
 	token, err := auth.NewToken()
@@ -262,7 +284,7 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 		}
 		if err := s.store.InsertAudit(r.Context(), tx, store.AuditEntry{
 			ID:          ids.New("aud"),
-			ActorUserID: currentUserID(r),
+			ActorUserID: userID,
 			Action:      "order.terms_accepted",
 			EntityType:  "order",
 			EntityID:    order.ID,
@@ -324,6 +346,6 @@ func (s *Server) handleOrderByToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"order": toOrder(order, items, token, true),
+		"order": toOrder(order, items, "", true),
 	})
 }

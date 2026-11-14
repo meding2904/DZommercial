@@ -21,6 +21,7 @@ func setProductionEnv(t *testing.T) {
 	t.Setenv("COURIER_KEY", "sandbox")
 	t.Setenv("COURIER_FROM_WILAYA", "16")
 	t.Setenv("COURIER_TIMEOUT_SECONDS", "12")
+	t.Setenv("TURNSTILE_SECRET_KEY", "test-turnstile-secret")
 }
 
 func TestProductionRequiresAdminPassword(t *testing.T) {
@@ -29,6 +30,24 @@ func TestProductionRequiresAdminPassword(t *testing.T) {
 
 	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "ADMIN_PASSWORD must be set") {
 		t.Fatalf("expected an explicit ADMIN_PASSWORD error, got %v", err)
+	}
+}
+
+func TestProductionRequiresTurnstileSecret(t *testing.T) {
+	setProductionEnv(t)
+	t.Setenv("TURNSTILE_SECRET_KEY", "")
+
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "TURNSTILE_SECRET_KEY must be set") {
+		t.Fatalf("expected a TURNSTILE_SECRET_KEY error, got %v", err)
+	}
+}
+
+func TestProductionRejectsTurnstileTestSecret(t *testing.T) {
+	setProductionEnv(t)
+	t.Setenv("TURNSTILE_SECRET_KEY", "1x0000000000000000000000000000000AA")
+
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "must not be a Turnstile test key") {
+		t.Fatalf("expected a Turnstile test-key error, got %v", err)
 	}
 }
 

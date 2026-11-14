@@ -67,25 +67,31 @@ hard requirement, not a suggestion.
   forwards the browser's origin. In development, a missing origin is allowed only when
   `APP_ENV=development`.
 - The SvelteKit hook sets a random `azahar_csrf` cookie on document requests. The cookie is
-  readable by the page, `SameSite=Lax`, `Path=/` and `Secure` in production.
+  readable by the page, `SameSite=Lax`, `Path=/` and `Secure` in production. It is a
+  64-character lowercase hex token; the hook rotates any value that does not match that shape.
 - Every unsafe request must also send `X-CSRF-Token` with exactly the cookie value. The API
   compares the two in constant time. A request without a matching pair returns `403`.
 - The API does not enable CORS. Cross-origin reads are blocked by the browser.
 
 ## Captcha, bot detection and terms
 
-- `GET /api/checkout/challenge` issues a one-time captcha. The code is five characters from
-  an alphabet without `I`, `O`, `0` or `1`. The image is a rendered PNG, not text, and is
-  returned as a data URL.
-- A challenge expires after 10 minutes, is deleted after one successful verification, and is
-  bound to the client address when one is available. It must be at least two seconds old, so
-  an instant form fill fails.
-- Wrong answers keep the challenge for another try. Expired or reused challenges are deleted.
-  The challenge store is in memory and per process.
+- `GET /api/checkout/challenge` issues a one-time local captcha. It requires
+  `X-Requested-With: azahar-web`, so a cross-site image or form cannot burn a visitor's
+  challenge budget. The code is five characters from an alphabet without `I`, `O`, `0` or
+  `1`. The image is a rendered PNG, not text, and is returned as a data URL.
+- A challenge expires after 10 minutes, is deleted on the first wrong answer or after one
+  successful verification, and is bound to the client address when one is available. It must
+  be at least two seconds old, so an instant form fill fails. A full store evicts the oldest
+  challenge instead of failing new requests.
+- The local captcha is a development fallback. Production requires Cloudflare Turnstile:
+  `TURNSTILE_SECRET_KEY` on the API and `PUBLIC_TURNSTILE_SITE_KEY` on the web app. Checkout
+  verifies the Turnstile token server-side and fails closed with `503 captcha_unavailable`
+  when the verification service cannot be reached.
 - The checkout form includes a hidden `website` honeypot. A filled value returns
   `403 bot_detected` before any order work.
 - Checkout requires `terms_accepted: true` and the current `terms_version`. The accepted
-  version and time are written to `audit_log` as `order.terms_accepted`.
+  version and time are written to `audit_log` as `order.terms_accepted`, attributed to the
+  signed-in user when there is one.
 - The terms page is sample content for the demo. It is not legal advice and does not create a
   binding sale.
 
@@ -147,9 +153,15 @@ In memory token buckets, keyed by client IP:
 - General API: 120 requests per minute.
 - Admin mutations: 60 requests per minute.
 
-The buckets are cleaned every 10 minutes. They are per process. Before running more than one
-API replica, move the limiter to a shared store. `TRUST_PROXY=true` makes the limiter use the
+The buckets are cleaned every 10 minutes and each limiter caps its map at 10,000 keys,
+evicting the oldest when full. They are per process. Before running more than one API
+replica, move the limiter to a shared store. `TRUST_PROXY=true` makes the limiter use the
 first `X-Forwarded-For` hop. Leave it false unless a trusted proxy sets that header.
+
+SvelteKit server-side catalog and order loads forward `getClientAddress()` as
+`X-Forwarded-For`, so SSR traffic uses the visitor's bucket instead of one shared web-server
+bucket. If the web app runs behind a reverse proxy, adapter-node must set `ADDRESS_HEADER`
+and `XFF_DEPTH` so `getClientAddress()` sees the real address.
 
 The courier service has its own limits: 200 parcels per hour per IP, 1 000 per day, 60
 tracking calls per minute and 60 desk lists per minute. Reference data is cached for a day.
@@ -171,7 +183,9 @@ SvelteKit document:
 
 - `Content-Security-Policy` with a nonce for scripts, `'self'` for connect, img, font and
   form actions, `data:` for the inlined font subsets, `'unsafe-inline'` for styles only,
-  `frame-ancestors 'none'`, `base-uri 'self'`, `object-src 'none'`.
+  `frame-ancestors 'none'`, `base-uri 'self'`, `object-src 'none'`. When Turnstile is
+  configured, `script-src`, `connect-src` and `frame-src` also allow
+  `https://challenges.cloudflare.com`.
 - `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`.
 - HSTS in production.
 
@@ -179,8 +193,11 @@ SvelteKit document:
 
 - `.env` is ignored. `.env.example` holds names only.
 - The API refuses to start in production unless `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`,
-  `APP_ORIGIN`, `ADMIN_EMAIL` and `ADMIN_PASSWORD` are set explicitly. The development admin
-  password is rejected even though it is long enough.
+  `APP_ORIGIN`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` and `TURNSTILE_SECRET_KEY` are set
+  explicitly. The development admin password is rejected even though it is long enough.
+- The web app must also receive `PUBLIC_TURNSTILE_SITE_KEY` in production. A one-sided setup
+  fails checkout rather than falling back to the weaker local captcha. Cloudflare test keys
+  are rejected in production on both sides.
 - `SEED_DEMO` defaults to false in production. If it is enabled, the development customer
   password is rejected; set a unique one or leave the seed off.
 - The deploy scripts apply the same checks before starting containers, force secure cookies in

@@ -165,7 +165,7 @@ curl -s -D /tmp/azahar-login-headers -c "$JAR" \
 curl -s -b "$JAR" "$BASE/api/admin/metrics?days=30"
 
 # 4. Captcha challenge returns a token and a PNG data URL
-curl -s "$BASE/api/checkout/challenge"
+curl -s -H 'X-Requested-With: azahar-web' "$BASE/api/checkout/challenge"
 
 # 5. Checkout returns 201 and an order token when the code and terms are supplied
 curl -s -X POST "$BASE/api/checkout" \

@@ -65,6 +65,7 @@ func (s *Server) routes() http.Handler {
 	r.Use(s.logRequests)
 	r.Use(s.recoverPanic)
 	r.Use(s.limitBody)
+	r.Use(s.requireChallengeHeader)
 	r.Use(s.rateLimit(s.generalLimiter))
 	r.Use(s.enforceCSRF)
 

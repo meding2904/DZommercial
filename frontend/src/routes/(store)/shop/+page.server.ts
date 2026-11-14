@@ -22,7 +22,8 @@ function readSort(value: string | null): Sort {
 	return SORTS.includes(value as Sort) ? (value as Sort) : 'featured';
 }
 
-export const load: PageServerLoad = async ({ url }) => {
+export const load: PageServerLoad = async ({ url, getClientAddress }) => {
+	const client = getClientAddress();
 	const sort = readSort(url.searchParams.get('sort'));
 	const rawConcern = url.searchParams.get('concern')?.trim() ?? '';
 	const concern = CONCERNS.includes(rawConcern) ? rawConcern : '';
@@ -30,7 +31,7 @@ export const load: PageServerLoad = async ({ url }) => {
 	const rawCategory = url.searchParams.get('category')?.trim() ?? '';
 
 	try {
-		const categoryData = await serverGet<{ categories: Category[] }>('/api/categories');
+		const categoryData = await serverGet<{ categories: Category[] }>('/api/categories', client);
 		const categories = categoryData.categories;
 		const category = categories.some((item) => item.slug === rawCategory) ? rawCategory : '';
 
@@ -40,7 +41,7 @@ export const load: PageServerLoad = async ({ url }) => {
 		if (q) params.set('q', q);
 		params.set('sort', sort);
 
-		const productData = await serverGet<{ products: Product[] }>(`/api/products?${params}`);
+		const productData = await serverGet<{ products: Product[] }>(`/api/products?${params}`, client);
 		const products =
 			sort === 'featured'
 				? [...productData.products].sort((a, b) => {

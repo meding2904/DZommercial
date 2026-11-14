@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { PUBLIC_TURNSTILE_SITE_KEY } from '$app/env/public';
 	import { ApiError, apiFetch } from '#lib/api';
 	import {
 		FREE_SHIPPING_OVER_CENTS,
@@ -21,6 +22,7 @@
 		'delivery_type',
 		'stop_desk_id',
 		'address',
+		'notes',
 		'captcha',
 		'terms'
 	] as const;
@@ -32,6 +34,25 @@
 		expires_in: number;
 	};
 
+	type TurnstileOptions = {
+		sitekey: string;
+		theme: 'light' | 'dark';
+		size: 'flexible';
+		callback: (token: string) => void;
+		'expired-callback': () => void;
+		'error-callback': () => void;
+		'timeout-callback': () => void;
+	};
+
+	type TurnstileApi = {
+		render: (container: HTMLElement, options: TurnstileOptions) => string;
+		reset: (widgetId?: string) => void;
+		remove: (widgetId?: string) => void;
+	};
+
+	const turnstileSiteKey = PUBLIC_TURNSTILE_SITE_KEY.trim();
+	const turnstileEnabled = turnstileSiteKey.length > 0;
+
 	let mounted = $state(false);
 	let busy = $state(false);
 	let formError = $state('');
@@ -42,6 +63,12 @@
 	let captchaState = $state<'idle' | 'loading' | 'ready' | 'error'>('idle');
 	let captchaAnswer = $state('');
 	let captchaError = $state('');
+	let turnstileContainer = $state<HTMLDivElement | null>(null);
+	let turnstileToken = $state('');
+	let turnstileState = $state<'idle' | 'loading' | 'ready' | 'error'>('idle');
+	let turnstileError = $state('');
+	let turnstileWidgetId: string | null = null;
+	let turnstileScript: Promise<void> | null = null;
 	let termsAccepted = $state(false);
 	let website = $state('');
 
@@ -83,9 +110,118 @@
 		mounted = true;
 		if (cart.items.length > 0) {
 			void loadWilayas();
-			void loadCaptcha();
+			if (turnstileEnabled) {
+				void tick().then(() => loadTurnstile());
+			} else {
+				void loadCaptcha();
+			}
 		}
 	});
+
+	function turnstileApi(): TurnstileApi | undefined {
+		return (window as Window & { turnstile?: TurnstileApi }).turnstile;
+	}
+
+	function ensureTurnstileScript(): Promise<void> {
+		if (turnstileApi()) return Promise.resolve();
+		if (turnstileScript) return turnstileScript;
+
+		turnstileScript = new Promise<void>((resolve, reject) => {
+			const prior = document.querySelector<HTMLScriptElement>('script[data-azahar-turnstile]');
+			const script = prior ?? document.createElement('script');
+
+			script.addEventListener('load', () => resolve(), { once: true });
+			script.addEventListener(
+				'error',
+				() => {
+					script.remove();
+					reject(new Error('The Turnstile script failed to load.'));
+				},
+				{ once: true }
+			);
+
+			if (!prior) {
+				script.dataset.azaharTurnstile = 'true';
+				script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+				script.async = true;
+				document.head.appendChild(script);
+			}
+		}).catch((error: unknown) => {
+			turnstileScript = null;
+			throw error;
+		});
+
+		return turnstileScript;
+	}
+
+	async function loadTurnstile(): Promise<void> {
+		if (!turnstileEnabled || turnstileState === 'loading') return;
+
+		turnstileState = 'loading';
+		turnstileToken = '';
+		turnstileError = '';
+
+		try {
+			await ensureTurnstileScript();
+			const api = turnstileApi();
+			if (!api || !turnstileContainer) throw new Error('Turnstile is unavailable.');
+
+			if (turnstileWidgetId) {
+				api.remove(turnstileWidgetId);
+				turnstileWidgetId = null;
+				turnstileContainer.replaceChildren();
+			}
+
+			const theme =
+				document.documentElement.getAttribute('data-store-theme') === 'dark' ? 'dark' : 'light';
+
+			turnstileWidgetId = api.render(turnstileContainer, {
+				sitekey: turnstileSiteKey,
+				theme,
+				size: 'flexible',
+				callback: (token) => {
+					turnstileToken = token;
+					turnstileState = 'ready';
+					turnstileError = '';
+				},
+				'expired-callback': () => {
+					turnstileToken = '';
+					turnstileError = 'The security check expired. Complete it again.';
+				},
+				'error-callback': () => {
+					turnstileToken = '';
+					turnstileState = 'error';
+					turnstileError =
+						'The security check failed to load. Check your connection and try again.';
+				},
+				'timeout-callback': () => {
+					turnstileToken = '';
+					turnstileError = 'The security check timed out. Complete it again.';
+				}
+			});
+
+			turnstileState = 'ready';
+		} catch {
+			turnstileState = 'error';
+			turnstileError =
+				'The security check could not load. Check your connection and try again, or write to hello@azahar.example.';
+		}
+	}
+
+	function resetTurnstile(): void {
+		turnstileToken = '';
+		turnstileError = '';
+
+		const api = turnstileApi();
+		if (api && turnstileWidgetId) {
+			api.reset(turnstileWidgetId);
+			turnstileState = 'ready';
+			return;
+		}
+
+		turnstileState = 'idle';
+		void loadTurnstile();
+	}
 
 	async function loadCaptcha(): Promise<void> {
 		captchaState = 'loading';
@@ -210,7 +346,19 @@
 		} else if (!form.address.trim()) {
 			next.address = 'Enter the delivery address.';
 		}
-		if (!captcha?.token) {
+		if (form.notes.length > 500) {
+			next.notes = 'Keep notes to 500 characters or fewer.';
+		}
+		if (turnstileEnabled) {
+			if (!turnstileToken) {
+				next.captcha =
+					turnstileState === 'error'
+						? 'The security check is unavailable. Try again, or write to hello@azahar.example.'
+						: turnstileState === 'loading'
+							? 'Wait for the security check to finish loading.'
+							: 'Complete the security check before placing the order.';
+			}
+		} else if (!captcha?.token) {
 			next.captcha = 'The security check is not ready. Request a new code.';
 		} else if (!captchaAnswer.trim()) {
 			next.captcha = 'Enter the code from the security check.';
@@ -237,7 +385,9 @@
 				firstInvalid === 'delivery_type'
 					? 'delivery-home'
 					: firstInvalid === 'captcha'
-						? 'captcha-answer'
+						? turnstileEnabled
+							? 'turnstile-check'
+							: 'captcha-answer'
 						: firstInvalid === 'terms'
 							? 'terms'
 							: firstInvalid;
@@ -272,6 +422,7 @@
 					website,
 					captcha_token: captcha?.token ?? '',
 					captcha_answer: captchaAnswer.trim(),
+					turnstile_token: turnstileEnabled ? turnstileToken : '',
 					terms_accepted: termsAccepted,
 					terms_version: TERMS_VERSION
 				}
@@ -301,10 +452,15 @@
 				formError = 'The order could not be placed. Check your connection and try again.';
 			}
 
-			if (refreshCaptcha) await loadCaptcha();
+			if (refreshCaptcha) {
+				if (turnstileEnabled) resetTurnstile();
+				else await loadCaptcha();
+			}
 			await tick();
 			if (refreshCaptcha) {
-				document.getElementById('captcha-answer')?.focus();
+				document
+					.getElementById(turnstileEnabled ? 'turnstile-check' : 'captcha-answer')
+					?.focus();
 			} else if (errors.terms) {
 				document.getElementById('terms')?.focus();
 			} else {
@@ -581,12 +737,18 @@
 							name="notes"
 							rows="3"
 							autocomplete="off"
+							maxlength="500"
 							bind:value={form.notes}
-							aria-describedby="notes-hint"
+							aria-invalid={errors.notes ? 'true' : undefined}
+							aria-describedby={errors.notes ? 'notes-error' : 'notes-hint'}
 						></textarea>
-						<p class="meta" id="notes-hint">
-							Optional. Gate codes, floor, a time that suits you.
-						</p>
+						{#if errors.notes}
+							<p class="field-error" id="notes-error">{errors.notes}</p>
+						{:else}
+							<p class="meta" id="notes-hint">
+								Optional. Gate codes, floor, a time that suits you.
+							</p>
+						{/if}
 					</div>
 				</div>
 
@@ -642,60 +804,113 @@
 					/>
 				</div>
 
-				<fieldset class="security-check">
-					<legend>Security check</legend>
-					<p class="meta">Type the five characters. This keeps automated orders off the ledger.</p>
+				{#if turnstileEnabled}
+					<fieldset class="security-check">
+						<legend>Security check</legend>
+						<p class="meta">
+							This check works with a keyboard and screen readers. It keeps automated orders off
+							the ledger.
+						</p>
 
-					<div class="captcha-row">
-						<div class="captcha-frame">
-							{#if captchaState === 'ready' && captcha}
-								<img
-									src={captcha.image}
-									alt="Verification code. Type the five characters shown."
-									width="220"
-									height="64"
-								/>
-							{:else if captchaState === 'loading'}
-								<span class="loading">Loading code.</span>
-							{:else}
-								<span class="captcha-error" role="alert">{captchaError}</span>
-							{/if}
-						</div>
-						<button
-							class="btn btn-secondary btn-small"
-							type="button"
-							onclick={loadCaptcha}
-							disabled={captchaState === 'loading'}
-						>
-							{captchaState === 'error' ? 'Try again' : 'New code'}
-						</button>
-					</div>
+						<div
+							id="turnstile-check"
+							class="turnstile-check"
+							tabindex="-1"
+							role="group"
+							bind:this={turnstileContainer}
+							aria-label="Cloudflare security check"
+							aria-describedby={errors.captcha ? 'captcha-error' : 'turnstile-status'}
+						></div>
 
-					<div class="field">
-						<label for="captcha-answer">Code</label>
-						<input
-							id="captcha-answer"
-							name="captcha_answer"
-							type="text"
-							inputmode="text"
-							autocomplete="off"
-							autocapitalize="characters"
-							spellcheck="false"
-							maxlength="5"
-							bind:value={captchaAnswer}
-							aria-invalid={errors.captcha ? 'true' : undefined}
-							aria-describedby={errors.captcha ? 'captcha-error' : 'captcha-hint'}
-						/>
 						{#if errors.captcha}
 							<p class="field-error" id="captcha-error">{errors.captcha}</p>
+						{/if}
+
+						{#if turnstileState === 'error'}
+							<div class="form-error" id="turnstile-status" role="alert">
+								<p>{turnstileError}</p>
+								<button class="inline-action" type="button" onclick={loadTurnstile}>
+									Try again
+								</button>
+							</div>
 						{:else}
-							<p class="meta" id="captcha-hint">
-								Five characters, not case-sensitive. If the code is hard to read, request a new
-								one or write to hello@azahar.example.
+							<p class="meta" id="turnstile-status" role="status" aria-live="polite">
+								{#if turnstileState === 'loading'}
+									Loading the security check.
+								{:else if turnstileError}
+									{turnstileError}
+								{:else if turnstileToken}
+									Security check complete.
+								{:else}
+									Complete the security check to place the order.
+								{/if}
 							</p>
 						{/if}
-					</div>
-				</fieldset>
+
+						{#if errors.captcha}
+							<p class="field-error" id="captcha-error">{errors.captcha}</p>
+						{/if}
+
+						<p class="meta">
+							If the check keeps failing, write to hello@azahar.example.
+						</p>
+					</fieldset>
+				{:else}
+					<fieldset class="security-check">
+						<legend>Security check</legend>
+						<p class="meta">Type the five characters. This keeps automated orders off the ledger.</p>
+
+						<div class="captcha-row">
+							<div class="captcha-frame">
+								{#if captchaState === 'ready' && captcha}
+									<img
+										src={captcha.image}
+										alt="Verification code. Type the five characters shown."
+										width="220"
+										height="64"
+									/>
+								{:else if captchaState === 'loading'}
+									<span class="loading">Loading code.</span>
+								{:else}
+									<span class="captcha-error" role="alert">{captchaError}</span>
+								{/if}
+							</div>
+							<button
+								class="btn btn-secondary btn-small"
+								type="button"
+								onclick={loadCaptcha}
+								disabled={captchaState === 'loading'}
+							>
+								{captchaState === 'error' ? 'Try again' : 'New code'}
+							</button>
+						</div>
+
+						<div class="field">
+							<label for="captcha-answer">Code</label>
+							<input
+								id="captcha-answer"
+								name="captcha_answer"
+								type="text"
+								inputmode="text"
+								autocomplete="off"
+								autocapitalize="characters"
+								spellcheck="false"
+								maxlength="5"
+								bind:value={captchaAnswer}
+								aria-invalid={errors.captcha ? 'true' : undefined}
+								aria-describedby={errors.captcha ? 'captcha-error' : 'captcha-hint'}
+							/>
+							{#if errors.captcha}
+								<p class="field-error" id="captcha-error">{errors.captcha}</p>
+							{:else}
+								<p class="meta" id="captcha-hint">
+									Five characters, not case-sensitive. If the code is hard to read, request a
+									new one or write to hello@azahar.example.
+								</p>
+							{/if}
+						</div>
+					</fieldset>
+				{/if}
 
 				<div class="terms">
 					<div class="terms-row">
@@ -912,6 +1127,10 @@
 		padding: 0;
 		font-size: 13px;
 		color: var(--ink);
+	}
+
+	.turnstile-check {
+		min-height: 65px;
 	}
 
 	.captcha-row {

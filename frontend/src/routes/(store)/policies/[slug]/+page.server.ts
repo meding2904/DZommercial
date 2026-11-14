@@ -75,11 +75,11 @@ const POLICIES: Record<string, Policy> = {
 		sections: [
 			{
 				heading: 'What we store',
-				body: 'For an order, we store the name, email, phone number, delivery address, order contents, total and status. For an account, we also store your name, email and a password hash. We do not store card details.'
+				body: 'For an order, we store the name, email, phone number, delivery address, order notes, order contents, total and status. For an account, we also store your name, email and a password hash. We do not store card details.'
 			},
 			{
 				heading: 'Cookies and local storage',
-				body: 'One cookie, azahar_session, keeps you signed in. It is HttpOnly and SameSite=Lax. The bag is kept in your browser local storage, not in a cookie. There are no analytics or advertising scripts on this site.'
+				body: 'Two cookies are set. azahar_session keeps you signed in; it is HttpOnly and SameSite=Lax. azahar_csrf guards forms against cross-site requests; it is readable by the page and lasts seven days. The bag and your theme choice are kept in your browser local storage, not in a cookie. There are no analytics or advertising scripts on this site.'
 			},
 			{
 				heading: 'Where it lives',
@@ -150,7 +150,7 @@ const POLICIES: Record<string, Policy> = {
 };
 
 export const load: PageServerLoad = ({ params }) => {
-	const policy = POLICIES[params.slug];
+	const policy = Object.hasOwn(POLICIES, params.slug) ? POLICIES[params.slug] : undefined;
 
 	if (!policy) {
 		error(404, 'That page is not here.');

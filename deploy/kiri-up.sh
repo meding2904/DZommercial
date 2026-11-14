@@ -17,6 +17,8 @@ if [[ "$APP_ENV" == "production" ]]; then
 	: "${ADMIN_EMAIL:?set ADMIN_EMAIL before running production}"
 	: "${ADMIN_PASSWORD:?set a unique ADMIN_PASSWORD before running production}"
 	: "${TURSO_AUTH_TOKEN:?set TURSO_AUTH_TOKEN before running production}"
+	: "${TURNSTILE_SECRET_KEY:?set TURNSTILE_SECRET_KEY before running production}"
+	: "${PUBLIC_TURNSTILE_SITE_KEY:?set PUBLIC_TURNSTILE_SITE_KEY before running production}"
 	if [[ "$ADMIN_PASSWORD" == "azahar-dev-admin-2026" ]]; then
 		echo "error: ADMIN_PASSWORD must not be the development default." >&2
 		exit 1
@@ -40,6 +42,8 @@ ADMIN_EMAIL="${ADMIN_EMAIL:-admin@azahar.example}"
 ADMIN_PASSWORD="${ADMIN_PASSWORD:-azahar-dev-admin-2026}"
 CUSTOMER_EMAIL="${CUSTOMER_EMAIL:-client@azahar.example}"
 CUSTOMER_PASSWORD="${CUSTOMER_PASSWORD:-azahar-dev-client-2026}"
+TURNSTILE_SECRET_KEY="${TURNSTILE_SECRET_KEY:-}"
+PUBLIC_TURNSTILE_SITE_KEY="${PUBLIC_TURNSTILE_SITE_KEY:-}"
 
 make_admin_token() {
 	if command -v openssl >/dev/null 2>&1; then
@@ -96,6 +100,7 @@ kiri run -d --name azahar-api --network azahar-net \
 	-e ADMIN_PASSWORD="$ADMIN_PASSWORD" \
 	-e CUSTOMER_EMAIL="$CUSTOMER_EMAIL" \
 	-e CUSTOMER_PASSWORD="$CUSTOMER_PASSWORD" \
+	-e TURNSTILE_SECRET_KEY="$TURNSTILE_SECRET_KEY" \
 	azahar-api:local >/dev/null
 
 echo "Starting azahar-web..."
@@ -104,6 +109,7 @@ kiri run -d --name azahar-web --network azahar-net -p 3000:3000 \
 	-e INTERNAL_API_URL=http://azahar-api:8080 \
 	-e ORIGIN="$APP_ORIGIN" \
 	-e ADMIN_ACCESS_TOKEN="$ADMIN_ACCESS_TOKEN" \
+	-e PUBLIC_TURNSTILE_SITE_KEY="$PUBLIC_TURNSTILE_SITE_KEY" \
 	azahar-web:local >/dev/null
 
 echo

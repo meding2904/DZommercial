@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"strconv"
 	"testing"
 	"time"
 )
@@ -47,6 +48,39 @@ func TestRateLimiterCleanup(t *testing.T) {
 	}
 	if _, ok := limiter.buckets["fresh"]; !ok {
 		t.Fatal("recent bucket should be kept")
+	}
+}
+
+func TestRateLimiterBucketMapStaysBounded(t *testing.T) {
+	limiter := newRateLimiter(1, time.Minute)
+	defer limiter.close()
+
+	start := time.Now()
+	limiter.mu.Lock()
+	for i := 0; i < maxBuckets; i++ {
+		key := "client-" + strconv.Itoa(i)
+		limiter.buckets[key] = &tokenBucket{
+			tokens: 1,
+			last:   start.Add(time.Duration(i) * time.Second),
+		}
+	}
+	limiter.mu.Unlock()
+
+	now := start.Add(time.Duration(maxBuckets) * time.Second)
+	if ok, _ := limiter.allow("new-client", now); !ok {
+		t.Fatal("a new key should still work when the bucket map is full")
+	}
+
+	limiter.mu.Lock()
+	defer limiter.mu.Unlock()
+	if len(limiter.buckets) > maxBuckets {
+		t.Fatalf("bucket map grew past its cap: got %d, want at most %d", len(limiter.buckets), maxBuckets)
+	}
+	if _, ok := limiter.buckets["client-0"]; ok {
+		t.Fatal("the oldest bucket should be evicted")
+	}
+	if _, ok := limiter.buckets["new-client"]; !ok {
+		t.Fatal("the new key should have a bucket")
 	}
 }
 

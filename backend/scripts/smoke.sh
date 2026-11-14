@@ -81,7 +81,8 @@ series_days="$(grep -o '"date":"' "$TMP_DIR/metrics.json" | wc -l | tr -d ' ')"
 [[ "$series_days" == "30" ]] || fail "revenue_series has $series_days days, want 30"
 echo "PASS GET /api/admin/metrics?days=30 returns 200 with 30 revenue points"
 
-challenge_status="$(curl -sS -o "$TMP_DIR/challenge.json" -w '%{http_code}' "$BASE_URL/api/checkout/challenge")"
+challenge_status="$(curl -sS -o "$TMP_DIR/challenge.json" -w '%{http_code}' \
+	-H 'X-Requested-With: azahar-web' "$BASE_URL/api/checkout/challenge")"
 [[ "$challenge_status" == "200" ]] || fail "checkout challenge returned $challenge_status, want 200"
 grep -q '"token":"' "$TMP_DIR/challenge.json" || fail "checkout challenge did not return a token"
 grep -q 'data:image/png;base64,' "$TMP_DIR/challenge.json" || fail "checkout challenge did not return an image"

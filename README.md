@@ -225,14 +225,17 @@ ADMIN_PASSWORD='a-long-private-password' ./deploy/kiri-up.sh
 | `SEED_DEMO` | true in development | Load the sample products, users and orders |
 | `TURSO_DATABASE_URL` | local container | Database address |
 | `TURSO_AUTH_TOKEN` | empty | Database token for a hosted database |
+| `TURNSTILE_SECRET_KEY` | empty | Cloudflare Turnstile secret. Required in production |
+| `PUBLIC_TURNSTILE_SITE_KEY` | empty | Cloudflare Turnstile site key. Required in production |
 
 `.env.example` lists every setting. The Kiri scripts use the values in your shell, not a
 hidden file.
 
 For a public deployment, set `APP_ENV=production`, use HTTPS, set `APP_ORIGIN` to the real
-address, set a real `ADMIN_PASSWORD`, and use a real courier. The API refuses to start in
-production without the required settings, and it rejects the public demo password. The full
-checklist is in `docs/SECURITY.md`.
+address, set a real `ADMIN_PASSWORD`, use a real courier, and set both Cloudflare Turnstile
+keys. Production uses Turnstile instead of the local development captcha. The API refuses to
+start in production without the required settings, and it rejects the public demo password.
+The full checklist is in `docs/SECURITY.md`.
 
 ## Common tasks
 

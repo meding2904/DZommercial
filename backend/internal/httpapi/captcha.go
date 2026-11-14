@@ -25,8 +25,6 @@ const (
 	captchaMaxEntries = 5000
 )
 
-var errCaptchaBusy = errors.New("captcha store is full")
-
 type captchaEntry struct {
 	code    string
 	ip      string
@@ -71,7 +69,7 @@ func (c *captchaStore) issue(ip string, now time.Time) (string, string, time.Dur
 
 	c.sweepLocked(now)
 	if len(c.entries) >= captchaMaxEntries {
-		return "", "", 0, errCaptchaBusy
+		c.evictOldestLocked()
 	}
 
 	entry := captchaEntry{
@@ -110,6 +108,7 @@ func (c *captchaStore) verify(token, answer, ip string, now time.Time) string {
 		return "fast"
 	}
 	if subtle.ConstantTimeCompare([]byte(entry.code), []byte(answer)) != 1 {
+		delete(c.entries, token)
 		return "wrong"
 	}
 
@@ -137,6 +136,20 @@ func (c *captchaStore) sweepLocked(now time.Time) {
 		if now.After(entry.expires) {
 			delete(c.entries, token)
 		}
+	}
+}
+
+func (c *captchaStore) evictOldestLocked() {
+	var oldestToken string
+	var oldest time.Time
+	for token, entry := range c.entries {
+		if oldestToken == "" || entry.issued.Before(oldest) {
+			oldestToken = token
+			oldest = entry.issued
+		}
+	}
+	if oldestToken != "" {
+		delete(c.entries, oldestToken)
 	}
 }
 
@@ -306,13 +319,13 @@ func captchaErrorMessage(reason string) string {
 }
 
 func (s *Server) handleCheckoutChallenge(w http.ResponseWriter, r *http.Request) {
+	if r.Header.Get("X-Requested-With") != "azahar-web" {
+		writeError(w, http.StatusForbidden, "forbidden", "The request could not be verified.")
+		return
+	}
+
 	token, image, ttl, err := s.captcha.issue(clientIP(r, s.cfg.TrustProxy), time.Now())
 	if err != nil {
-		if errors.Is(err, errCaptchaBusy) {
-			writeError(w, http.StatusTooManyRequests, "captcha_busy",
-				"The security check is busy. Try again in a moment.")
-			return
-		}
 		writeError(w, http.StatusInternalServerError, "internal_error", "Something went wrong.")
 		return
 	}

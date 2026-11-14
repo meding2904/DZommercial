@@ -1,4 +1,5 @@
 import { ADMIN_ACCESS_TOKEN, APP_ENV } from '$app/env/private';
+import { PUBLIC_TURNSTILE_SITE_KEY } from '$app/env/public';
 import { CSRF_COOKIE } from '#lib/csrf';
 import { GATE_COOKIE, GATE_PATH, GATE_CONFIGURED, hasGate } from '#lib/server/gate';
 import { isAdminPath, normalizePathname } from '#lib/server/path';
@@ -7,6 +8,14 @@ import type { Handle } from '@sveltejs/kit/hooks';
 const GATE_PATH_NORMALIZED = normalizePathname(GATE_PATH);
 const IS_PRODUCTION = APP_ENV.trim().toLowerCase() === 'production';
 const CSRF_MAX_AGE = 7 * 24 * 60 * 60;
+const CSRF_TOKEN_PATTERN = /^[0-9a-f]{64}$/;
+
+if (IS_PRODUCTION && !PUBLIC_TURNSTILE_SITE_KEY.trim()) {
+	throw new Error('PUBLIC_TURNSTILE_SITE_KEY is required in production.');
+}
+if (IS_PRODUCTION && /^[123]x/.test(PUBLIC_TURNSTILE_SITE_KEY.trim())) {
+	throw new Error('PUBLIC_TURNSTILE_SITE_KEY must not be a Turnstile test key.');
+}
 
 function makeCsrfToken(): string {
 	const bytes = new Uint8Array(32);
@@ -77,7 +86,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 	const acceptsHtml = (event.request.headers.get('accept') ?? '').includes('text/html');
 	if (event.request.method === 'GET' && acceptsHtml) {
 		const existing = event.cookies.get(CSRF_COOKIE);
-		if (!existing || existing.length < 32) {
+		if (!existing || !CSRF_TOKEN_PATTERN.test(existing)) {
 			event.cookies.set(CSRF_COOKIE, makeCsrfToken(), {
 				path: '/',
 				httpOnly: false,
@@ -88,5 +97,9 @@ export const handle: Handle = async ({ event, resolve }) => {
 		}
 	}
 
-	return harden(await resolve(event));
+	const response = harden(await resolve(event));
+	if (pathname.startsWith('/order/')) {
+		response.headers.set('Referrer-Policy', 'no-referrer');
+	}
+	return response;
 };

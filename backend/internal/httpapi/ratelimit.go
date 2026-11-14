@@ -8,6 +8,8 @@ import (
 	"time"
 )
 
+const maxBuckets = 10000
+
 type tokenBucket struct {
 	tokens float64
 	last   time.Time
@@ -40,6 +42,18 @@ func (l *rateLimiter) allow(key string, now time.Time) (bool, time.Duration) {
 	rate := l.limit / l.window.Seconds()
 	bucket, ok := l.buckets[key]
 	if !ok {
+		if len(l.buckets) >= maxBuckets {
+			var oldestKey string
+			var oldest *tokenBucket
+			for candidateKey, candidate := range l.buckets {
+				if oldest == nil || candidate.last.Before(oldest.last) {
+					oldestKey, oldest = candidateKey, candidate
+				}
+			}
+			if oldest != nil {
+				delete(l.buckets, oldestKey)
+			}
+		}
 		bucket = &tokenBucket{tokens: l.limit, last: now}
 		l.buckets[key] = bucket
 	}

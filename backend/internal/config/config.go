@@ -29,6 +29,7 @@ type Config struct {
 	CourierCredentials string
 	CourierFromWilaya  int
 	CourierTimeout     time.Duration
+	TurnstileSecret    string
 }
 
 func Load() (Config, error) {
@@ -50,6 +51,7 @@ func Load() (Config, error) {
 		CourierCredentials: strings.TrimSpace(os.Getenv("COURIER_CREDENTIALS")),
 		CourierFromWilaya:  getint("COURIER_FROM_WILAYA", 16),
 		CourierTimeout:     time.Duration(getint("COURIER_TIMEOUT_SECONDS", 12)) * time.Second,
+		TurnstileSecret:    strings.TrimSpace(os.Getenv("TURNSTILE_SECRET_KEY")),
 	}
 	cfg.SeedDemo = getbool("SEED_DEMO", strings.EqualFold(appEnv, "development"))
 
@@ -80,6 +82,14 @@ func Load() (Config, error) {
 		}
 		if cfg.SeedDemo && cfg.CustomerPassword == "azahar-dev-client-2026" {
 			return Config{}, errors.New("CUSTOMER_PASSWORD must not be the development default when SEED_DEMO=true")
+		}
+		if cfg.TurnstileSecret == "" {
+			return Config{}, errors.New("TURNSTILE_SECRET_KEY must be set when APP_ENV=production")
+		}
+		if strings.HasPrefix(cfg.TurnstileSecret, "1x") ||
+			strings.HasPrefix(cfg.TurnstileSecret, "2x") ||
+			strings.HasPrefix(cfg.TurnstileSecret, "3x") {
+			return Config{}, errors.New("TURNSTILE_SECRET_KEY must not be a Turnstile test key")
 		}
 		cfg.CookieSecure = true
 	}

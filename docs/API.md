@@ -9,7 +9,8 @@ RFC 3339 strings in UTC.
 ## Session and request rules
 
 - Cookie: `azahar_session`, `HttpOnly`, `SameSite=Lax`, `Path=/`, `Secure` in production.
-- CSRF cookie: `azahar_csrf`, readable by the page, `SameSite=Lax`, `Path=/`, `Secure` in production.
+- CSRF cookie: `azahar_csrf`, a 64-character lowercase hex token, readable by the page,
+  `SameSite=Lax`, `Path=/`, `Secure` in production.
 - `GET` and `HEAD` are safe.
 - Every `POST`, `PATCH`, `PUT` and `DELETE` must carry `X-Requested-With: azahar-web`, an
   `Origin` header equal to `APP_ORIGIN`, and `X-CSRF-Token` with the same value as the
@@ -114,7 +115,9 @@ newest first. `OrderSummary` is the order shape without the token and without th
 
 ### `GET /api/checkout/challenge`
 
-Returns a one-time captcha challenge for the order form.
+Returns a one-time captcha challenge for the order form when Cloudflare Turnstile is not
+configured. Requires `X-Requested-With: azahar-web`; a missing or wrong header returns `403`.
+The SPA sends this header through `apiFetch`.
 
 ```json
 {
@@ -125,8 +128,13 @@ Returns a one-time captcha challenge for the order form.
 ```
 
 The image is a rendered PNG, not text in the response. A challenge expires after 10 minutes, is
-valid for one successful verification, and is bound to the requesting client address when one
-is available. The challenge endpoint is limited to 30 requests per 10 minutes per address.
+valid until the first wrong answer or one successful verification, and is bound to the
+requesting client address when one is available. A full store evicts the oldest challenge
+instead of failing new requests. The endpoint is limited to 30 requests per 10 minutes per
+address.
+
+When `TURNSTILE_SECRET_KEY` is set on the API and `PUBLIC_TURNSTILE_SITE_KEY` on the web app,
+checkout uses Cloudflare Turnstile instead. The challenge endpoint is then unused.
 
 ### `POST /api/checkout`
 
@@ -148,6 +156,7 @@ computes the subtotal and total, and writes the order and items in one transacti
   "website": "",
   "captcha_token": "b7J...",
   "captcha_answer": "K7M2P",
+  "turnstile_token": "",
   "terms_accepted": true,
   "terms_version": "2026-11-14"
 }
@@ -155,12 +164,15 @@ computes the subtotal and total, and writes the order and items in one transacti
 
 `201 { "order": Order }` where `Order` includes `token` this one time. The token is 32
 random bytes, base64url, and only its SHA-256 hash is stored. The confirmation page is
-`/order/{token}`.
+`/order/{token}`. `GET /api/orders/{token}` does not echo the token.
 
 The checkout also requires the CSRF cookie and header described in the request rules. `website` is a
 honeypot and must stay empty. `terms_accepted` must be true and `terms_version` must match the
 current terms page. A missing or wrong captcha returns `422` with a `captcha` field. A filled
-honeypot returns `403 bot_detected`. The captcha is consumed on a successful verification.
+honeypot returns `403 bot_detected`. The local captcha is consumed on a successful
+verification. When Turnstile is configured, `turnstile_token` is required instead of
+`captcha_token` and `captcha_answer`; a verification-service failure returns `503
+captcha_unavailable`.
 
 `delivery_type` is `home` or `stopdesk`. A stop desk sends the desk `id` as `stop_desk_id`.
 The server checks the wilaya, commune and stop desk against the courier reference data and

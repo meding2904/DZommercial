@@ -3,10 +3,11 @@ import { ServerApiError, serverGet } from '#lib/server/api';
 import type { Product } from '#lib/types';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ params }) => {
+export const load: PageServerLoad = async ({ params, getClientAddress }) => {
 	try {
 		const data = await serverGet<{ product: Product; related: Product[] }>(
-			`/api/products/${encodeURIComponent(params.slug)}`
+			`/api/products/${encodeURIComponent(params.slug)}`,
+			getClientAddress()
 		);
 
 		return {

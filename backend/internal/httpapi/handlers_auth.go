@@ -77,6 +77,11 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		if err := s.store.CreateUser(r.Context(), tx, user); err != nil {
 			return err
 		}
+		if cookie, cookieErr := r.Cookie(sessionCookieName); cookieErr == nil && cookie.Value != "" {
+			if err := s.store.DeleteSessionByHash(r.Context(), tx, auth.HashToken(cookie.Value)); err != nil {
+				return err
+			}
+		}
 		return s.store.CreateSession(r.Context(), tx, session)
 	})
 	if err != nil {

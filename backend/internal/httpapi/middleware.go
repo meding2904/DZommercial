@@ -142,6 +142,19 @@ func (s *Server) limitBody(next http.Handler) http.Handler {
 	})
 }
 
+// Check the challenge header before any limiter runs. A cross-site image cannot
+// set this header, so rejected requests must not consume a visitor's bucket.
+func (s *Server) requireChallengeHeader(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == "/api/checkout/challenge" &&
+			r.Header.Get("X-Requested-With") != "azahar-web" {
+			writeError(w, http.StatusForbidden, "forbidden", "The request could not be verified.")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 const (
 	sessionCookieName = "azahar_session"
 	csrfCookieName    = "azahar_csrf"

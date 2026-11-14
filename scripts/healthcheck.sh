@@ -17,6 +17,18 @@ check() {
 	fi
 }
 
+check_custom_404() {
+	local path="$1"
+	local body
+	body="$(curl -s "${BASE}${path}")"
+	if [[ "$body" == *"This page is not on the shelf."* ]]; then
+		printf 'PASS 404 custom page %s\n' "$path"
+	else
+		printf 'FAIL 404 custom page missing %s\n' "$path"
+		FAILED=1
+	fi
+}
+
 check /
 check /shop
 check /shop?category=face
@@ -43,6 +55,10 @@ check /api/shipping/desks?wilaya=16
 check /nope 404
 check /product/does-not-exist 404
 check /policies/does-not-exist 404
+check_custom_404 /nope
+check_custom_404 /shop/nope
+check_custom_404 /product/does-not-exist
+check_custom_404 /policies/does-not-exist
 
 if [[ "$FAILED" -ne 0 ]]; then
 	exit 1

@@ -341,6 +341,11 @@ scripts/        health check and admin-gate proof of concept
 The shop is cash on delivery only. No card details are collected. Creating an account,
 checking out, and using the admin are all local to this demo.
 
+## Upcoming
+
+- WhatsApp Business API integration for order and delivery updates. Not implemented in this
+  demo.
+
 ## License
 
 The source code and written documentation in this repository are licensed under the Apache

@@ -7,7 +7,7 @@
 		{ slug: 'shipping', label: 'Shipping' },
 		{ slug: 'returns', label: 'Returns' },
 		{ slug: 'privacy', label: 'Privacy' },
-		{ slug: 'terms', label: 'Terms' }
+		{ slug: 'terms', label: 'Terms of service' }
 	];
 </script>
 
@@ -23,6 +23,9 @@
 	<p class="meta">Policies</p>
 	<h1>{data.policy.title}</h1>
 	<p class="lead">{data.policy.description}</p>
+	{#if data.policy.version}
+		<p class="meta">Version {data.policy.version}</p>
+	{/if}
 </div>
 
 <div class="wrap">

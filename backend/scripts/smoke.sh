@@ -8,6 +8,7 @@ JAR="$TMP_DIR/cookies.txt"
 LOG="$TMP_DIR/api.log"
 BIN="$TMP_DIR/azahar-api"
 PID=""
+CSRF_TOKEN="smoke-csrf-0123456789abcdef0123456789abcdef"
 
 cleanup() {
 	if [[ -n "$PID" ]]; then
@@ -66,6 +67,8 @@ login_status="$(curl -sS -o "$TMP_DIR/login.json" -D "$TMP_DIR/login.headers" -w
 	-H 'Content-Type: application/json' \
 	-H 'X-Requested-With: azahar-web' \
 	-H "Origin: ${APP_ORIGIN:-http://localhost:5173}" \
+	-H "Cookie: azahar_csrf=${CSRF_TOKEN}" \
+	-H "X-CSRF-Token: ${CSRF_TOKEN}" \
 	-d '{"email":"admin@azahar.example","password":"azahar-dev-admin-2026"}')"
 [[ "$login_status" == "200" ]] || fail "admin login returned $login_status, want 200"
 grep -qi '^set-cookie: azahar_session=' "$TMP_DIR/login.headers" || fail "login did not set azahar_session"
@@ -78,21 +81,32 @@ series_days="$(grep -o '"date":"' "$TMP_DIR/metrics.json" | wc -l | tr -d ' ')"
 [[ "$series_days" == "30" ]] || fail "revenue_series has $series_days days, want 30"
 echo "PASS GET /api/admin/metrics?days=30 returns 200 with 30 revenue points"
 
+challenge_status="$(curl -sS -o "$TMP_DIR/challenge.json" -w '%{http_code}' "$BASE_URL/api/checkout/challenge")"
+[[ "$challenge_status" == "200" ]] || fail "checkout challenge returned $challenge_status, want 200"
+grep -q '"token":"' "$TMP_DIR/challenge.json" || fail "checkout challenge did not return a token"
+grep -q 'data:image/png;base64,' "$TMP_DIR/challenge.json" || fail "checkout challenge did not return an image"
+echo "PASS GET /api/checkout/challenge returns a token and an image"
+
+csrf_status="$(curl -sS -o /dev/null -w '%{http_code}' \
+	-X POST "$BASE_URL/api/checkout" \
+	-H 'Content-Type: application/json' \
+	-H 'X-Requested-With: azahar-web' \
+	-H "Origin: ${APP_ORIGIN:-http://localhost:5173}" \
+	-d '{}')"
+[[ "$csrf_status" == "403" ]] || fail "checkout without a CSRF token returned $csrf_status, want 403"
+echo "PASS POST /api/checkout without a CSRF token returns 403"
+
 checkout_status="$(curl -sS -o "$TMP_DIR/checkout.json" -w '%{http_code}' \
 	-X POST "$BASE_URL/api/checkout" \
 	-H 'Content-Type: application/json' \
 	-H 'X-Requested-With: azahar-web' \
 	-H "Origin: ${APP_ORIGIN:-http://localhost:5173}" \
-	-d '{"name":"Amina B.","email":"amina@example.com","phone":"0550 00 00 00","address":"12 rue des Oliviers","city":"Algiers","notes":"Smoke test","items":[{"product_id":"prd_01","quantity":1}]}')"
-[[ "$checkout_status" == "201" ]] || fail "checkout returned $checkout_status, want 201"
-token="$(sed -n 's/.*"token":"\([^"]*\)".*/\1/p' "$TMP_DIR/checkout.json" | head -n 1)"
-[[ -n "$token" ]] || fail "checkout did not return an order token"
-echo "PASS POST /api/checkout returns 201 and an order token"
-
-order_status="$(curl -sS -o "$TMP_DIR/order.json" -w '%{http_code}' "$BASE_URL/api/orders/$token")"
-[[ "$order_status" == "200" ]] || fail "order lookup returned $order_status, want 200"
-grep -q '"number":"AZ-' "$TMP_DIR/order.json" || fail "order lookup did not return an order number"
-echo "PASS GET /api/orders/{token} returns 200"
+	-H "Cookie: azahar_csrf=${CSRF_TOKEN}" \
+	-H "X-CSRF-Token: ${CSRF_TOKEN}" \
+	-d '{"name":"Amina B.","email":"amina@example.com","phone":"0550 00 00 00","address":"12 rue des Oliviers","notes":"Smoke test","terms_accepted":true,"terms_version":"2026-11-14","items":[{"product_id":"prd_01","quantity":1}]}')"
+[[ "$checkout_status" == "422" ]] || fail "checkout without a captcha returned $checkout_status, want 422"
+grep -q '"captcha"' "$TMP_DIR/checkout.json" || fail "checkout did not mark the missing captcha"
+echo "PASS POST /api/checkout rejects a missing captcha"
 
 unauth_status="$(curl -sS -o /dev/null -w '%{http_code}' "$BASE_URL/api/admin/metrics")"
 [[ "$unauth_status" == "401" ]] || fail "unauthenticated metrics returned $unauth_status, want 401"

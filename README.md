@@ -17,7 +17,8 @@ No card payment is taken and the default courier setting does not create a real 
 - Check out with a name, email, phone, wilaya and commune.
 - Choose home delivery or a stop desk. A stop desk is a courier office where the customer
   collects the parcel.
-- Place a cash-on-delivery order and get a private confirmation page.
+- Place a cash-on-delivery order and get a private confirmation page. The checkout asks you to
+  accept the terms and pass a short security check before the order is written.
 - Create an account and see your own orders.
 - Switch between the light and dark theme. The choice is saved in the browser.
 - Read the shipping, returns, privacy and terms pages.

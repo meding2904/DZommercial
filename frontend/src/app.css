@@ -1627,6 +1627,10 @@ section[id] {
 	white-space: nowrap;
 }
 
+.toast .link-button {
+	color: inherit;
+}
+
 /* Utilities */
 .stack {
 	display: grid;

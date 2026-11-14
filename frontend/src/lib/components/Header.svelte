@@ -5,6 +5,7 @@
 	import { storeTheme } from '#lib/stores/storeTheme.svelte';
 
 	let menu = $state<HTMLDialogElement | null>(null);
+	let menuOpen = $state(false);
 	let ingredientsActive = $state(false);
 
 	const links = [
@@ -13,6 +14,8 @@
 		{ href: '/#ingredients', label: 'Ingredients' },
 		{ href: '/contact', label: 'Contact' }
 	];
+
+	const bagLabel = $derived(`Bag, ${cart.count} ${cart.count === 1 ? 'item' : 'items'}`);
 
 	function isCurrent(href: string): boolean {
 		if (href.startsWith('/#')) {
@@ -41,11 +44,13 @@
 
 	function openMenu(): void {
 		menu?.showModal();
+		menuOpen = true;
 		document.body.classList.add('menu-open');
 	}
 
 	function closeMenu(): void {
 		menu?.close();
+		menuOpen = false;
 		document.body.classList.remove('menu-open');
 	}
 </script>
@@ -71,8 +76,10 @@
 				class="theme-toggle"
 				type="button"
 				onclick={(event) => storeTheme.toggle(event.currentTarget)}
-				aria-label="Switch between light and dark mode"
-				title="Switch between light and dark mode"
+				aria-label={storeTheme.current === 'dark'
+					? 'Switch to light mode'
+					: 'Switch to dark mode'}
+				title={storeTheme.current === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
 				disabled={storeTheme.busy}
 			>
 				<svg
@@ -104,20 +111,36 @@
 				</svg>
 			</button>
 			<a class="text-link" href="/account">{auth.user ? auth.user.name.split(' ')[0] : 'Account'}</a>
-			<a class="bag-link" href="/cart" aria-label={`Bag, ${cart.count} items`}>
+			<a class="bag-link" href="/cart" aria-label={bagLabel}>
 				<span>Bag</span>
 				{#key cart.count}
 					<span class="bag-count" data-pop="true" aria-hidden="true">{cart.count}</span>
 				{/key}
 			</a>
-			<button class="menu-btn" type="button" onclick={openMenu} aria-haspopup="dialog">
+			<button
+				class="menu-btn"
+				type="button"
+				onclick={openMenu}
+				aria-haspopup="dialog"
+				aria-expanded={menuOpen}
+				aria-controls="site-menu"
+			>
 				Menu
 			</button>
 		</div>
 	</div>
 </header>
 
-<dialog class="menu-dialog" bind:this={menu} onclose={() => document.body.classList.remove('menu-open')}>
+<dialog
+	id="site-menu"
+	class="menu-dialog"
+	aria-label="Menu"
+	bind:this={menu}
+	onclose={() => {
+		menuOpen = false;
+		document.body.classList.remove('menu-open');
+	}}
+>
 	<div class="menu-panel">
 		<div class="menu-top">
 			<a class="wordmark" href="/" onclick={closeMenu} aria-label="Azahar home">Azahar<span>.</span></a>
@@ -127,6 +150,7 @@
 			{#each links as link}
 				<a
 					href={link.href}
+					aria-current={isCurrent(link.href) ? 'page' : undefined}
 					onclick={(event) => {
 						if (link.href === '/#ingredients' && page.url.pathname === '/') goToIngredients(event);
 						closeMenu();
@@ -136,7 +160,7 @@
 		</nav>
 		<div class="menu-foot">
 			<a href="/account" onclick={closeMenu}>{auth.user ? 'Your account' : 'Sign in'}</a>
-			<a href="/cart" onclick={closeMenu}>Bag, {cart.count} items</a>
+			<a href="/cart" onclick={closeMenu}>Bag, {cart.count} {cart.count === 1 ? 'item' : 'items'}</a>
 		</div>
 	</div>
 </dialog>

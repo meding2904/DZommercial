@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/hex"
 	"fmt"
 	"log/slog"
@@ -134,6 +135,19 @@ func (s *Server) recoverPanic(next http.Handler) http.Handler {
 	})
 }
 
+func (s *Server) limitBody(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+		next.ServeHTTP(w, r)
+	})
+}
+
+const (
+	sessionCookieName = "azahar_session"
+	csrfCookieName    = "azahar_csrf"
+	csrfHeaderName    = "X-CSRF-Token"
+)
+
 func (s *Server) enforceCSRF(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
@@ -155,18 +169,17 @@ func (s *Server) enforceCSRF(next http.Handler) http.Handler {
 			writeError(w, http.StatusForbidden, "csrf_failed", "The request could not be verified.")
 			return
 		}
+		cookie, err := r.Cookie(csrfCookieName)
+		header := r.Header.Get(csrfHeaderName)
+		if err != nil || cookie.Value == "" || header == "" ||
+			len(cookie.Value) > 128 || len(header) > 128 ||
+			subtle.ConstantTimeCompare([]byte(cookie.Value), []byte(header)) != 1 {
+			writeError(w, http.StatusForbidden, "csrf_failed", "The request could not be verified.")
+			return
+		}
 		next.ServeHTTP(w, r)
 	})
 }
-
-func (s *Server) limitBody(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
-		next.ServeHTTP(w, r)
-	})
-}
-
-const sessionCookieName = "azahar_session"
 
 func (s *Server) setSessionCookie(w http.ResponseWriter, token string, expires time.Time) {
 	http.SetCookie(w, &http.Cookie{

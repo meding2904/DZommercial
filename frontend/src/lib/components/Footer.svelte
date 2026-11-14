@@ -28,7 +28,7 @@
 				<a href="/policies/shipping">Shipping</a>
 				<a href="/policies/returns">Returns</a>
 				<a href="/policies/privacy">Privacy</a>
-				<a href="/policies/terms">Terms</a>
+				<a href="/policies/terms">Terms of service</a>
 				<a href="/credits">Photography credits</a>
 			</div>
 		</div>

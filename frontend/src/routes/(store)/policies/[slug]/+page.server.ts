@@ -4,6 +4,7 @@ import {
 	SHIPPING_CENTS
 } from '#lib/components/store/shipping';
 import { money } from '#lib/format';
+import { TERMS_VERSION } from '#lib/legal';
 import type { PageServerLoad } from './$types';
 
 type PolicySection = { heading: string; body: string };
@@ -11,6 +12,7 @@ type PolicySection = { heading: string; body: string };
 type Policy = {
 	title: string;
 	description: string;
+	version?: string;
 	sections: PolicySection[];
 };
 
@@ -94,28 +96,54 @@ const POLICIES: Record<string, Policy> = {
 		]
 	},
 	terms: {
-		title: 'Terms',
-		description: 'The terms for a demonstration storefront with sample products and cash on delivery.',
+		title: 'Terms of service',
+		description:
+			'The terms for this demonstration storefront, its sample orders and the limits of what it promises.',
+		version: TERMS_VERSION,
 		sections: [
 			{
-				heading: 'A demonstration store',
-				body: 'Azahar is a demonstration storefront. The products, prices, photographs, story and policies are sample content. An order placed here does not create a binding sale.'
+				heading: 'A demonstration, not a live shop',
+				body: 'Azahar is a demonstration storefront. The products, prices, photographs, story and policies are sample content. An order placed here does not create a binding sale, a delivery obligation or a payment obligation. Do not use this demo for a real purchase or send real personal data.'
 			},
 			{
-				heading: 'Orders and stock',
-				body: 'Prices are in Algerian dinar and stored as centimes. Stock is checked again at checkout. If a formula is no longer available, the order is declined with a message and nothing is charged.'
+				heading: 'Orders and acceptance',
+				body: 'An order is an offer to buy sample goods. The demo may decline or cancel an order at any time, including when stock is unavailable. No contract is formed until a real shop confirms the order in writing. You confirm that the delivery details you enter are yours to use and that you can receive the order.'
 			},
 			{
-				heading: 'Payment',
-				body: 'Cash on delivery is the only method. You pay the courier when the order arrives. No card details are collected and no card gateway is connected.'
+				heading: 'Prices, stock and payment',
+				body: 'Prices are in Algerian dinar and stored as centimes. The server checks stock again at checkout. Cash on delivery is the only method: you pay the courier when the parcel arrives. No card details are collected and no card gateway is connected.'
 			},
 			{
-				heading: 'Content and photographs',
-				body: 'The photographs are licensed stand-ins from Pexels and the bottles in them are blank mockups. They are credited on the credits page. The product names and descriptions are sample content.'
+				heading: 'Delivery',
+				body: 'Delivery addresses and courier details are sample data. A real courier service, delivery time or parcel is not guaranteed. The shipping page explains the sample costs and the demo limits.'
 			},
 			{
-				heading: 'Changes',
-				body: 'These terms may change as the demo is built. The page is not legal advice and makes no claim of certification or compliance.'
+				heading: 'Returns and cancellations',
+				body: 'The returns page describes the sample return window and what can come back. Because this is a demo, no real return, refund or replacement can be booked through it.'
+			},
+			{
+				heading: 'Product information',
+				body: 'Descriptions, ingredients and how-to text are sample content. They are not medical advice and make no claim to diagnose, treat or cure a condition. A real product should be patch tested and used under the guidance of a qualified professional.'
+			},
+			{
+				heading: 'Limitation of liability',
+				body: 'To the fullest extent permitted by law, the demo owner is not liable for indirect or consequential loss, loss of data, or loss arising from reliance on sample content, a sample order or a courier detail. Nothing in these terms excludes or limits liability that cannot be excluded or limited by law, including liability for death or personal injury caused by negligence, or for fraud.'
+			},
+			{
+				heading: 'Privacy',
+				body: 'The privacy page explains what this demo stores and how to ask for a copy or deletion. Do not send real personal data. The demo keeps order records so the admin views stay consistent.'
+			},
+			{
+				heading: 'Changes and version',
+				body: `These terms may change as the demo is built. The checkout records the version accepted with an order. This version is ${TERMS_VERSION}. A change takes effect when the new version is published on this page.`
+			},
+			{
+				heading: 'Not legal advice',
+				body: 'These are sample terms for a demonstration and are not legal advice. A real shop must have its terms, privacy notice and consumer information reviewed under the law that applies to it before taking real orders.'
+			},
+			{
+				heading: 'Contact',
+				body: 'Questions about these terms: hello@azahar.example.'
 			}
 		]
 	}

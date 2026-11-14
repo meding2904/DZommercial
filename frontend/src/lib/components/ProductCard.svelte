@@ -21,7 +21,7 @@
 		<div class="product-media">
 			<ProductImage
 				src={product.image}
-				alt={product.name}
+				alt=""
 				width={1200}
 				height={1500}
 				sizes="(max-width: 560px) 100vw, (max-width: 1080px) 50vw, 25vw"
@@ -37,11 +37,21 @@
 	</a>
 
 	{#if product.stock > 0}
-		<button class="btn btn-secondary btn-small product-add" type="button" onclick={add}>
+		<button
+			class="btn btn-secondary btn-small product-add"
+			type="button"
+			aria-label={`Add ${product.name} to the bag`}
+			onclick={add}
+		>
 			Add to bag
 		</button>
 	{:else}
-		<button class="btn btn-secondary btn-small product-add" type="button" disabled>
+		<button
+			class="btn btn-secondary btn-small product-add"
+			type="button"
+			aria-label={`${product.name} is sold out`}
+			disabled
+		>
 			Sold out
 		</button>
 	{/if}

@@ -66,7 +66,28 @@ hard requirement, not a suggestion.
 - Every unsafe request with an `Origin` header must match `APP_ORIGIN`. The SvelteKit proxy
   forwards the browser's origin. In development, a missing origin is allowed only when
   `APP_ENV=development`.
+- The SvelteKit hook sets a random `azahar_csrf` cookie on document requests. The cookie is
+  readable by the page, `SameSite=Lax`, `Path=/` and `Secure` in production.
+- Every unsafe request must also send `X-CSRF-Token` with exactly the cookie value. The API
+  compares the two in constant time. A request without a matching pair returns `403`.
 - The API does not enable CORS. Cross-origin reads are blocked by the browser.
+
+## Captcha, bot detection and terms
+
+- `GET /api/checkout/challenge` issues a one-time captcha. The code is five characters from
+  an alphabet without `I`, `O`, `0` or `1`. The image is a rendered PNG, not text, and is
+  returned as a data URL.
+- A challenge expires after 10 minutes, is deleted after one successful verification, and is
+  bound to the client address when one is available. It must be at least two seconds old, so
+  an instant form fill fails.
+- Wrong answers keep the challenge for another try. Expired or reused challenges are deleted.
+  The challenge store is in memory and per process.
+- The checkout form includes a hidden `website` honeypot. A filled value returns
+  `403 bot_detected` before any order work.
+- Checkout requires `terms_accepted: true` and the current `terms_version`. The accepted
+  version and time are written to `audit_log` as `order.terms_accepted`.
+- The terms page is sample content for the demo. It is not legal advice and does not create a
+  binding sale.
 
 ## Authorization
 
@@ -122,6 +143,7 @@ In memory token buckets, keyed by client IP:
 
 - Login and register: 10 requests per 15 minutes.
 - Checkout: 20 requests per 10 minutes.
+- Captcha challenge: 30 requests per 10 minutes.
 - General API: 120 requests per minute.
 - Admin mutations: 60 requests per minute.
 
@@ -176,7 +198,10 @@ SvelteKit document:
 - Set `COURIER_KEY` and `COURIER_CREDENTIALS` for a real courier. The `sandbox` key creates
   no parcels and must not be used for live orders.
 - Add email verification, password reset and a change-password flow.
-- Move rate limiting to a shared store if the API runs more than one replica.
+- Move rate limiting and captcha challenges to a shared store if the API runs more than one
+  replica.
+- Have a lawyer review the terms, privacy notice and consumer information for the law that
+  applies before taking real orders. The sample terms are not legal advice.
 - Connect a real payment provider. Cash on delivery is the only method now.
 - Add a real support inbox and privacy contact.
 - Run a dependency and container scan, and set up log retention.

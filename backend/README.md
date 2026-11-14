@@ -151,27 +151,35 @@ JAR=$(mktemp)
 curl -s "$BASE/api/products"
 
 # 2. Admin login returns 200 and a session cookie
+CSRF=local-csrf-0123456789abcdef0123456789abcdef
 curl -s -D /tmp/azahar-login-headers -c "$JAR" \
   -X POST "$BASE/api/auth/login" \
   -H 'Content-Type: application/json' \
   -H 'X-Requested-With: azahar-web' \
   -H 'Origin: http://localhost:5173' \
+  -H "Cookie: azahar_csrf=$CSRF" \
+  -H "X-CSRF-Token: $CSRF" \
   -d '{"email":"admin@azahar.example","password":"azahar-dev-admin-2026"}'
 
 # 3. Metrics returns 200 and a 30 day series
 curl -s -b "$JAR" "$BASE/api/admin/metrics?days=30"
 
-# 4. Checkout returns 201 and an order token
+# 4. Captcha challenge returns a token and a PNG data URL
+curl -s "$BASE/api/checkout/challenge"
+
+# 5. Checkout returns 201 and an order token when the code and terms are supplied
 curl -s -X POST "$BASE/api/checkout" \
   -H 'Content-Type: application/json' \
   -H 'X-Requested-With: azahar-web' \
   -H 'Origin: http://localhost:5173' \
-  -d '{"name":"Amina B.","email":"amina@example.com","phone":"0550 00 00 00","address":"12 rue des Oliviers","city":"Algiers","notes":"","items":[{"product_id":"prd_01","quantity":1}]}'
+  -H "Cookie: azahar_csrf=$CSRF" \
+  -H "X-CSRF-Token: $CSRF" \
+  -d '{"name":"Amina B.","email":"amina@example.com","phone":"0550 00 00 00","address":"12 rue des Oliviers","notes":"","terms_accepted":true,"terms_version":"2026-11-14","captcha_token":"REPLACE_WITH_TOKEN","captcha_answer":"REPLACE_WITH_CODE","items":[{"product_id":"prd_01","quantity":1}]}'
 
-# 5. Public order lookup by token
+# 6. Public order lookup by token
 curl -s "$BASE/api/orders/REPLACE_WITH_TOKEN"
 
-# 6. Unauthenticated admin request returns 401
+# 7. Unauthenticated admin request returns 401
 curl -s -o /dev/null -w '%{http_code}\n' "$BASE/api/admin/metrics"
 ```
 

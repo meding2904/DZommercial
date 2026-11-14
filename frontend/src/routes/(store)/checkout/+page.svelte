@@ -8,6 +8,7 @@
 		shippingFor
 	} from '#lib/components/store/shipping';
 	import { money } from '#lib/format';
+	import { TERMS_VERSION } from '#lib/legal';
 	import { cart } from '#lib/stores/cart.svelte';
 	import type { Commune, Order, StopDesk, Wilaya } from '#lib/types';
 
@@ -19,15 +20,30 @@
 		'commune_name',
 		'delivery_type',
 		'stop_desk_id',
-		'address'
+		'address',
+		'captcha',
+		'terms'
 	] as const;
 	type FieldKey = (typeof FIELD_ORDER)[number];
+
+	type CaptchaChallenge = {
+		token: string;
+		image: string;
+		expires_in: number;
+	};
 
 	let mounted = $state(false);
 	let busy = $state(false);
 	let formError = $state('');
 	let errors = $state<Record<string, string>>({});
 	let errorBox = $state<HTMLDivElement | null>(null);
+
+	let captcha = $state<CaptchaChallenge | null>(null);
+	let captchaState = $state<'idle' | 'loading' | 'ready' | 'error'>('idle');
+	let captchaAnswer = $state('');
+	let captchaError = $state('');
+	let termsAccepted = $state(false);
+	let website = $state('');
 
 	let form = $state({
 		name: '',
@@ -57,14 +73,6 @@
 	const communeLocked = $derived(
 		form.deliveryType === 'stopdesk' && Boolean(selectedDesk?.communeName)
 	);
-	const deliveryReady = $derived(
-		wilayaState === 'ready' &&
-			Boolean(form.wilayaCode) &&
-			communeState === 'ready' &&
-			Boolean(form.communeName) &&
-			(form.deliveryType === 'home' ||
-				(deskState === 'ready' && Boolean(form.stopDeskId)))
-	);
 	const shipping = $derived(shippingFor(cart.subtotal));
 	const total = $derived(cart.subtotal + shipping);
 	const hasStockIssue = $derived(
@@ -73,8 +81,26 @@
 
 	onMount(() => {
 		mounted = true;
-		if (cart.items.length > 0) void loadWilayas();
+		if (cart.items.length > 0) {
+			void loadWilayas();
+			void loadCaptcha();
+		}
 	});
+
+	async function loadCaptcha(): Promise<void> {
+		captchaState = 'loading';
+		captchaError = '';
+		captcha = null;
+		captchaAnswer = '';
+		try {
+			const data = await apiFetch<CaptchaChallenge>('/checkout/challenge');
+			captcha = data;
+			captchaState = 'ready';
+		} catch {
+			captchaState = 'error';
+			captchaError = 'The security check could not load. Check your connection and try again.';
+		}
+	}
 
 	async function loadWilayas(): Promise<void> {
 		wilayaState = 'loading';
@@ -184,6 +210,14 @@
 		} else if (!form.address.trim()) {
 			next.address = 'Enter the delivery address.';
 		}
+		if (!captcha?.token) {
+			next.captcha = 'The security check is not ready. Request a new code.';
+		} else if (!captchaAnswer.trim()) {
+			next.captcha = 'Enter the code from the security check.';
+		}
+		if (!termsAccepted) {
+			next.terms = 'Accept the terms of service before placing the order.';
+		}
 
 		errors = next;
 		return FIELD_ORDER.find((key) => next[key]) ?? null;
@@ -199,8 +233,20 @@
 		if (firstInvalid) {
 			formError = 'Check the marked fields.';
 			await tick();
-			const focusId = firstInvalid === 'delivery_type' ? 'delivery-home' : firstInvalid;
-			document.getElementById(focusId)?.focus();
+			const focusId =
+				firstInvalid === 'delivery_type'
+					? 'delivery-home'
+					: firstInvalid === 'captcha'
+						? 'captcha-answer'
+						: firstInvalid === 'terms'
+							? 'terms'
+							: firstInvalid;
+			const target = document.getElementById(focusId);
+			if (target instanceof HTMLElement && !target.matches(':disabled')) {
+				target.focus();
+			} else {
+				errorBox?.focus();
+			}
 			return;
 		}
 
@@ -222,7 +268,12 @@
 					items: cart.items.map((line) => ({
 						product_id: line.product_id,
 						quantity: line.quantity
-					}))
+					})),
+					website,
+					captcha_token: captcha?.token ?? '',
+					captcha_answer: captchaAnswer.trim(),
+					terms_accepted: termsAccepted,
+					terms_version: TERMS_VERSION
 				}
 			});
 
@@ -237,6 +288,7 @@
 			cart.clear();
 			await goto(`/order/${encodeURIComponent(data.order.token)}`);
 		} catch (err) {
+			let refreshCaptcha = false;
 			if (err instanceof ApiError) {
 				formError = err.message;
 				errors = Object.fromEntries(
@@ -244,12 +296,20 @@
 						FIELD_ORDER.includes(key as FieldKey)
 					)
 				);
+				refreshCaptcha = Boolean(err.fields.captcha) || err.status === 409;
 			} else {
 				formError = 'The order could not be placed. Check your connection and try again.';
 			}
 
+			if (refreshCaptcha) await loadCaptcha();
 			await tick();
-			errorBox?.focus();
+			if (refreshCaptcha) {
+				document.getElementById('captcha-answer')?.focus();
+			} else if (errors.terms) {
+				document.getElementById('terms')?.focus();
+			} else {
+				errorBox?.focus();
+			}
 		} finally {
 			busy = false;
 		}
@@ -570,10 +630,111 @@
 					<p class="meta">The courier collects the total in cash. No card is charged here.</p>
 				</fieldset>
 
+				<div class="hp-field" aria-hidden="true">
+					<label for="azahar-extra">Leave this field empty</label>
+					<input
+						id="azahar-extra"
+						name="azahar_extra"
+						type="text"
+						tabindex="-1"
+						autocomplete="off"
+						bind:value={website}
+					/>
+				</div>
+
+				<fieldset class="security-check">
+					<legend>Security check</legend>
+					<p class="meta">Type the five characters. This keeps automated orders off the ledger.</p>
+
+					<div class="captcha-row">
+						<div class="captcha-frame">
+							{#if captchaState === 'ready' && captcha}
+								<img
+									src={captcha.image}
+									alt="Verification code. Type the five characters shown."
+									width="220"
+									height="64"
+								/>
+							{:else if captchaState === 'loading'}
+								<span class="loading">Loading code.</span>
+							{:else}
+								<span class="captcha-error" role="alert">{captchaError}</span>
+							{/if}
+						</div>
+						<button
+							class="btn btn-secondary btn-small"
+							type="button"
+							onclick={loadCaptcha}
+							disabled={captchaState === 'loading'}
+						>
+							{captchaState === 'error' ? 'Try again' : 'New code'}
+						</button>
+					</div>
+
+					<div class="field">
+						<label for="captcha-answer">Code</label>
+						<input
+							id="captcha-answer"
+							name="captcha_answer"
+							type="text"
+							inputmode="text"
+							autocomplete="off"
+							autocapitalize="characters"
+							spellcheck="false"
+							maxlength="5"
+							bind:value={captchaAnswer}
+							aria-invalid={errors.captcha ? 'true' : undefined}
+							aria-describedby={errors.captcha ? 'captcha-error' : 'captcha-hint'}
+						/>
+						{#if errors.captcha}
+							<p class="field-error" id="captcha-error">{errors.captcha}</p>
+						{:else}
+							<p class="meta" id="captcha-hint">
+								Five characters, not case-sensitive. If the code is hard to read, request a new
+								one or write to hello@azahar.example.
+							</p>
+						{/if}
+					</div>
+				</fieldset>
+
+				<div class="terms">
+					<div class="terms-row">
+						<input
+							id="terms"
+							name="terms"
+							type="checkbox"
+							bind:checked={termsAccepted}
+							aria-invalid={errors.terms ? 'true' : undefined}
+							aria-describedby={errors.terms ? 'terms-error' : 'terms-detail'}
+						/>
+						<div>
+							<label for="terms">I accept the terms of service.</label>
+							<p class="meta" id="terms-detail">
+								Read the <a href="/policies/terms" target="_blank" rel="noopener"
+									>terms of service</a
+								>
+								(version {TERMS_VERSION}) and the <a
+									href="/policies/privacy"
+									target="_blank"
+									rel="noopener">privacy policy</a
+								>. I understand this is a demo shop and no binding sale is created.
+							</p>
+						</div>
+					</div>
+					{#if errors.terms}
+						<p class="field-error" id="terms-error">{errors.terms}</p>
+					{/if}
+				</div>
+
+				<div class="place-total">
+					<span>Total, cash on delivery</span>
+					<span class="mono">{money(total)}</span>
+				</div>
+
 				<button
 					class="btn btn-primary btn-block place-order"
 					type="submit"
-					disabled={busy || hasStockIssue || !deliveryReady}
+					disabled={busy || hasStockIssue}
 				>
 					{busy ? 'Placing the order...' : 'Place the order'}
 				</button>
@@ -729,6 +890,108 @@
 
 	.place-order {
 		min-height: 50px;
+	}
+
+	.hp-field {
+		position: absolute;
+		left: -9999px;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+	}
+
+	.security-check {
+		display: grid;
+		gap: 10px;
+		margin: 0;
+		padding: 0;
+		border: 0;
+	}
+
+	.security-check legend {
+		padding: 0;
+		font-size: 13px;
+		color: var(--ink);
+	}
+
+	.captcha-row {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 12px;
+	}
+
+	.captcha-frame {
+		display: grid;
+		place-items: center;
+		width: 220px;
+		height: 64px;
+		overflow: hidden;
+		border: 1px solid var(--line);
+		border-radius: var(--radius);
+		background: var(--surface);
+	}
+
+	.captcha-frame img {
+		width: 220px;
+		height: 64px;
+	}
+
+	.captcha-error {
+		padding: 6px;
+		color: var(--accent);
+		font-size: 12px;
+		line-height: 1.35;
+		text-align: center;
+	}
+
+	.terms {
+		display: grid;
+		gap: 6px;
+	}
+
+	.terms-row {
+		display: flex;
+		align-items: flex-start;
+		gap: 10px;
+	}
+
+	.terms-row input {
+		flex: 0 0 auto;
+		width: 18px;
+		height: 18px;
+		margin-top: 3px;
+		accent-color: var(--accent);
+	}
+
+	.terms-row label {
+		font-size: 14px;
+		font-weight: 500;
+	}
+
+	.terms-row .meta {
+		max-width: 52ch;
+		margin-top: 4px;
+	}
+
+	.terms-row a {
+		text-decoration: underline;
+		text-underline-offset: 3px;
+	}
+
+	.place-total {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 8px 16px;
+		padding-top: 18px;
+		border-top: 1px solid var(--line);
+		font-size: 14px;
+	}
+
+	.place-total .mono {
+		font-size: 17px;
 	}
 
 	.place-note {

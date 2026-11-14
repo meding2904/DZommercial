@@ -3,6 +3,7 @@ package httpapi
 import (
 	"crypto/subtle"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
@@ -15,17 +16,25 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+// Keep checkoutTermsVersion in sync with frontend/src/lib/legal.ts.
+const checkoutTermsVersion = "2026-11-14"
+
 type checkoutPayload struct {
-	Name         string         `json:"name"`
-	Email        string         `json:"email"`
-	Phone        string         `json:"phone"`
-	Address      string         `json:"address"`
-	WilayaCode   int            `json:"wilaya_code"`
-	CommuneName  string         `json:"commune_name"`
-	DeliveryType string         `json:"delivery_type"`
-	StopDeskID   string         `json:"stop_desk_id"`
-	Notes        string         `json:"notes"`
-	Items        []checkoutLine `json:"items"`
+	Name          string         `json:"name"`
+	Email         string         `json:"email"`
+	Phone         string         `json:"phone"`
+	Address       string         `json:"address"`
+	WilayaCode    int            `json:"wilaya_code"`
+	CommuneName   string         `json:"commune_name"`
+	DeliveryType  string         `json:"delivery_type"`
+	StopDeskID    string         `json:"stop_desk_id"`
+	Notes         string         `json:"notes"`
+	Items         []checkoutLine `json:"items"`
+	Website       string         `json:"website"`
+	CaptchaToken  string         `json:"captcha_token"`
+	CaptchaAnswer string         `json:"captcha_answer"`
+	TermsAccepted bool           `json:"terms_accepted"`
+	TermsVersion  string         `json:"terms_version"`
 }
 
 type checkoutLine struct {
@@ -47,11 +56,28 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 	payload.DeliveryType = strings.ToLower(strings.TrimSpace(payload.DeliveryType))
 	payload.StopDeskID = strings.TrimSpace(payload.StopDeskID)
 	payload.Notes = strings.TrimSpace(payload.Notes)
+	payload.Website = strings.TrimSpace(payload.Website)
+	payload.CaptchaToken = strings.TrimSpace(payload.CaptchaToken)
+	payload.CaptchaAnswer = strings.TrimSpace(payload.CaptchaAnswer)
+	payload.TermsVersion = strings.TrimSpace(payload.TermsVersion)
 	if payload.DeliveryType == "" {
 		payload.DeliveryType = "home"
 	}
 
+	// A person never sees this field. A filled value is a bot signal, so reject
+	// before doing any order work.
+	if payload.Website != "" {
+		writeError(w, http.StatusForbidden, "bot_detected", "The order could not be verified.")
+		return
+	}
+
 	fields := make(map[string]string)
+	if !payload.TermsAccepted || payload.TermsVersion != checkoutTermsVersion {
+		fields["terms"] = "Accept the current terms of service before placing the order."
+	}
+	if payload.CaptchaToken == "" || payload.CaptchaAnswer == "" {
+		fields["captcha"] = "Enter the code from the security check."
+	}
 	if runeLen(payload.Name) < 2 || runeLen(payload.Name) > 120 {
 		fields["name"] = "Use between 2 and 120 characters."
 	}
@@ -131,6 +157,13 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 		r.Context(), payload.WilayaCode, payload.CommuneName, payload.DeliveryType, payload.StopDeskID)
 	if destinationProblem != nil {
 		writeProblem(w, destinationProblem)
+		return
+	}
+
+	if reason := s.captcha.verify(payload.CaptchaToken, payload.CaptchaAnswer,
+		clientIP(r, s.cfg.TrustProxy), time.Now()); reason != "" {
+		writeProblem(w, problemFields(422, "validation_error", "The security check failed.",
+			map[string]string{"captcha": captchaErrorMessage(reason)}))
 		return
 	}
 
@@ -218,6 +251,24 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 		order.Number = number
 
 		if err := s.store.CreateOrder(r.Context(), tx, order, items); err != nil {
+			return err
+		}
+		detail, err := json.Marshal(map[string]string{
+			"version":     payload.TermsVersion,
+			"accepted_at": store.FormatTime(now),
+		})
+		if err != nil {
+			return err
+		}
+		if err := s.store.InsertAudit(r.Context(), tx, store.AuditEntry{
+			ID:          ids.New("aud"),
+			ActorUserID: currentUserID(r),
+			Action:      "order.terms_accepted",
+			EntityType:  "order",
+			EntityID:    order.ID,
+			Detail:      string(detail),
+			CreatedAt:   now,
+		}); err != nil {
 			return err
 		}
 		for _, line := range lines {

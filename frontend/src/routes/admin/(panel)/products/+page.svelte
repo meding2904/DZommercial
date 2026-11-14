@@ -277,7 +277,7 @@
 		<div class="a-panel">
 			<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 			<div class="a-table-scroll" role="region" aria-label="Products" tabindex="0">
-				<table class="a-table a-products-table">
+				<table class="a-table a-products-table a-table--products a-table--cards">
 					<thead>
 						<tr>
 							<th scope="col">Product</th>
@@ -297,7 +297,7 @@
 										<img
 											class="product-thumb"
 											src={product.image}
-											alt={product.name}
+											alt=""
 											width="40"
 											height="48"
 											loading="lazy"
@@ -308,21 +308,33 @@
 										</div>
 									</div>
 								</td>
-								<td>{product.category.name}</td>
-								<td class="right a-num">{money(product.price_cents, product.currency)}</td>
+								<td>
+									<span class="a-cell-label">Category</span>
+									{product.category.name}
+								</td>
+								<td class="right a-num">
+									<span class="a-cell-label">Price</span>
+									{money(product.price_cents, product.currency)}
+								</td>
 								<td class="right">
+									<span class="a-cell-label">Stock</span>
 									<span class="a-num">{product.stock}</span>
 									{#if product.stock <= 5}
 										<span class="a-low">Low</span>
 									{/if}
 								</td>
 								<td>
+									<span class="a-cell-label">State</span>
 									<span class="a-state-label" data-state={product.active ? 'active' : 'archived'}>
 										{product.active ? 'Active' : 'Archived'}
 									</span>
 								</td>
-								<td>{product.featured ? 'Yes' : 'No'}</td>
 								<td>
+									<span class="a-cell-label">Featured</span>
+									{product.featured ? 'Yes' : 'No'}
+								</td>
+								<td>
+									<span class="a-cell-label">Actions</span>
 									<div class="cell-actions">
 										<button
 											class="a-btn a-btn-secondary a-btn-table"

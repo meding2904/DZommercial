@@ -12,9 +12,18 @@
 	let concern = $state(data.filters.concern);
 	// svelte-ignore state_referenced_locally
 	let sort = $state<string>(data.filters.sort);
+	let filtersOpen = $state(false);
 
 	const filters = $derived(data.filters);
 	const activeCategory = $derived(filters.category);
+	const activeFilterCount = $derived(
+		[
+			filters.concern,
+			filters.q,
+			filters.sort && filters.sort !== 'featured' ? filters.sort : ''
+		].filter(Boolean).length
+	);
+	const hasFilters = $derived(Boolean(filters.category) || activeFilterCount > 0);
 
 	const concernOptions = [
 		{ value: '', label: 'All' },
@@ -40,12 +49,10 @@
 
 	function changeConcern(value: string): void {
 		concern = value;
-		void goto(hrefFor({ concern: value }));
 	}
 
 	function changeSort(value: string): void {
 		sort = value;
-		void goto(hrefFor({ sort: value }));
 	}
 	const countLabel = $derived(
 		`${data.products.length} ${data.products.length === 1 ? 'formula' : 'formulas'}`
@@ -80,6 +87,7 @@
 		}
 
 		const search = params.toString();
+		filtersOpen = false;
 		void goto(search ? `/shop?${search}` : '/shop');
 	}
 </script>
@@ -102,7 +110,12 @@
 	<h1>The shelf</h1>
 	<p class="lead">Eight formulas for the face, the body and the bath.</p>
 	{#if !data.apiDown}
-		<p class="shelf-count meta">{countLabel}</p>
+		<p class="shelf-meta">
+			<span class="shelf-count meta">{countLabel}</span>
+			{#if hasFilters}
+				<a class="text-link clear-filters" href="/shop">Clear filters</a>
+			{/if}
+		</p>
 	{/if}
 </div>
 
@@ -116,6 +129,7 @@
 						class="chip"
 						href={hrefFor({ category: '' })}
 						aria-current={!activeCategory ? 'page' : undefined}
+						onclick={() => (filtersOpen = false)}
 					>
 						All
 					</a>
@@ -124,6 +138,7 @@
 							class="chip"
 							href={hrefFor({ category: category.slug })}
 							aria-current={activeCategory === category.slug ? 'page' : undefined}
+							onclick={() => (filtersOpen = false)}
 						>
 							{category.name}
 						</a>
@@ -131,8 +146,26 @@
 				</div>
 			</div>
 
+			<button
+				class="btn btn-secondary btn-small filter-toggle"
+				type="button"
+				aria-expanded={filtersOpen}
+				aria-controls="shop-filters"
+				onclick={() => (filtersOpen = !filtersOpen)}
+			>
+				{filtersOpen ? 'Hide filters' : 'Filter and sort'}
+				{#if activeFilterCount > 0}
+					<span class="filter-count" aria-hidden="true">{activeFilterCount}</span>
+					<span class="sr-only">
+						{activeFilterCount === 1 ? '1 active filter' : `${activeFilterCount} active filters`}
+					</span>
+				{/if}
+			</button>
+
 			<form
+				id="shop-filters"
 				class="filter-form"
+				data-open={filtersOpen}
 				method="GET"
 				action="/shop"
 				onsubmit={applyFilters}
@@ -211,8 +244,20 @@
 </div>
 
 <style>
+	.shelf-meta {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 4px 18px;
+		margin-top: 14px;
+	}
+
 	.shelf-count {
-		margin-top: 18px;
+		margin-top: 0;
+	}
+
+	.clear-filters {
+		font-size: 13px;
 	}
 
 	.categories {
@@ -239,9 +284,20 @@
 	}
 
 	.chip[aria-current='page'] {
-		background: var(--ink);
-		border-color: var(--ink);
-		color: var(--bg);
+		background: var(--accent);
+		border-color: var(--accent);
+		color: var(--accent-ink);
+	}
+
+	.filter-toggle {
+		display: none;
+	}
+
+	.filter-count {
+		font-family: var(--font-mono);
+		font-size: 11px;
+		line-height: 1;
+		color: var(--muted);
 	}
 
 	.filter-form {
@@ -277,11 +333,6 @@
 		box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 22%, transparent);
 	}
 
-	.filter-label {
-		font-size: 12px;
-		color: var(--muted);
-	}
-
 	.filter-submit {
 		min-height: 44px;
 	}
@@ -300,22 +351,41 @@
 	}
 
 	@media (max-width: 720px) {
-		.filter-form {
+		.filter-toggle {
+			display: inline-flex;
+			justify-content: space-between;
 			width: 100%;
 		}
 
-		.filter-field {
-			flex: 1 1 150px;
+		.filter-form {
+			display: none;
+			width: 100%;
+			padding: 16px;
+			border: 1px solid var(--line);
+			border-radius: var(--radius);
+			background: var(--surface);
+		}
+
+		.filter-form[data-open='true'] {
+			display: flex;
+			flex-direction: column;
+			align-items: stretch;
+			gap: 14px;
+		}
+
+		.filter-field,
+		.filter-search {
+			min-width: 0;
+		}
+
+		.filter-submit {
+			width: 100%;
 		}
 	}
 
 	@media (max-width: 560px) {
 		.shop-grid {
 			padding-top: 34px;
-		}
-
-		.filter-field {
-			flex-basis: 100%;
 		}
 	}
 </style>

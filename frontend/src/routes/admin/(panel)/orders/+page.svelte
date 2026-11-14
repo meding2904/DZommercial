@@ -242,7 +242,7 @@
 		<div class="a-panel">
 			<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 			<div class="a-table-scroll" role="region" aria-label="Orders" tabindex="0">
-				<table class="a-table">
+				<table class="a-table a-table--orders a-table--cards">
 					<thead>
 						<tr>
 							<th scope="col">Order</th>
@@ -258,6 +258,7 @@
 						{#each orders as order (order.id)}
 							<tr>
 								<td>
+									<span class="a-cell-label">Order</span>
 									<div class="order-cell">
 										<span class="a-order-number">{order.number}</span>
 										<button
@@ -271,15 +272,26 @@
 									</div>
 								</td>
 								<td>
+									<span class="a-cell-label">Customer</span>
 									<div class="customer-cell">
 										<span>{order.name}</span>
 										<span>{order.email}</span>
 									</div>
 								</td>
-								<td class="right a-num">{itemCount(order)}</td>
-								<td class="right a-num">{money(order.total_cents, order.currency)}</td>
-								<td><StatusPill status={order.status} /></td>
+								<td class="right a-num">
+									<span class="a-cell-label">Items</span>
+									{itemCount(order)}
+								</td>
+								<td class="right a-num">
+									<span class="a-cell-label">Total</span>
+									{money(order.total_cents, order.currency)}
+								</td>
 								<td>
+									<span class="a-cell-label">Status</span>
+									<StatusPill status={order.status} />
+								</td>
+								<td>
+									<span class="a-cell-label">Courier</span>
 									{#if order.tracking_number}
 										<div class="customer-cell">
 											<span>{courierLabel(order.courier_key)}</span>
@@ -289,7 +301,10 @@
 										<span class="a-muted-sm">Not sent</span>
 									{/if}
 								</td>
-								<td>{formatDate(order.created_at)}</td>
+								<td>
+									<span class="a-cell-label">Date</span>
+									{formatDate(order.created_at)}
+								</td>
 							</tr>
 						{/each}
 					</tbody>

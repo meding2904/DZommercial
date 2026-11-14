@@ -109,7 +109,7 @@
 		<div class="a-panel">
 			<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 			<div class="a-table-scroll" role="region" aria-label="Customers" tabindex="0">
-				<table class="a-table">
+				<table class="a-table a-table--customers a-table--cards">
 					<thead>
 						<tr>
 							<th scope="col">Name</th>
@@ -124,9 +124,18 @@
 							<tr>
 								<td>{customer.name}</td>
 								<td>{customer.email}</td>
-								<td class="right a-num">{customer.orders_count}</td>
-								<td class="right a-num">{money(customer.total_spent_cents)}</td>
-								<td>{formatDate(customer.last_order_at)}</td>
+								<td class="right a-num">
+									<span class="a-cell-label">Orders</span>
+									{customer.orders_count}
+								</td>
+								<td class="right a-num">
+									<span class="a-cell-label">Spend</span>
+									{money(customer.total_spent_cents)}
+								</td>
+								<td>
+									<span class="a-cell-label">Last order</span>
+									{formatDate(customer.last_order_at)}
+								</td>
 							</tr>
 						{/each}
 					</tbody>

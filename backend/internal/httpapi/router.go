@@ -21,7 +21,9 @@ type Server struct {
 	generalLimiter  *rateLimiter
 	authLimiter     *rateLimiter
 	checkoutLimiter *rateLimiter
+	captchaLimiter  *rateLimiter
 	adminLimiter    *rateLimiter
+	captcha         *captchaStore
 	handler         http.Handler
 }
 
@@ -35,7 +37,9 @@ func New(cfg config.Config, st *store.Store, logger *slog.Logger, shipping *cour
 		generalLimiter:  newRateLimiter(120, time.Minute),
 		authLimiter:     newRateLimiter(10, 15*time.Minute),
 		checkoutLimiter: newRateLimiter(20, 10*time.Minute),
+		captchaLimiter:  newRateLimiter(30, 10*time.Minute),
 		adminLimiter:    newRateLimiter(60, time.Minute),
+		captcha:         newCaptchaStore(10 * time.Minute),
 	}
 	server.handler = server.routes()
 	return server
@@ -49,7 +53,9 @@ func (s *Server) Close() {
 	s.generalLimiter.close()
 	s.authLimiter.close()
 	s.checkoutLimiter.close()
+	s.captchaLimiter.close()
 	s.adminLimiter.close()
+	s.captcha.close()
 }
 
 func (s *Server) routes() http.Handler {
@@ -83,6 +89,7 @@ func (s *Server) routes() http.Handler {
 		r.Post("/auth/logout", s.handleLogout)
 
 		r.With(s.rateLimit(s.checkoutLimiter)).Post("/checkout", s.handleCheckout)
+		r.With(s.rateLimit(s.captchaLimiter)).Get("/checkout/challenge", s.handleCheckoutChallenge)
 
 		r.Group(func(r chi.Router) {
 			r.Use(s.requireUser)

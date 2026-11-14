@@ -1,3 +1,4 @@
+import { CSRF_HEADER, readCsrfToken } from './csrf';
 import type { ApiErrorBody } from './types';
 
 export class ApiError extends Error {
@@ -21,6 +22,9 @@ type RequestOptions = Omit<RequestInit, 'body'> & {
 export async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
 	const headers = new Headers(options.headers);
 	headers.set('X-Requested-With', 'azahar-web');
+
+	const csrf = readCsrfToken();
+	if (csrf) headers.set(CSRF_HEADER, csrf);
 
 	let body: BodyInit | undefined;
 	if (options.body !== undefined) {

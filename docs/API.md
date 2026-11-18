@@ -347,7 +347,9 @@ Refreshes the courier status and event history. Requires an existing tracking nu
 
 ### `GET /api/admin/preferences`
 
-`200 { "theme_preset": "cellar" }`. Unknown or missing values return the default `cellar`.
+`200 { "theme_preset": "cellar" }`. The value is the colour style. Unknown or missing values
+return the default `cellar`. The light or dark mode is a local device preference and is not
+stored in this API.
 
 ### `PUT /api/admin/preferences`
 
@@ -356,6 +358,7 @@ Refreshes the courier status and event history. Requires an existing tracking nu
 ```
 
 Allowed values: `plaster`, `cellar`, `terracotta`, `lagoon`. `200` echoes the stored value.
+Each style has its own light and dark mode; the mode is not part of this payload.
 
 ## Seed data
 

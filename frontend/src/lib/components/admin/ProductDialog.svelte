@@ -519,7 +519,7 @@
 				Cancel
 			</button>
 			<button class="a-btn a-btn-primary" type="submit" disabled={busy}>
-				{busy ? 'Saving...' : product ? 'Save product' : 'Create product'}
+				{busy ? 'Saving…' : product ? 'Save product' : 'Create product'}
 			</button>
 		</footer>
 	</form>

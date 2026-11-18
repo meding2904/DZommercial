@@ -45,7 +45,7 @@
 
 	const countLabel = $derived.by(() => {
 		if (error) return 'Products unavailable';
-		if (loading) return 'Reading products...';
+		if (loading) return 'Reading products…';
 		if (filtered.length !== products.length) {
 			return `${filtered.length} of ${products.length} products`;
 		}
@@ -192,7 +192,7 @@
 
 <div class="admin-page">
 	<header class="a-page-head">
-		<div>
+		<div class="a-page-title">
 			<h1 id="products-title" tabindex="-1">Products</h1>
 			<p class="a-page-sub">
 				<span>{countLabel}</span>
@@ -227,6 +227,7 @@
 			<label for="product-search">Search products</label>
 			<input
 				id="product-search"
+				name="q"
 				type="search"
 				bind:value={search}
 				placeholder="Name, slug or category"
@@ -245,7 +246,7 @@
 	</div>
 
 	{#if loading}
-		<LoadingState label="Reading the catalogue..." />
+		<LoadingState label="Reading the catalogue…" />
 	{:else if error}
 		<ErrorState title="Products could not be read." message={error} onretry={load} />
 	{:else if products.length === 0}
@@ -378,7 +379,7 @@
 {#if archiveTarget}
 	<ConfirmDialog
 		title="Archive this product?"
-		message={`Archive "${archiveTarget.name}"? It will be hidden from the storefront and kept in past orders.`}
+		message={`Archive “${archiveTarget.name}”? It will be hidden from the storefront and kept in past orders.`}
 		confirmLabel="Archive product"
 		cancelLabel="Keep product"
 		busy={archiveBusy}

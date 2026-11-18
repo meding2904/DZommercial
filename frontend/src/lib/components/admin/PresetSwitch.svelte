@@ -34,7 +34,7 @@
 </script>
 
 <div class="preset">
-	<p class="preset-label" id="preset-label">Colour preset</p>
+	<p class="preset-label" id="preset-label">Colour style</p>
 	<div class="preset-group" role="radiogroup" aria-labelledby="preset-label">
 		{#each PRESETS as preset, index (preset.id)}
 			<button
@@ -47,7 +47,12 @@
 				onclick={() => choose(preset.id)}
 				onkeydown={(event) => onKeydown(event, index)}
 			>
-				<span class="preset-swatch" data-preset={preset.id} aria-hidden="true"></span>
+				<span
+					class="preset-swatch"
+					data-preset={preset.id}
+					data-scheme={theme.scheme}
+					aria-hidden="true"
+				></span>
 				<span class="preset-name">{preset.name}</span>
 				{#if theme.preset === preset.id}
 					<span class="preset-current">Current</span>

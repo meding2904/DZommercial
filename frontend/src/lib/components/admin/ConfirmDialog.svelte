@@ -58,7 +58,7 @@
 				{cancelLabel}
 			</button>
 			<button class="a-btn a-btn-danger" type="button" onclick={onconfirm} disabled={busy}>
-				{busy ? 'Archiving...' : confirmLabel}
+				{busy ? 'Archiving…' : confirmLabel}
 			</button>
 		</footer>
 	</div>

@@ -14,12 +14,12 @@ const dateOnly = new Intl.DateTimeFormat('en-GB', {
 });
 
 export function money(cents: number, currency = 'DZD'): string {
-	return `${number.format(Math.round(cents / 100))} ${currency}`;
+	return `${number.format(Math.round(cents / 100))}\u00a0${currency}`;
 }
 
 export function compactMoney(cents: number, currency = 'DZD'): string {
 	if (cents < 100000) return money(cents, currency);
-	return `${compact.format(cents / 100)} ${currency}`;
+	return `${compact.format(cents / 100)}\u00a0${currency}`;
 }
 
 export function formatDate(value: string | null | undefined): string {

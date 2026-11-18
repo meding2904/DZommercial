@@ -26,7 +26,7 @@
 
 	const countLabel = $derived.by(() => {
 		if (error) return 'Customers unavailable';
-		if (loading) return 'Reading customers...';
+		if (loading) return 'Reading customers…';
 		if (filtered.length !== customers.length) {
 			return `${filtered.length} of ${customers.length} customers`;
 		}
@@ -65,7 +65,7 @@
 
 <div class="admin-page">
 	<header class="a-page-head">
-		<div>
+		<div class="a-page-title">
 			<h1>Customers</h1>
 			<p class="a-page-sub"><span>{countLabel}</span></p>
 		</div>
@@ -76,6 +76,7 @@
 			<label for="customer-search">Search customers</label>
 			<input
 				id="customer-search"
+				name="q"
 				type="search"
 				bind:value={search}
 				placeholder="Name or email"
@@ -85,7 +86,7 @@
 	</div>
 
 	{#if loading}
-		<LoadingState label="Reading customers..." />
+		<LoadingState label="Reading customers…" />
 	{:else if error}
 		<ErrorState title="Customers could not be read." message={error} onretry={load} />
 	{:else if customers.length === 0}

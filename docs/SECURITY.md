@@ -64,8 +64,10 @@ hard requirement, not a suggestion.
 - Every unsafe request requires `X-Requested-With: azahar-web`. A cross-site HTML form cannot
   set a custom header.
 - Every unsafe request with an `Origin` header must match `APP_ORIGIN`. The SvelteKit proxy
-  forwards the browser's origin. In development, a missing origin is allowed only when
-  `APP_ENV=development`.
+  forwards the browser's origin. In development, local ingress origins (`localhost`,
+  `127.0.0.1`, `::1` and `*.localhost`, which includes Kiri's `*.kiri.localhost`) are also
+  accepted so local tooling can reach the app; production keeps the exact match. A missing
+  origin is allowed only when `APP_ENV=development`.
 - The SvelteKit hook sets a random `azahar_csrf` cookie on document requests. The cookie is
   readable by the page, `SameSite=Lax`, `Path=/` and `Secure` in production. It is a
   64-character lowercase hex token; the hook rotates any value that does not match that shape.

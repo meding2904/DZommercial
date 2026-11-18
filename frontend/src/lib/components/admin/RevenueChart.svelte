@@ -37,12 +37,12 @@
 		};
 	});
 
-	const height = 280;
-	const pad = { top: 18, right: 12, bottom: 34, left: 64 };
+	const pad = { top: 20, right: 16, bottom: 36, left: 64 };
 
 	const width = $derived(Math.max(320, measuredWidth || 640));
+	const height = $derived(width < 520 ? 230 : 300);
 	const plotWidth = $derived(Math.max(1, width - pad.left - pad.right));
-	const plotHeight = height - pad.top - pad.bottom;
+	const plotHeight = $derived(height - pad.top - pad.bottom);
 	const maxValue = $derived(Math.max(1, ...series.map((point) => point.revenue_cents)));
 
 	const points = $derived(
@@ -68,6 +68,12 @@
 			: ''
 	);
 
+	const peak = $derived(
+		points.length
+			? points.reduce((best, point) => (point.revenue_cents > best.revenue_cents ? point : best))
+			: null
+	);
+
 	const yTicks = $derived(
 		[0, 0.5, 1].map((fraction) => ({
 			value: maxValue * fraction,
@@ -88,18 +94,18 @@
 	const chartKey = $derived(series.map((point) => `${point.date}:${point.revenue_cents}`).join('|'));
 
 	function axisLabel(cents: number): string {
-		return compactMoney(cents).replace(' DZD', '');
+		return compactMoney(cents).replace(/\s*DZD$/, '');
 	}
 </script>
 
 <figure class="chart" bind:this={figureEl}>
-	<div class="chart-caption">
-		<span>Revenue by day</span>
+	<figcaption class="chart-caption">
+		<span>Daily takings</span>
 		<span>{formatDay(from)} to {formatDay(to)}</span>
-	</div>
+	</figcaption>
 
 	{#if series.length === 0}
-		<p class="a-muted">No revenue data for this range.</p>
+		<p class="a-muted">No takings data for this period.</p>
 	{:else}
 		<svg
 			class="chart-svg"
@@ -122,13 +128,13 @@
 				</text>
 			{/each}
 
-			<text class="chart-unit" x={pad.left} y={pad.top - 7} text-anchor="start">DZD</text>
+			<text class="chart-unit" x={pad.left} y={pad.top - 8} text-anchor="start">DZD</text>
 
 			{#each labelIndexes as index}
 				<text
 					class="chart-axis"
 					x={points[index].x}
-					y={height - 10}
+					y={height - 12}
 					text-anchor={index === 0 ? 'start' : index === series.length - 1 ? 'end' : 'middle'}
 				>
 					{formatDay(series[index].date)}
@@ -150,14 +156,18 @@
 			{#key chartKey}
 				<path class="chart-line" pathLength="1" d={linePath}></path>
 			{/key}
+
+			{#if peak && peak.revenue_cents > 0}
+				<circle class="chart-peak" cx={peak.x} cy={peak.y} r="3.5"></circle>
+			{/if}
 		</svg>
 
 		<table class="sr-only">
-			<caption>Revenue by day, {formatDay(from)} to {formatDay(to)}</caption>
+			<caption>Daily takings, {formatDay(from)} to {formatDay(to)}</caption>
 			<thead>
 				<tr>
 					<th scope="col">Day</th>
-					<th scope="col">Revenue</th>
+					<th scope="col">Takings</th>
 					<th scope="col">Orders</th>
 				</tr>
 			</thead>

@@ -32,7 +32,8 @@ No card payment is taken and the default courier setting does not create a real 
 - Create the parcel with the courier and refresh its tracking.
 - Create, edit and archive products, with stock and price in dinars.
 - See the customer list with orders and lifetime spend.
-- Change the admin colour preset. The choice is saved per admin user.
+- Change the admin colour style and light or dark mode. The style is saved per admin user;
+  the mode is stored on the device.
 
 The admin is not linked from the shop. It is reached through a private gate link printed
 when the demo starts.
@@ -146,8 +147,9 @@ when the parcel arrives.
 7. **Products** lets you create or edit a product. Prices are entered in dinars. Use
    **Archive** to take a product off the shelf without deleting its old orders.
 8. **Customers** shows the customer list, order count and lifetime spend.
-9. The colour presets at the bottom of the admin rail change the admin theme. The choice is
-   saved for that admin user.
+9. The colour styles at the bottom of the admin rail change the palette. Every style has its
+   own light and dark mode; the sun and moon switch in the header changes the mode. The style
+   is saved for that admin user; the mode is stored on the device.
 
 The order status and the courier status are separate. Creating a parcel does not move the
 order to `shipped`. Mark the order shipped when the courier collects it, then refresh tracking
@@ -259,8 +261,9 @@ shipment**. The tracking number and status appear in the same panel.
 **Change the admin gate.** Stop and start the stack. A new gate is printed and the old one
 stops working. You do not need to edit anything.
 
-**Change the shop theme.** Use the sun and moon button in the shop header. The admin has its
-own colour presets at the bottom of the rail.
+**Change the shop theme.** Use the sun and moon button in the shop header. The admin has four
+colour styles at the bottom of the rail, each with its own light and dark mode; use the sun
+and moon button in the admin header to switch the mode.
 
 ## Troubleshooting
 
@@ -332,7 +335,7 @@ backend/        Go API, migrations, seed, tests
 frontend/       SvelteKit shop and admin
 deploy/         Dockerfiles and Kiri scripts
 docs/           API contract, security notes, penetration test
-DESIGN.md       brand direction, palette, motion, admin presets
+DESIGN.md       brand direction, palette, motion, admin styles
 CREDITS.md      photo sources and demo disclosure
 scripts/        health check and admin-gate proof of concept
 .opencode/      third-party antislop tooling used during the build

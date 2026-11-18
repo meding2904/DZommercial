@@ -33,7 +33,7 @@
 	const isFiltered = $derived(status !== '' || search !== '');
 	const resultLabel = $derived(
 		loading
-			? 'Reading orders...'
+			? 'Reading orders…'
 			: error
 				? 'Orders unavailable'
 				: `${orders.length} ${orders.length === 1 ? 'order' : 'orders'}`
@@ -151,13 +151,13 @@
 
 <div class="admin-page">
 	<header class="a-page-head">
-		<div>
+		<div class="a-page-title">
 			<h1 id="orders-title" tabindex="-1">Orders</h1>
 			<p class="a-page-sub">
 				<span>{resultLabel}</span>
 				{#if isFiltered}
 					<span>
-						{status ? titleCase(status) : 'All statuses'}{search ? `, search "${search}"` : ''}
+						{status ? titleCase(status) : 'All statuses'}{search ? `, search “${search}”` : ''}
 					</span>
 				{/if}
 			</p>
@@ -189,6 +189,7 @@
 			<label for="order-search">Search orders</label>
 			<input
 				id="order-search"
+				name="q"
 				type="search"
 				value={searchInput}
 				oninput={(event) => onSearchInput(event.currentTarget.value)}
@@ -199,7 +200,7 @@
 	</div>
 
 	{#if loading}
-		<LoadingState label="Reading the order book..." />
+		<LoadingState label="Reading the order book…" />
 	{:else if error}
 		<ErrorState title="Orders could not be read." message={error} onretry={load} />
 	{:else if orders.length === 0}

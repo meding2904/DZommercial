@@ -1,129 +1,49 @@
 import type { ThemePreset } from '#lib/types';
 
-export type PresetTokens = {
-	bg: string;
-	surface: string;
-	ink: string;
-	muted: string;
-	accent: string;
-	accentInk: string;
-	chart: [string, string, string, string];
-	status: {
-		pending: string;
-		confirmed: string;
-		packed: string;
-		shipped: string;
-		delivered: string;
-		cancelled: string;
-	};
-	dangerText: string;
-};
+export type AdminScheme = 'light' | 'dark';
 
 export type PresetDefinition = {
 	id: ThemePreset;
 	name: string;
-	scheme: 'light' | 'dark';
-	tokens: PresetTokens;
+	/** The scheme shown when the device has no saved choice. */
+	defaultScheme: AdminScheme;
+	/** Ground colours for the browser chrome and the reveal. The CSS carries every other token. */
+	background: Record<AdminScheme, string>;
 };
 
-// These mirror the custom properties in admin.css, which is the runtime source.
+// Four colour styles. Each style has its own light and dark token set in
+// admin.css; this list only names the styles, their default scheme and the
+// ground colour used by theme-color and the reveal.
 export const PRESETS: PresetDefinition[] = [
 	{
 		id: 'plaster',
 		name: 'Plaster',
-		scheme: 'light',
-		tokens: {
-			bg: '#f6f0eb',
-			surface: '#ebe0d9',
-			ink: '#2c2325',
-			muted: '#6a5d5e',
-			accent: '#9a3c4c',
-			accentInk: '#ffffff',
-			chart: ['#9a3c4c', '#476b5a', '#b07a4a', '#6a5d5e'],
-			status: {
-				pending: '#8a5a2b',
-				confirmed: '#476b5a',
-				packed: '#6a5d5e',
-				shipped: '#7a4a2f',
-				delivered: '#3f5f4b',
-				cancelled: '#9a3c4c'
-			},
-			dangerText: '#852f3f'
-		}
+		defaultScheme: 'light',
+		background: { light: '#f6f0eb', dark: '#171311' }
 	},
 	{
 		id: 'cellar',
 		name: 'Cellar',
-		scheme: 'dark',
-		tokens: {
-			bg: '#151a16',
-			surface: '#1d241e',
-			ink: '#f1ece1',
-			muted: '#a3ab9f',
-			accent: '#d8a44c',
-			accentInk: '#1a1408',
-			chart: ['#d8a44c', '#8fae8b', '#c46a4f', '#d8d2c4'],
-			status: {
-				pending: '#d8a44c',
-				confirmed: '#8fae8b',
-				packed: '#a3ab9f',
-				shipped: '#c46a4f',
-				delivered: '#74b58a',
-				cancelled: '#d98a8a'
-			},
-			dangerText: '#eda3a3'
-		}
+		defaultScheme: 'dark',
+		background: { light: '#f5f0e2', dark: '#151a16' }
 	},
 	{
 		id: 'terracotta',
 		name: 'Terracotta',
-		scheme: 'light',
-		tokens: {
-			bg: '#f2e5d8',
-			surface: '#e5d1bf',
-			ink: '#2b1d18',
-			muted: '#6e554a',
-			accent: '#a94e2b',
-			accentInk: '#ffffff',
-			chart: ['#a94e2b', '#4f6b57', '#c08a4e', '#6e554a'],
-			status: {
-				pending: '#8a5a29',
-				confirmed: '#4f6b57',
-				packed: '#6e554a',
-				shipped: '#8f4a2f',
-				delivered: '#3f5f4b',
-				cancelled: '#a94e2b'
-			},
-			dangerText: '#8a341e'
-		}
+		defaultScheme: 'light',
+		background: { light: '#f2e5d8', dark: '#1b1210' }
 	},
 	{
 		id: 'lagoon',
 		name: 'Lagoon',
-		scheme: 'dark',
-		tokens: {
-			bg: '#0e1d23',
-			surface: '#152b33',
-			ink: '#e9f1ef',
-			muted: '#9ab0b1',
-			accent: '#5fb7b2',
-			accentInk: '#06201f',
-			chart: ['#5fb7b2', '#d8a44c', '#c46a4f', '#d8e3de'],
-			status: {
-				pending: '#d8a44c',
-				confirmed: '#8fae8b',
-				packed: '#9ab0b1',
-				shipped: '#c46a4f',
-				delivered: '#74b58a',
-				cancelled: '#d98a8a'
-			},
-			dangerText: '#f0b0ae'
-		}
+		defaultScheme: 'dark',
+		background: { light: '#eef5f4', dark: '#0e1d23' }
 	}
 ];
 
 export const DEFAULT_PRESET: ThemePreset = 'cellar';
 export const PRESET_STORAGE_KEY = 'azahar-admin-preset';
+export const SCHEME_STORAGE_KEY = 'azahar-admin-scheme';
 
 export function isPreset(value: unknown): value is ThemePreset {
 	return typeof value === 'string' && PRESETS.some((preset) => preset.id === value);
@@ -143,6 +63,26 @@ export function writeStoredPreset(preset: ThemePreset): void {
 	try {
 		if (typeof localStorage === 'undefined') return;
 		localStorage.setItem(PRESET_STORAGE_KEY, preset);
+	} catch {
+		// Storage can be unavailable in private browsing. The in-memory choice still applies.
+	}
+}
+
+/** The saved scheme, or null when the style's default scheme should apply. */
+export function readStoredScheme(): AdminScheme | null {
+	try {
+		if (typeof localStorage === 'undefined') return null;
+		const stored = localStorage.getItem(SCHEME_STORAGE_KEY);
+		return stored === 'light' || stored === 'dark' ? stored : null;
+	} catch {
+		return null;
+	}
+}
+
+export function writeStoredScheme(scheme: AdminScheme): void {
+	try {
+		if (typeof localStorage === 'undefined') return;
+		localStorage.setItem(SCHEME_STORAGE_KEY, scheme);
 	} catch {
 		// Storage can be unavailable in private browsing. The in-memory choice still applies.
 	}

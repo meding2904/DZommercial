@@ -8,6 +8,67 @@ import (
 	"azahar/internal/config"
 )
 
+func TestCSRFAllowsLocalIngressInDevelopment(t *testing.T) {
+	const token = "csrf-token-0123456789abcdef"
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	tests := []struct {
+		name   string
+		config config.Config
+		origin string
+		want   int
+	}{
+		{
+			name:   "development kiri ingress",
+			config: config.Config{AppEnv: "development", AppOrigin: "http://localhost:3000"},
+			origin: "http://azahar-web.kiri.localhost",
+			want:   http.StatusNoContent,
+		},
+		{
+			name:   "development loopback",
+			config: config.Config{AppEnv: "development", AppOrigin: "http://localhost:3000"},
+			origin: "http://127.0.0.1:3000",
+			want:   http.StatusNoContent,
+		},
+		{
+			name:   "development remote origin",
+			config: config.Config{AppEnv: "development", AppOrigin: "http://localhost:3000"},
+			origin: "https://evil.example",
+			want:   http.StatusForbidden,
+		},
+		{
+			name:   "production exact origin",
+			config: config.Config{AppEnv: "production", AppOrigin: "https://shop.example"},
+			origin: "https://shop.example",
+			want:   http.StatusNoContent,
+		},
+		{
+			name:   "production kiri ingress",
+			config: config.Config{AppEnv: "production", AppOrigin: "https://shop.example"},
+			origin: "http://azahar-web.kiri.localhost",
+			want:   http.StatusForbidden,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			server := &Server{cfg: test.config}
+			request := httptest.NewRequest(http.MethodPost, "/api/auth/login", nil)
+			request.Header.Set("Origin", test.origin)
+			request.Header.Set("X-Requested-With", "azahar-web")
+			request.Header.Set("X-Csrf-Token", token)
+			request.AddCookie(&http.Cookie{Name: csrfCookieName, Value: token})
+			recorder := httptest.NewRecorder()
+			server.enforceCSRF(next).ServeHTTP(recorder, request)
+			if recorder.Code != test.want {
+				t.Fatalf("status = %d, want %d (%s)", recorder.Code, test.want, recorder.Body.String())
+			}
+		})
+	}
+}
+
 func TestCSRFRequiresCustomHeaderOriginAndMatchingToken(t *testing.T) {
 	server := &Server{cfg: config.Config{AppEnv: "development", AppOrigin: "http://localhost:3000"}}
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

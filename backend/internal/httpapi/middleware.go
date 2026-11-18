@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"runtime/debug"
 	"strings"
 	"time"
@@ -174,7 +175,8 @@ func (s *Server) enforceCSRF(next http.Handler) http.Handler {
 		}
 		origin := r.Header.Get("Origin")
 		if origin != "" {
-			if origin != s.cfg.AppOrigin {
+			if origin != s.cfg.AppOrigin &&
+				!(s.cfg.IsDevelopment() && isLocalDevelopmentOrigin(origin)) {
 				writeError(w, http.StatusForbidden, "csrf_failed", "The request could not be verified.")
 				return
 			}
@@ -192,6 +194,23 @@ func (s *Server) enforceCSRF(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// isLocalDevelopmentOrigin reports whether an origin belongs to the developer's
+// machine. Kiri exposes a container at <name>.kiri.localhost, and that host does
+// not equal APP_ORIGIN (http://localhost:3000). This allowance is development-only;
+// production keeps the exact APP_ORIGIN match.
+func isLocalDevelopmentOrigin(origin string) bool {
+	parsed, err := url.Parse(origin)
+	if err != nil || parsed.Host == "" {
+		return false
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return false
+	}
+	host := strings.ToLower(parsed.Hostname())
+	return host == "localhost" || host == "127.0.0.1" || host == "::1" ||
+		strings.HasSuffix(host, ".localhost")
 }
 
 func (s *Server) setSessionCookie(w http.ResponseWriter, token string, expires time.Time) {

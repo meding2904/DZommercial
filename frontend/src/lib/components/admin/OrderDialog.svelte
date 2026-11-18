@@ -198,7 +198,7 @@
 							/>
 						</div>
 						<button class="a-btn a-btn-secondary" type="submit" disabled={busy || shipBusy || !nextStatus}>
-							{busy ? 'Saving...' : 'Save status'}
+							{busy ? 'Saving…' : 'Save status'}
 						</button>
 					</div>
 					<p class="a-field-hint">Only the next steps allowed by the order rules are listed.</p>
@@ -280,7 +280,7 @@
 							onclick={refreshTracking}
 							disabled={shipBusy}
 						>
-							{shipBusy ? 'Refreshing...' : 'Refresh tracking'}
+							{shipBusy ? 'Refreshing…' : 'Refresh tracking'}
 						</button>
 					</div>
 				{:else}
@@ -292,7 +292,7 @@
 							onclick={createShipment}
 							disabled={shipBusy || !courierReady}
 						>
-							{shipBusy ? 'Creating shipment...' : 'Create shipment'}
+							{shipBusy ? 'Creating shipment…' : 'Create shipment'}
 						</button>
 					</div>
 				{/if}

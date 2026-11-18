@@ -1,4 +1,5 @@
 import { browser } from '$app/env';
+import { revealTheme } from '#lib/theme/reveal';
 
 export type ThemeMode = 'light' | 'dark';
 
@@ -6,13 +7,6 @@ const STORAGE_KEY = 'azahar-store-theme';
 const BACKGROUND: Record<ThemeMode, string> = {
 	light: '#f6f0eb',
 	dark: '#171311'
-};
-
-type ViewTransitionDocument = Document & {
-	startViewTransition?: (callback: () => void) => {
-		ready: Promise<void>;
-		finished: Promise<void>;
-	};
 };
 
 function readInitial(): ThemeMode {
@@ -65,98 +59,12 @@ class StoreTheme {
 		if (this.busy) return;
 
 		const next: ThemeMode = this.current === 'dark' ? 'light' : 'dark';
-		const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-		if (reduce) {
-			this.commit(next);
-			return;
-		}
-
-		const rect = button.getBoundingClientRect();
-		const x = rect.left + rect.width / 2;
-		const y = rect.top + rect.height / 2;
-		const radius =
-			Math.hypot(
-				Math.max(x, window.innerWidth - x),
-				Math.max(y, window.innerHeight - y)
-			) + 2;
-
-		const doc = document as ViewTransitionDocument;
-
-		if (typeof doc.startViewTransition === 'function') {
-			this.busy = true;
-
-			let transition: ReturnType<NonNullable<ViewTransitionDocument['startViewTransition']>>;
-			try {
-				transition = doc.startViewTransition(() => this.commit(next));
-			} catch {
-				this.busy = false;
-				this.solidWipe(next, x, y, radius);
-				return;
-			}
-
-			transition.ready
-				.then(() => {
-					document.documentElement.animate(
-						[
-							{ clipPath: `circle(0px at ${x}px ${y}px)` },
-							{ clipPath: `circle(${radius}px at ${x}px ${y}px)` }
-						],
-						{
-							duration: 640,
-							easing: 'cubic-bezier(0.2, 0.7, 0.2, 1)',
-							pseudoElement: '::view-transition-new(root)'
-						} as KeyframeAnimationOptions
-					);
-				})
-				.catch(() => {
-					// The browser can skip a transition when the document is hidden.
-				});
-
-			transition.finished.finally(() => {
-				this.busy = false;
-			});
-
-			return;
-		}
-
-		this.solidWipe(next, x, y, radius);
-	}
-
-	private solidWipe(next: ThemeMode, x: number, y: number, radius: number): void {
-		const wipe = document.createElement('div');
-		wipe.className = 'theme-wipe';
-		wipe.setAttribute('aria-hidden', 'true');
-		wipe.style.background = BACKGROUND[next];
-		wipe.style.clipPath = `circle(0px at ${x}px ${y}px)`;
-		document.body.appendChild(wipe);
-
-		this.busy = true;
-
-		const animation = wipe.animate(
-			[
-				{ clipPath: `circle(0px at ${x}px ${y}px)` },
-				{ clipPath: `circle(${radius}px at ${x}px ${y}px)` }
-			],
-			{
-				duration: 640,
-				easing: 'cubic-bezier(0.2, 0.7, 0.2, 1)',
-				fill: 'forwards'
-			}
+		revealTheme(
+			button,
+			BACKGROUND[next],
+			() => this.commit(next),
+			(busy) => (this.busy = busy)
 		);
-
-		animation.onfinish = () => {
-			this.commit(next);
-			requestAnimationFrame(() => {
-				wipe.remove();
-				this.busy = false;
-			});
-		};
-
-		animation.oncancel = () => {
-			wipe.remove();
-			this.busy = false;
-		};
 	}
 }
 

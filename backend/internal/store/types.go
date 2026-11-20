@@ -34,6 +34,7 @@ type Category struct {
 	Name        string
 	Description string
 	SortOrder   int
+	PluginID    string
 }
 
 type Product struct {
@@ -44,6 +45,9 @@ type Product struct {
 	Description    string
 	PriceCents     int64
 	CompareAtCents *int64
+	SalePriceCents *int64
+	SaleStartsAt   time.Time
+	SaleEndsAt     time.Time
 	Currency       string
 	Size           string
 	Category       Category
@@ -55,6 +59,8 @@ type Product struct {
 	Stock          int
 	Featured       bool
 	Active         bool
+	PluginID       string
+	Attributes     map[string][]string
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 }
@@ -69,6 +75,9 @@ type OrderItem struct {
 	UnitPriceCents int64
 	Quantity       int
 	LineTotalCents int64
+	Options        map[string]string
+	OptionsLabel   string
+	PluginID       string
 }
 
 type CourierEvent struct {
@@ -182,6 +191,50 @@ func decodeJSON(value string) []string {
 	}
 	if values == nil {
 		return []string{}
+	}
+	return values
+}
+
+func encodeStringListMap(values map[string][]string) string {
+	if values == nil {
+		values = map[string][]string{}
+	}
+	buf, err := json.Marshal(values)
+	if err != nil {
+		return "{}"
+	}
+	return string(buf)
+}
+
+func decodeStringListMap(value string) map[string][]string {
+	if value == "" {
+		return map[string][]string{}
+	}
+	var values map[string][]string
+	if err := json.Unmarshal([]byte(value), &values); err != nil || values == nil {
+		return map[string][]string{}
+	}
+	return values
+}
+
+func encodeStringMap(values map[string]string) string {
+	if values == nil {
+		values = map[string]string{}
+	}
+	buf, err := json.Marshal(values)
+	if err != nil {
+		return "{}"
+	}
+	return string(buf)
+}
+
+func decodeStringMap(value string) map[string]string {
+	if value == "" {
+		return map[string]string{}
+	}
+	var values map[string]string
+	if err := json.Unmarshal([]byte(value), &values); err != nil || values == nil {
+		return map[string]string{}
 	}
 	return values
 }

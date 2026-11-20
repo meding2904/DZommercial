@@ -28,7 +28,7 @@ func TestProductJSONContract(t *testing.T) {
 		Gallery:     nil,
 	}
 
-	buf, err := json.Marshal(toProduct(product, true))
+	buf, err := json.Marshal(productDTOFromStore(product, true))
 	if err != nil {
 		t.Fatal(err)
 	}

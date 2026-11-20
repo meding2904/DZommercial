@@ -3,43 +3,27 @@
 	import { auth } from '#lib/stores/auth.svelte';
 	import { cart } from '#lib/stores/cart.svelte';
 	import { storeTheme } from '#lib/stores/storeTheme.svelte';
+	import { DEFAULT_THEME, type StorefrontTheme } from '#lib/theme/storefront';
+	import type { StorefrontPage } from '#lib/types';
 
+	let {
+		theme = DEFAULT_THEME,
+		pages = []
+	}: { theme?: StorefrontTheme; pages?: StorefrontPage[] } = $props();
 	let menu = $state<HTMLDialogElement | null>(null);
 	let menuOpen = $state(false);
-	let ingredientsActive = $state(false);
 
-	const links = [
-		{ href: '/shop', label: 'Shop' },
-		{ href: '/about', label: 'The house' },
-		{ href: '/#ingredients', label: 'Ingredients' },
+	const links = $derived([
+		{ href: '/shop', label: theme.shop_title },
+		{ href: '/about', label: theme.house_label },
+		...pages.map((page) => ({ href: page.path, label: page.label })),
 		{ href: '/contact', label: 'Contact' }
-	];
+	]);
 
 	const bagLabel = $derived(`Bag, ${cart.count} ${cart.count === 1 ? 'item' : 'items'}`);
 
 	function isCurrent(href: string): boolean {
-		if (href.startsWith('/#')) {
-			return (
-				page.url.pathname === '/' &&
-				(page.url.hash === href.slice(1) || (href === '/#ingredients' && ingredientsActive))
-			);
-		}
 		return page.url.pathname === href || page.url.pathname.startsWith(`${href}/`);
-	}
-
-	$effect(() => {
-		if (page.url.pathname !== '/') ingredientsActive = false;
-	});
-
-	function goToIngredients(event: MouseEvent): void {
-		if (page.url.pathname !== '/') return;
-		event.preventDefault();
-		ingredientsActive = true;
-		history.replaceState(null, '', '#ingredients');
-		const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-		document
-			.getElementById('ingredients')
-			?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
 	}
 
 	function openMenu(): void {
@@ -57,14 +41,15 @@
 
 <header class="site-header">
 	<div class="wrap header-inner">
-		<a class="wordmark" href="/" aria-label="Azahar home">Azahar<span>.</span></a>
+		<a class="wordmark" href="/" aria-label={`${theme.brand_name} home`}
+			>{theme.brand_name}<span>.</span></a
+		>
 
 		<nav class="site-nav" aria-label="Main">
 			{#each links as link}
 				<a
 					href={link.href}
 					aria-current={isCurrent(link.href) ? 'page' : undefined}
-					onclick={link.href === '/#ingredients' ? goToIngredients : undefined}
 				>
 					{link.label}
 				</a>
@@ -143,7 +128,9 @@
 >
 	<div class="menu-panel">
 		<div class="menu-top">
-			<a class="wordmark" href="/" onclick={closeMenu} aria-label="Azahar home">Azahar<span>.</span></a>
+			<a class="wordmark" href="/" onclick={closeMenu} aria-label={`${theme.brand_name} home`}
+				>{theme.brand_name}<span>.</span></a
+			>
 			<button class="menu-close" type="button" onclick={closeMenu}>Close</button>
 		</div>
 		<nav class="menu-links" aria-label="Mobile">
@@ -151,8 +138,7 @@
 				<a
 					href={link.href}
 					aria-current={isCurrent(link.href) ? 'page' : undefined}
-					onclick={(event) => {
-						if (link.href === '/#ingredients' && page.url.pathname === '/') goToIngredients(event);
+					onclick={() => {
 						closeMenu();
 					}}>{link.label}</a
 				>

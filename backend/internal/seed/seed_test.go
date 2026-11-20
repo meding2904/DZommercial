@@ -1,6 +1,10 @@
 package seed
 
-import "testing"
+import (
+	"testing"
+
+	"azahar/internal/plugins/oils"
+)
 
 func TestSeedProductContract(t *testing.T) {
 	expected := []struct {
@@ -51,7 +55,7 @@ func TestSeedProductContract(t *testing.T) {
 	}
 
 	categorySlugs := make(map[string]bool)
-	for _, category := range categories {
+	for _, category := range oils.New().Manifest().Categories {
 		categorySlugs[category.Slug] = true
 	}
 	for _, product := range products {

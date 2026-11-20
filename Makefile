@@ -41,14 +41,14 @@ dev-api:
 	go run ./cmd/api
 
 dev-web:
-	cd frontend && INTERNAL_API_URL=$(API_URL) pnpm dev --port 5173
+	cd frontend && APP_ENV=development INTERNAL_API_URL=$(API_URL) pnpm dev --port 5173
 
 check:
-	cd frontend && pnpm check && pnpm test:security
-	cd backend && go vet ./... && go test ./...
+	cd frontend && APP_ENV=development pnpm check && pnpm test:security && pnpm test:framework
+	cd backend && APP_ENV=development go vet ./... && APP_ENV=development go test ./...
 
 build:
-	cd frontend && pnpm build
+	cd frontend && APP_ENV=development pnpm build
 	cd backend && go build ./...
 
 smoke:

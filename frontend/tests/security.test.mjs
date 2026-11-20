@@ -55,12 +55,22 @@ test('admin API checks catch encoded and normalised paths', () => {
 		'/api/admin%252Fmetrics',
 		'/api/%252e%252e/api/admin/metrics',
 		'/api//admin/metrics',
-		'/api/./admin/metrics'
+		'/api/./admin/metrics',
+		'/api/plugins/phone/admin/devices',
+		'/api/plugins/ai/admin/analyze',
+		'/api/plugins/phone/%61dmin/devices',
+		'/api/plugins/phone/admin'
 	]) {
 		assert.equal(isAdminApiPath(path), true, path);
 	}
 
-	for (const path of ['/api', '/api/products', '/api/administrator', '/api/Admin/metrics']) {
+	for (const path of [
+		'/api',
+		'/api/products',
+		'/api/administrator',
+		'/api/Admin/metrics',
+		'/api/plugins/phone/devices'
+	]) {
 		assert.equal(isAdminApiPath(path), false, path);
 	}
 });
@@ -72,6 +82,8 @@ test('a missing or weak gate token fails closed in production', () => {
 	assert.equal(gateConfigured(' production ', 'devtoken'), false);
 	assert.equal(gateConfigured('production', 'short'), false);
 	assert.equal(gateConfigured('production', 'x'.repeat(32)), true);
+	assert.equal(gateConfigured('staging', 'devtoken'), false);
+	assert.equal(gateConfigured('development', ''), false);
 
 	// The documented development token must not open a production gate.
 	assert.equal(gateMatches('devtoken', 'devtoken', false), false);

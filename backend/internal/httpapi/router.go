@@ -8,6 +8,7 @@ import (
 	"azahar/internal/auth"
 	"azahar/internal/config"
 	"azahar/internal/courier"
+	"azahar/internal/plugins"
 	"azahar/internal/store"
 
 	"github.com/go-chi/chi/v5"
@@ -17,6 +18,8 @@ type Server struct {
 	cfg             config.Config
 	store           *store.Store
 	shipping        *courier.Client
+	plugins         *plugins.Registry
+	pluginEnv       *plugins.Env
 	logger          *slog.Logger
 	generalLimiter  *rateLimiter
 	authLimiter     *rateLimiter
@@ -27,12 +30,16 @@ type Server struct {
 	handler         http.Handler
 }
 
-func New(cfg config.Config, st *store.Store, logger *slog.Logger, shipping *courier.Client) *Server {
+func New(cfg config.Config, st *store.Store, logger *slog.Logger, shipping *courier.Client, registry *plugins.Registry) *Server {
 	_ = auth.DummyHash()
+	if registry == nil {
+		registry = plugins.NewRegistry()
+	}
 	server := &Server{
 		cfg:             cfg,
 		store:           st,
 		shipping:        shipping,
+		plugins:         registry,
 		logger:          logger,
 		generalLimiter:  newRateLimiter(120, time.Minute),
 		authLimiter:     newRateLimiter(10, 15*time.Minute),
@@ -40,6 +47,28 @@ func New(cfg config.Config, st *store.Store, logger *slog.Logger, shipping *cour
 		captchaLimiter:  newRateLimiter(30, 10*time.Minute),
 		adminLimiter:    newRateLimiter(60, time.Minute),
 		captcha:         newCaptchaStore(10 * time.Minute),
+	}
+	server.pluginEnv = &plugins.Env{
+		DB:            st.DB(),
+		Store:         st,
+		Logger:        logger,
+		SecretKey:     cfg.PluginSecretKey,
+		AIBaseURL:     cfg.AIBaseURL,
+		AITimeout:     cfg.AITimeout,
+		IsDevelopment: cfg.IsDevelopment(),
+		Actor: func(r *http.Request) (string, string) {
+			current, ok := currentAuth(r)
+			if !ok {
+				return "", ""
+			}
+			return current.User.ID, current.User.Role
+		},
+		RequestID: requestID,
+	}
+	for _, plugin := range registry.All() {
+		if aware, ok := plugin.(plugins.EnvAware); ok {
+			aware.Init(server.pluginEnv)
+		}
 	}
 	server.handler = server.routes()
 	return server
@@ -84,6 +113,11 @@ func (s *Server) routes() http.Handler {
 		r.Get("/shipping/wilayas", s.handleShippingWilayas)
 		r.Get("/shipping/communes", s.handleShippingCommunes)
 		r.Get("/shipping/desks", s.handleShippingDesks)
+		r.Get("/plugins", s.handlePluginManifests)
+		r.Get("/storefront/theme", s.handleStorefrontTheme)
+		r.Get("/images/{id}", s.handleProductImage)
+
+		s.mountPluginRoutes(r)
 
 		r.With(s.rateLimit(s.authLimiter)).Post("/auth/register", s.handleRegister)
 		r.With(s.rateLimit(s.authLimiter)).Post("/auth/login", s.handleLogin)
@@ -100,14 +134,11 @@ func (s *Server) routes() http.Handler {
 
 		r.Route("/admin", func(r chi.Router) {
 			r.Use(s.requireUser)
-			r.Use(s.requireAdmin)
+			r.Use(s.requireStaff)
 			r.Use(s.adminMutationLimit)
 
 			r.Get("/metrics", s.handleMetrics)
 			r.Get("/products", s.handleAdminProducts)
-			r.Post("/products", s.handleCreateProduct)
-			r.Patch("/products/{id}", s.handleUpdateProduct)
-			r.Delete("/products/{id}", s.handleArchiveProduct)
 			r.Get("/orders", s.handleAdminOrders)
 			r.Patch("/orders/{id}/status", s.handleOrderStatus)
 			r.Post("/orders/{id}/shipment", s.handleCreateShipment)
@@ -115,8 +146,73 @@ func (s *Server) routes() http.Handler {
 			r.Get("/customers", s.handleCustomers)
 			r.Get("/preferences", s.handleGetPreferences)
 			r.Put("/preferences", s.handlePutPreferences)
+
+			r.Group(func(r chi.Router) {
+				r.Use(s.requireAdmin)
+
+				r.Post("/products", s.handleCreateProduct)
+				r.Patch("/products/{id}", s.handleUpdateProduct)
+				r.Delete("/products/{id}", s.handleArchiveProduct)
+				r.Get("/storefront/theme", s.handleAdminStorefrontTheme)
+				r.Put("/storefront/theme", s.handlePutStorefrontTheme)
+				r.Get("/team", s.handleAdminTeam)
+				r.Patch("/team/{id}", s.handleUpdateTeamRole)
+				r.Get("/plugins", s.handleAdminPlugins)
+				r.Put("/plugins/{pluginID}/state", s.handlePluginState)
+				r.Post("/product-images", s.handleAdminProductImage)
+				r.Route("/plugins/{pluginID}", func(r chi.Router) {
+					r.Get("/settings", s.handleGetPluginSettings)
+					r.Put("/settings", s.handlePutPluginSettings)
+				})
+			})
 		})
 	})
 
 	return r
+}
+
+func (s *Server) mountPluginRoutes(r chi.Router) {
+	for _, plugin := range s.plugins.All() {
+		manifest := plugin.Manifest()
+		routes := plugin.Routes()
+		r.Route("/plugins/"+manifest.ID, func(r chi.Router) {
+			for _, route := range routes {
+				if route.Admin {
+					continue
+				}
+				r.Method(route.Method, route.Pattern, s.pluginHandler(manifest.ID, route))
+			}
+			r.Group(func(r chi.Router) {
+				r.Use(s.requireUser)
+				r.Use(s.requireAdmin)
+				r.Use(s.adminMutationLimit)
+				for _, route := range routes {
+					if !route.Admin {
+						continue
+					}
+					r.Method(route.Method, "/admin"+route.Pattern, s.pluginHandler(manifest.ID, route))
+				}
+			})
+		})
+	}
+}
+
+func (s *Server) pluginHandler(pluginID string, route plugins.Route) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !s.plugins.EffectiveEnabled(pluginID) {
+			writeError(w, http.StatusNotFound, "not_found", "Plugin not found.")
+			return
+		}
+		ctx := &plugins.Context{
+			W:        w,
+			R:        r,
+			Env:      s.pluginEnv,
+			PluginID: pluginID,
+		}
+		if current, ok := currentAuth(r); ok {
+			ctx.UserID = current.User.ID
+			ctx.UserRole = current.User.Role
+		}
+		route.Handler(ctx)
+	}
 }

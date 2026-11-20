@@ -218,7 +218,7 @@ func (s *Server) newSession(user store.User, r *http.Request) (string, store.Ses
 	}
 	now := time.Now().UTC()
 	ttl := s.cfg.SessionTTL
-	if user.Role == "admin" {
+	if user.Role != "customer" {
 		ttl = s.cfg.AdminSessionTTL()
 	}
 	session := store.Session{

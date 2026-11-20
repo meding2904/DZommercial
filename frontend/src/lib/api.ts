@@ -58,3 +58,37 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
 
 	return data as T;
 }
+
+export async function apiUpload<T>(path: string, form: FormData): Promise<T> {
+	const headers = new Headers();
+	headers.set('X-Requested-With', 'azahar-web');
+
+	const csrf = readCsrfToken();
+	if (csrf) headers.set(CSRF_HEADER, csrf);
+
+	const res = await fetch(`/api${path}`, {
+		method: 'POST',
+		headers,
+		body: form,
+		cache: 'no-store'
+	});
+
+	let data: unknown = null;
+	try {
+		data = await res.json();
+	} catch {
+		data = null;
+	}
+
+	if (!res.ok) {
+		const parsed = (data ?? {}) as ApiErrorBody;
+		throw new ApiError(
+			res.status,
+			parsed.error?.message ?? 'The upload failed. Try again.',
+			parsed.error?.code ?? 'upload_failed',
+			parsed.error?.fields ?? {}
+		);
+	}
+
+	return data as T;
+}

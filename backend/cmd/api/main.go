@@ -11,10 +11,18 @@ import (
 	"syscall"
 	"time"
 
+	"azahar/internal/auditbatch"
 	"azahar/internal/config"
 	"azahar/internal/courier"
 	"azahar/internal/db"
 	"azahar/internal/httpapi"
+	"azahar/internal/plugins"
+	"azahar/internal/plugins/ai"
+	"azahar/internal/plugins/codemode"
+	"azahar/internal/plugins/oils"
+	"azahar/internal/plugins/pcbuilder"
+	"azahar/internal/plugins/pcparts"
+	"azahar/internal/plugins/phone"
 	"azahar/internal/seed"
 	"azahar/internal/store"
 )
@@ -44,12 +52,66 @@ func main() {
 		os.Exit(1)
 	}
 
+	registry := plugins.NewRegistry()
+	for _, plugin := range []plugins.Plugin{
+		oils.New(), pcparts.New(), pcbuilder.New(), codemode.New(registry), phone.New(), ai.New(),
+	} {
+		if err := registry.Register(plugin); err != nil {
+			logger.Error("plugin registration failed", "error", err)
+			os.Exit(1)
+		}
+	}
+	if err := registry.ValidateDependencies(); err != nil {
+		logger.Error("plugin dependency check failed", "error", err)
+		os.Exit(1)
+	}
+	pluginMigrations := make([]db.PluginMigration, 0)
+	for _, item := range registry.Migrations() {
+		pluginMigrations = append(pluginMigrations, db.PluginMigration{
+			PluginID: item.PluginID,
+			Version:  item.Migration.Version,
+			SQL:      item.Migration.SQL,
+		})
+	}
+	if err := db.MigratePlugins(ctx, handle, pluginMigrations); err != nil {
+		logger.Error("plugin migration failed", "error", err)
+		os.Exit(1)
+	}
+
+	repo := store.New(handle)
+	states, err := repo.PluginStates(ctx)
+	if err != nil {
+		logger.Error("plugin states could not be read", "error", err)
+		os.Exit(1)
+	}
+	registry.SetStates(states)
+	for _, plugin := range registry.All() {
+		manifest := plugin.Manifest()
+		for _, category := range manifest.Categories {
+			if err := repo.UpsertCategory(ctx, manifest.ID, store.Category{
+				Slug:        category.Slug,
+				Name:        category.Name,
+				Description: category.Description,
+				SortOrder:   category.SortOrder,
+			}); err != nil {
+				logger.Error("category sync failed", "error", err)
+				os.Exit(1)
+			}
+		}
+	}
+	if err := repo.ReconcileProductCategories(ctx); err != nil {
+		logger.Error("product category reconciliation failed", "error", err)
+		os.Exit(1)
+	}
+
 	if cfg.SeedDemo {
 		if _, err := seed.Run(ctx, handle, logger, seed.Options{
 			AdminEmail:       cfg.AdminEmail,
 			AdminPassword:    cfg.AdminPassword,
 			CustomerEmail:    cfg.CustomerEmail,
 			CustomerPassword: cfg.CustomerPassword,
+			EmployeeEmail:    cfg.EmployeeEmail,
+			EmployeePassword: cfg.EmployeePassword,
 		}); err != nil {
 			logger.Error("demo seed failed", "error", err)
 			os.Exit(1)
@@ -60,12 +122,12 @@ func main() {
 		logger.Warn("development demo credentials",
 			"admin_email", cfg.AdminEmail,
 			"admin_password", cfg.AdminPassword,
+			"employee_email", cfg.EmployeeEmail,
+			"employee_password", cfg.EmployeePassword,
 			"customer_email", cfg.CustomerEmail,
 			"customer_password", cfg.CustomerPassword,
 		)
 	}
-
-	repo := store.New(handle)
 
 	courierCredentials := map[string]string{}
 	if cfg.CourierCredentials != "" {
@@ -95,7 +157,14 @@ func main() {
 		},
 	})
 
-	server := httpapi.New(cfg, repo, logger, shipping)
+	auditCtx, stopAudit := context.WithCancel(context.Background())
+	auditDone := make(chan struct{})
+	go func() {
+		defer close(auditDone)
+		auditbatch.Run(auditCtx, repo, cfg.AuditBatchInterval, logger)
+	}()
+
+	server := httpapi.New(cfg, repo, logger, shipping, registry)
 	httpServer := &http.Server{
 		Addr:              cfg.APIAddr,
 		Handler:           server.Handler(),
@@ -124,4 +193,7 @@ func main() {
 		_ = httpServer.Close()
 	}
 	server.Close()
+
+	stopAudit()
+	<-auditDone
 }

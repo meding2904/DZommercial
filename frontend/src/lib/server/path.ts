@@ -50,7 +50,15 @@ export function isAdminPath(pathname: string): boolean {
 	return isPathWithin(pathname, '/admin');
 }
 
-/** The proxied admin API lives at /api/admin and its children. */
+/** The proxied admin API lives at /api/admin and at /api/plugins/{id}/admin. */
 export function isAdminApiPath(pathname: string): boolean {
-	return isPathWithin(pathname, '/api/admin');
+	if (isPathWithin(pathname, '/api/admin')) return true;
+	const parts = normalizePathname(pathname).split('/');
+	return (
+		parts.length >= 5 &&
+		parts[1] === 'api' &&
+		parts[2] === 'plugins' &&
+		Boolean(parts[3]) &&
+		parts[4] === 'admin'
+	);
 }

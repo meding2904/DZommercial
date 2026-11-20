@@ -1,6 +1,7 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { ApiError } from '#lib/api';
+	import { ApiError, apiFetch } from '#lib/api';
 	import { auth } from '#lib/stores/auth.svelte';
 	import { errorMessage } from '#lib/admin/api';
 	import { theme, syncThemeColor } from '#lib/admin/theme.svelte';
@@ -9,6 +10,17 @@
 	let email = $state('');
 	let password = $state('');
 	let error = $state('');
+	let brandName = $state('Azahar');
+
+	onMount(() => {
+		apiFetch<{ theme: { brand_name: string } }>('/storefront/theme')
+			.then((data) => {
+				if (data.theme?.brand_name) brandName = data.theme.brand_name;
+			})
+			.catch(() => {
+				// The login page still works with the default wordmark.
+			});
+	});
 
 	$effect(() => syncThemeColor(theme.preset, theme.scheme));
 
@@ -23,7 +35,7 @@
 
 		try {
 			const user = await auth.login(email.trim(), password);
-			if (user.role === 'admin') {
+			if (user.role === 'admin' || user.role === 'employee') {
 				await goto('/admin');
 			} else {
 				error = 'This account does not have access.';
@@ -39,13 +51,13 @@
 </script>
 
 <svelte:head>
-	<title>Sign in · Azahar admin</title>
+	<title>Sign in · {brandName} admin</title>
 </svelte:head>
 
 <main class="admin-login" data-preset={theme.preset} data-scheme={theme.scheme}>
 	<div class="login-wrap">
 		<div class="login-top">
-			<p class="login-brand">Azahar<span>.</span></p>
+			<p class="login-brand">{brandName}<span>.</span></p>
 			<button
 				class="a-theme-toggle"
 				type="button"
@@ -99,6 +111,7 @@
 						autocomplete="username"
 						bind:value={email}
 						required
+						aria-describedby={error ? 'login-error' : undefined}
 					/>
 				</div>
 
@@ -110,11 +123,12 @@
 						autocomplete="current-password"
 						bind:value={password}
 						required
+						aria-describedby={error ? 'login-error' : undefined}
 					/>
 				</div>
 
 				{#if error}
-					<p class="a-form-error" role="alert">{error}</p>
+					<p class="a-form-error" id="login-error" role="alert">{error}</p>
 				{/if}
 
 				<button class="a-btn a-btn-primary a-btn-block" type="submit" disabled={auth.busy}>
@@ -125,15 +139,16 @@
 			{#if import.meta.env.DEV}
 				<aside class="login-demo" aria-labelledby="demo-access-title">
 					<p class="login-demo-title" id="demo-access-title">Demo access</p>
-					<p>Email <code>admin@azahar.example</code></p>
+					<p>Admin <code>admin@azahar.example</code></p>
 					<p>Password <code>azahar-dev-admin-2026</code></p>
+					<p>Staff <code>staff@azahar.example</code> / <code>azahar-dev-staff-2026</code></p>
 					<p class="a-muted-sm">Available when the seeded API is running.</p>
 				</aside>
 			{/if}
 		</div>
 
 		<footer class="login-foot">
-			<span>Azahar admin.</span>
+			<span>{brandName} admin.</span>
 			<a class="a-link" href="/">View store</a>
 		</footer>
 	</div>

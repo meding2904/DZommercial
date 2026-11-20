@@ -23,6 +23,7 @@
 	--font-display: 'Schibsted Grotesk Variable', 'Schibsted Grotesk', system-ui, sans-serif;
 	--font-text: 'Schibsted Grotesk Variable', 'Schibsted Grotesk', system-ui, sans-serif;
 	--font-mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace;
+	--text-base: 16px;
 
 	--wrap: 1280px;
 	--gutter: 24px;
@@ -78,7 +79,7 @@ body {
 	background: var(--bg);
 	color: var(--ink);
 	font-family: var(--font-text);
-	font-size: 16px;
+	font-size: var(--text-base);
 	line-height: 1.55;
 	-webkit-font-smoothing: antialiased;
 	overflow-x: hidden;
@@ -501,6 +502,7 @@ section[id] {
 	border: 0;
 	background: var(--bg);
 	color: var(--ink);
+	overscroll-behavior: contain;
 }
 
 .menu-dialog::backdrop {
@@ -511,7 +513,7 @@ section[id] {
 	display: flex;
 	min-height: 100%;
 	flex-direction: column;
-	padding: 20px var(--gutter) 40px;
+	padding: 20px var(--gutter) calc(40px + env(safe-area-inset-bottom));
 }
 
 .menu-top {
@@ -995,8 +997,10 @@ section[id] {
 
 .price-row {
 	display: flex;
+	flex-wrap: wrap;
 	align-items: baseline;
 	gap: 14px;
+	row-gap: 4px;
 }
 
 .price {
@@ -1276,12 +1280,13 @@ section[id] {
 	resize: vertical;
 }
 
-.field input:focus,
-.field select:focus,
-.field textarea:focus {
-	outline: none;
+.field input:focus-visible,
+.field select:focus-visible,
+.field textarea:focus-visible {
 	border-color: var(--accent);
 	box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 22%, transparent);
+	outline: 2px solid var(--accent);
+	outline-offset: 1px;
 }
 
 .field-error {

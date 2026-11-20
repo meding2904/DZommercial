@@ -1,7 +1,10 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
+	import type { Component } from 'svelte';
 	import { ApiError } from '#lib/api';
 	import { errorMessage, adminApi } from '#lib/admin/api';
+	import { orderPanelFor } from '#lib/plugins/admin/order-registry';
+	import { auth } from '#lib/stores/auth.svelte';
 	import { formatDateTime, STATUS_TRANSITIONS } from '#lib/admin/format';
 	import type { AdminOrder } from '#lib/admin/types';
 	import {
@@ -27,6 +30,7 @@
 
 	let current = $state(untrack(() => order));
 	let nextStatus = $state<OrderStatus | ''>(untrack(() => STATUS_TRANSITIONS[order.status][0] ?? ''));
+	let confirmCancel = $state(false);
 	let busy = $state(false);
 	let error = $state('');
 	let success = $state('');
@@ -35,7 +39,21 @@
 	let shipSuccess = $state('');
 	let dialogEl = $state<HTMLDialogElement | null>(null);
 
-	const allowed = $derived(STATUS_TRANSITIONS[current.status]);
+	const allowed = $derived(
+		STATUS_TRANSITIONS[current.status].filter(
+			(status) => auth.isAdmin || status !== 'cancelled'
+		)
+	);
+	const pluginPanels = $derived.by(() => {
+		const panels: { id: string; panel: Component<{ order: AdminOrder }> }[] = [];
+		const ids = [...new Set(current.items.map((item) => item.plugin_id))];
+		for (const id of ids) {
+			if (!id || id === 'core') continue;
+			const panel = orderPanelFor(id);
+			if (panel) panels.push({ id, panel });
+		}
+		return panels;
+	});
 	const deliveryType = $derived(current.delivery_type ?? 'home');
 	const placeLine = $derived(
 		[current.commune_name || current.city, current.wilaya_name].filter(Boolean).join(', ')
@@ -83,6 +101,10 @@
 	async function save(event: SubmitEvent) {
 		event.preventDefault();
 		if (!nextStatus || busy || shipBusy || allowed.length === 0) return;
+		if (nextStatus === 'cancelled' && !confirmCancel) {
+			confirmCancel = true;
+			return;
+		}
 
 		busy = true;
 		error = '';
@@ -91,6 +113,7 @@
 			const data = await adminApi.updateOrderStatus(current.id, nextStatus);
 			current = data.order;
 			success = 'Status saved.';
+			confirmCancel = false;
 			nextStatus = STATUS_TRANSITIONS[data.order.status][0] ?? '';
 			onupdated(data.order);
 		} catch (caught) {
@@ -193,15 +216,28 @@
 								labelId="order-next-status-label"
 								value={nextStatus}
 								options={allowed.map((status) => ({ value: status, label: titleCase(status) }))}
-								onchange={(value) => (nextStatus = value as OrderStatus)}
+								onchange={(value) => {
+									nextStatus = value as OrderStatus;
+									confirmCancel = false;
+								}}
 								disabled={busy}
 							/>
 						</div>
 						<button class="a-btn a-btn-secondary" type="submit" disabled={busy || shipBusy || !nextStatus}>
-							{busy ? 'Saving…' : 'Save status'}
+							{busy
+								? 'Saving…'
+								: confirmCancel
+									? 'Confirm cancellation'
+									: 'Save status'}
 						</button>
 					</div>
-					<p class="a-field-hint">Only the next steps allowed by the order rules are listed.</p>
+					{#if confirmCancel}
+						<p class="a-field-hint cancel-hint" role="status">
+							This cancels the order. Press the button again to confirm.
+						</p>
+					{:else}
+						<p class="a-field-hint">Only the next steps allowed by the order rules are listed.</p>
+					{/if}
 				{:else}
 					<p class="order-status-final">Delivered and cancelled orders are final.</p>
 				{/if}
@@ -332,7 +368,12 @@
 						<tbody>
 							{#each current.items as item (item.id)}
 								<tr>
-									<td>{item.name}</td>
+									<td>
+										{item.name}
+										{#if item.options_label}
+											<span class="a-muted-sm item-options">{item.options_label}</span>
+										{/if}
+									</td>
 									<td class="right a-num">{item.quantity}</td>
 									<td class="right a-num">{money(item.unit_price_cents, current.currency)}</td>
 									<td class="right a-num">{money(item.line_total_cents, current.currency)}</td>
@@ -357,6 +398,13 @@
 					</div>
 				</div>
 			</section>
+
+			{#each pluginPanels as entry (entry.id)}
+				{@const Panel = entry.panel}
+				{#key `${current.id}-${current.status}`}
+					<Panel order={current} />
+				{/key}
+			{/each}
 		</div>
 
 		<footer class="a-dialog-foot">
@@ -416,6 +464,15 @@
 		justify-content: space-between;
 		gap: 12px;
 		font-size: 13px;
+	}
+
+	.item-options {
+		display: block;
+		margin-top: 2px;
+	}
+
+	.cancel-hint {
+		color: var(--a-danger-text);
 	}
 
 	@media (max-width: 560px) {

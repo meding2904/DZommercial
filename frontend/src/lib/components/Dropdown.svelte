@@ -122,7 +122,7 @@
 				closeMenu(true);
 				break;
 			case 'Tab':
-				closeMenu(false);
+				closeMenu(true);
 				break;
 		}
 	}
@@ -168,6 +168,7 @@
 		aria-label={label}
 		aria-labelledby={labelId}
 		data-invalid={invalid || undefined}
+		{...(invalid ? { 'aria-invalid': 'true' } : {})}
 		aria-describedby={describedBy}
 		disabled={disabled}
 		onclick={() => (open ? closeMenu(true) : void openMenu())}

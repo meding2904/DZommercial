@@ -3,7 +3,7 @@
 
 	const status = $derived(page.status);
 	const isMissing = $derived(status === 404);
-	const title = $derived(isMissing ? 'This page is not on the shelf.' : 'The house could not open this page.');
+	const title = $derived(isMissing ? 'This page is not on the shelf.' : 'The shop could not open this page.');
 </script>
 
 <svelte:head>

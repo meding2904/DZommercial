@@ -1530,6 +1530,20 @@ a.a-order-number:hover {
 	vertical-align: 1px;
 }
 
+.sale-badge {
+	display: inline-block;
+	margin-left: 6px;
+	padding: 1px 4px;
+	border: 1px solid var(--a-accent);
+	border-radius: var(--a-radius-xs);
+	background: var(--a-accent);
+	color: var(--a-accent-ink);
+	font-family: var(--a-font-text);
+	font-size: 11px;
+	line-height: 1.4;
+	vertical-align: 1px;
+}
+
 .a-state-label {
 	font-size: 13px;
 	white-space: nowrap;
@@ -1822,12 +1836,13 @@ a.a-order-number:hover {
 	resize: vertical;
 }
 
-.a-field input:focus,
-.a-field select:focus,
-.a-field textarea:focus {
-	outline: none;
+.a-field input:focus-visible,
+.a-field select:focus-visible,
+.a-field textarea:focus-visible {
 	border-color: var(--a-accent);
 	box-shadow: 0 0 0 3px color-mix(in oklab, var(--a-accent) 22%, transparent);
+	outline: 2px solid var(--a-accent);
+	outline-offset: 1px;
 }
 
 .a-field input[aria-invalid='true'],
@@ -2473,7 +2488,8 @@ dialog.a-dialog--confirm {
 		grid-template-columns: minmax(0, 1fr) auto;
 		grid-template-areas:
 			'product product'
-			'category state'
+			'type state'
+			'category category'
 			'price stock'
 			'featured featured'
 			'actions actions';
@@ -2484,35 +2500,40 @@ dialog.a-dialog--confirm {
 	}
 
 	.a-table--products td:nth-child(2) {
-		grid-area: category;
+		grid-area: type;
 	}
 
 	.a-table--products td:nth-child(3) {
-		grid-area: price;
+		grid-area: category;
 	}
 
 	.a-table--products td:nth-child(4) {
+		grid-area: price;
+	}
+
+	.a-table--products td:nth-child(5) {
 		grid-area: stock;
 		justify-self: end;
 		text-align: right;
 	}
 
-	.a-table--products td:nth-child(5) {
+	.a-table--products td:nth-child(6) {
 		grid-area: state;
 		justify-self: end;
 		text-align: right;
 	}
 
-	.a-table--products td:nth-child(6) {
+	.a-table--products td:nth-child(7) {
 		grid-area: featured;
 	}
 
-	.a-table--products td:nth-child(7) {
+	.a-table--products td:nth-child(8) {
 		grid-area: actions;
 	}
 
 	.a-table--products td:nth-child(4) .a-cell-label,
-	.a-table--products td:nth-child(5) .a-cell-label {
+	.a-table--products td:nth-child(5) .a-cell-label,
+	.a-table--products td:nth-child(6) .a-cell-label {
 		text-align: right;
 	}
 

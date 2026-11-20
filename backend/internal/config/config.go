@@ -23,6 +23,8 @@ type Config struct {
 	AdminPassword      string
 	CustomerEmail      string
 	CustomerPassword   string
+	EmployeeEmail      string
+	EmployeePassword   string
 	SessionTTL         time.Duration
 	CourierAPIURL      string
 	CourierKey         string
@@ -30,10 +32,21 @@ type Config struct {
 	CourierFromWilaya  int
 	CourierTimeout     time.Duration
 	TurnstileSecret    string
+	PluginSecretKey    string
+	AIBaseURL          string
+	AITimeout          time.Duration
+	AuditBatchInterval time.Duration
 }
 
 func Load() (Config, error) {
-	appEnv := getenv("APP_ENV", "development")
+	rawAppEnv, ok := os.LookupEnv("APP_ENV")
+	if !ok || strings.TrimSpace(rawAppEnv) == "" {
+		return Config{}, fmt.Errorf("APP_ENV must be set to development or production")
+	}
+	appEnv := strings.ToLower(strings.TrimSpace(rawAppEnv))
+	if appEnv != "development" && appEnv != "production" {
+		return Config{}, fmt.Errorf("APP_ENV must be development or production")
+	}
 	cfg := Config{
 		AppEnv:           appEnv,
 		APIAddr:          getenv("API_ADDR", ":8080"),
@@ -44,6 +57,8 @@ func Load() (Config, error) {
 		AdminPassword:    getenv("ADMIN_PASSWORD", "azahar-dev-admin-2026"),
 		CustomerEmail:    strings.ToLower(strings.TrimSpace(getenv("CUSTOMER_EMAIL", "client@azahar.example"))),
 		CustomerPassword: getenv("CUSTOMER_PASSWORD", "azahar-dev-client-2026"),
+		EmployeeEmail:    strings.ToLower(strings.TrimSpace(getenv("EMPLOYEE_EMAIL", "staff@azahar.example"))),
+		EmployeePassword: getenv("EMPLOYEE_PASSWORD", "azahar-dev-staff-2026"),
 		SessionTTL:       time.Duration(getint("SESSION_TTL_HOURS", 168)) * time.Hour,
 
 		CourierAPIURL:      strings.TrimRight(strings.TrimSpace(getenv("COURIER_API_URL", "https://freeship.dzbuild.com")), "/"),
@@ -52,6 +67,10 @@ func Load() (Config, error) {
 		CourierFromWilaya:  getint("COURIER_FROM_WILAYA", 16),
 		CourierTimeout:     time.Duration(getint("COURIER_TIMEOUT_SECONDS", 12)) * time.Second,
 		TurnstileSecret:    strings.TrimSpace(os.Getenv("TURNSTILE_SECRET_KEY")),
+		PluginSecretKey:    getenv("PLUGIN_SECRET_KEY", "azahar-dev-plugin-key-2026"),
+		AIBaseURL:          strings.TrimRight(strings.TrimSpace(getenv("AI_BASE_URL", "https://api.openai.com/v1")), "/"),
+		AITimeout:          time.Duration(getint("AI_TIMEOUT_SECONDS", 25)) * time.Second,
+		AuditBatchInterval: time.Duration(getint("AUDIT_BATCH_INTERVAL_MS", 2000)) * time.Millisecond,
 	}
 	cfg.SeedDemo = getbool("SEED_DEMO", strings.EqualFold(appEnv, "development"))
 
@@ -83,6 +102,12 @@ func Load() (Config, error) {
 		if cfg.SeedDemo && cfg.CustomerPassword == "azahar-dev-client-2026" {
 			return Config{}, errors.New("CUSTOMER_PASSWORD must not be the development default when SEED_DEMO=true")
 		}
+		if cfg.SeedDemo && cfg.EmployeePassword == "azahar-dev-staff-2026" {
+			return Config{}, errors.New("EMPLOYEE_PASSWORD must not be the development default when SEED_DEMO=true")
+		}
+		if cfg.SeedDemo && len(cfg.EmployeePassword) < 10 {
+			return Config{}, errors.New("EMPLOYEE_PASSWORD must be at least 10 characters when SEED_DEMO=true")
+		}
 		if cfg.TurnstileSecret == "" {
 			return Config{}, errors.New("TURNSTILE_SECRET_KEY must be set when APP_ENV=production")
 		}
@@ -90,6 +115,12 @@ func Load() (Config, error) {
 			strings.HasPrefix(cfg.TurnstileSecret, "2x") ||
 			strings.HasPrefix(cfg.TurnstileSecret, "3x") {
 			return Config{}, errors.New("TURNSTILE_SECRET_KEY must not be a Turnstile test key")
+		}
+		if _, ok := os.LookupEnv("PLUGIN_SECRET_KEY"); !ok || len(cfg.PluginSecretKey) < 16 {
+			return Config{}, errors.New("PLUGIN_SECRET_KEY must be set to at least 16 characters when APP_ENV=production")
+		}
+		if cfg.PluginSecretKey == "azahar-dev-plugin-key-2026" {
+			return Config{}, errors.New("PLUGIN_SECRET_KEY must not be the development default when APP_ENV=production")
 		}
 		cfg.CookieSecure = true
 	}
@@ -125,6 +156,28 @@ func Load() (Config, error) {
 	}
 	if cfg.CourierTimeout < time.Second || cfg.CourierTimeout > 30*time.Second {
 		return Config{}, errors.New("COURIER_TIMEOUT_SECONDS must be between 1 and 30")
+	}
+	if len(cfg.PluginSecretKey) < 16 {
+		return Config{}, errors.New("PLUGIN_SECRET_KEY must be at least 16 characters")
+	}
+	aiURL, err := url.Parse(cfg.AIBaseURL)
+	if err != nil || (aiURL.Scheme != "http" && aiURL.Scheme != "https") || aiURL.Host == "" {
+		return Config{}, errors.New("AI_BASE_URL must be an absolute http(s) URL")
+	}
+	if aiURL.User != nil {
+		return Config{}, errors.New("AI_BASE_URL must not contain credentials")
+	}
+	if cfg.IsProduction() && aiURL.Scheme != "https" {
+		return Config{}, errors.New("AI_BASE_URL must use https when APP_ENV=production")
+	}
+	if cfg.AITimeout < 5*time.Second || cfg.AITimeout > 60*time.Second {
+		return Config{}, errors.New("AI_TIMEOUT_SECONDS must be between 5 and 60")
+	}
+	if cfg.AuditBatchInterval < 500*time.Millisecond {
+		cfg.AuditBatchInterval = 500 * time.Millisecond
+	}
+	if cfg.AuditBatchInterval > 60*time.Second {
+		cfg.AuditBatchInterval = 60 * time.Second
 	}
 	return cfg, nil
 }

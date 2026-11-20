@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
+	import { afterNavigate, goto } from '$app/navigation';
 	import { page } from '$app/state';
+	import { apiFetch } from '#lib/api';
 	import { auth } from '#lib/stores/auth.svelte';
 	import { theme, syncThemeColor } from '#lib/admin/theme.svelte';
 	import PresetSwitch from '#lib/components/admin/PresetSwitch.svelte';
@@ -10,6 +11,19 @@
 
 	let { children }: LayoutProps = $props();
 
+	let brandName = $state('Azahar');
+
+	function applyBrandTitle(): void {
+		if (brandName === 'Azahar') return;
+		document.title = document.title.replaceAll('Azahar', brandName);
+	}
+
+	afterNavigate(applyBrandTitle);
+	$effect(() => {
+		brandName;
+		applyBrandTitle();
+	});
+
 	$effect(() => syncThemeColor(theme.preset, theme.scheme));
 
 	let access = $state(false);
@@ -17,12 +31,32 @@
 	let signingOut = $state(false);
 	let menuButton = $state<HTMLButtonElement | null>(null);
 
-	const navItems = [
-		{ href: '/admin', label: 'Overview' },
-		{ href: '/admin/orders', label: 'Orders' },
-		{ href: '/admin/products', label: 'Products' },
-		{ href: '/admin/customers', label: 'Customers' }
-	];
+	const navItems = $derived.by(() => {
+		const items = [
+			{ href: '/admin', label: 'Overview' },
+			{ href: '/admin/orders', label: 'Orders' },
+			{ href: '/admin/products', label: 'Products' },
+			{ href: '/admin/customers', label: 'Customers' }
+		];
+		if (auth.isAdmin) {
+			items.push(
+				{ href: '/admin/team', label: 'Team' },
+				{ href: '/admin/storefront', label: 'Storefront' },
+				{ href: '/admin/plugins', label: 'Plugins' }
+			);
+		}
+		return items;
+	});
+
+	const restricted = $derived(
+		!auth.isAdmin &&
+			(page.url.pathname === '/admin/team' ||
+				page.url.pathname.startsWith('/admin/team/') ||
+				page.url.pathname === '/admin/storefront' ||
+				page.url.pathname.startsWith('/admin/storefront/') ||
+				page.url.pathname === '/admin/plugins' ||
+				page.url.pathname.startsWith('/admin/plugins/'))
+	);
 
 	const activeIndex = $derived(
 		Math.max(
@@ -42,7 +76,7 @@
 			await auth.refresh();
 			if (!live) return;
 
-			if (!auth.isAdmin) {
+			if (!auth.isStaff) {
 				await goto('/admin/login', { replace: true });
 				return;
 			}
@@ -50,6 +84,14 @@
 			await theme.loadRemote();
 			if (!live) return;
 			access = true;
+
+			apiFetch<{ theme: { brand_name: string } }>('/storefront/theme')
+				.then((data) => {
+					if (live && data.theme?.brand_name) brandName = data.theme.brand_name;
+				})
+				.catch(() => {
+					// The admin still works with the default wordmark.
+				});
 		})();
 
 		return () => {
@@ -84,7 +126,7 @@
 {#if !access}
 	<main class="admin-gate" data-preset={theme.preset} data-scheme={theme.scheme}>
 		<div class="gate-inner">
-			<p class="gate-wordmark">Azahar<span>.</span></p>
+			<p class="gate-wordmark">{brandName}<span>.</span></p>
 			<p class="gate-status" role="status">
 				<span class="a-spinner" aria-hidden="true"></span>
 				Checking access…
@@ -99,9 +141,9 @@
 			<header class="rail-head">
 				<div class="rail-brand">
 					<a class="rail-wordmark" href="/admin" onclick={closeMenu}>
-						Azahar<span>.</span>
+						{brandName}<span>.</span>
 					</a>
-					<p class="rail-role">Admin ledger</p>
+					<p class="rail-role">{auth.isAdmin ? 'Admin ledger' : 'Staff ledger'}</p>
 				</div>
 				<div class="rail-actions">
 					<button
@@ -182,7 +224,17 @@
 		</aside>
 
 		<main class="admin-main" id="admin-main" tabindex="-1">
-			{@render children()}
+			{#if restricted}
+				<div class="a-panel">
+					<div class="a-empty">
+						<h2>Administrators only</h2>
+						<p>This area is limited to administrators. Your staff account can use the overview, orders, products and customers.</p>
+						<a class="a-btn a-btn-secondary" href="/admin">Back to overview</a>
+					</div>
+				</div>
+			{:else}
+				{@render children()}
+			{/if}
 		</main>
 	</div>
 {/if}

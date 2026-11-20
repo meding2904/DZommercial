@@ -1,20 +1,10 @@
 import { serverGet } from '#lib/server/api';
+import type { StorefrontTheme } from '#lib/theme/storefront';
 import type { Category, Product } from '#lib/types';
 import type { PageServerLoad } from './$types';
 
 const SORTS = ['featured', 'price_asc', 'price_desc', 'new'] as const;
 const CONCERNS = ['dry', 'sensitive', 'dull', 'oily', 'tired'];
-
-const FEATURED_ORDER = [
-	'orange-blossom-cleansing-oil',
-	'rosehip-and-olive-face-serum',
-	'rose-clay-mask',
-	'fig-and-sesame-body-balm',
-	'prickly-pear-face-oil',
-	'cedar-and-myrrh-hand-cream',
-	'green-fig-body-oil',
-	'rose-petal-bath-soak'
-];
 
 type Sort = (typeof SORTS)[number];
 
@@ -26,14 +16,19 @@ export const load: PageServerLoad = async ({ url, getClientAddress }) => {
 	const client = getClientAddress();
 	const sort = readSort(url.searchParams.get('sort'));
 	const rawConcern = url.searchParams.get('concern')?.trim() ?? '';
-	const concern = CONCERNS.includes(rawConcern) ? rawConcern : '';
 	const q = url.searchParams.get('q')?.trim() ?? '';
 	const rawCategory = url.searchParams.get('category')?.trim() ?? '';
 
 	try {
-		const categoryData = await serverGet<{ categories: Category[] }>('/api/categories', client);
+		const [categoryData, themeData] = await Promise.all([
+			serverGet<{ categories: Category[] }>('/api/categories', client),
+			serverGet<{ theme: StorefrontTheme }>('/api/storefront/theme', client).catch(() => null)
+		]);
 		const categories = categoryData.categories;
 		const category = categories.some((item) => item.slug === rawCategory) ? rawCategory : '';
+		const concernEnabled = themeData?.theme.concerns_enabled !== false;
+		const concern =
+			concernEnabled && CONCERNS.includes(rawConcern) ? rawConcern : '';
 
 		const params = new URLSearchParams();
 		if (category) params.set('category', category);
@@ -42,17 +37,9 @@ export const load: PageServerLoad = async ({ url, getClientAddress }) => {
 		params.set('sort', sort);
 
 		const productData = await serverGet<{ products: Product[] }>(`/api/products?${params}`, client);
-		const products =
-			sort === 'featured'
-				? [...productData.products].sort((a, b) => {
-						const ai = FEATURED_ORDER.indexOf(a.slug);
-						const bi = FEATURED_ORDER.indexOf(b.slug);
-						return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
-					})
-				: productData.products;
 
 		return {
-			products,
+			products: productData.products,
 			categories,
 			filters: { category, concern, q, sort },
 			apiDown: false

@@ -9,11 +9,20 @@ order lookup by token and the admin dashboard against libSQL/Turso.
 cmd/api                 HTTP server and graceful shutdown
 internal/config         environment parsing and production checks
 internal/db             libsql connection, embedded migrations, schema_migrations
+internal/auditbatch     queues audit writes and flushes them in batches
 internal/auth           Argon2id hashing, session and order tokens
-internal/httpapi        chi router, middleware, handlers, validation
+internal/httpapi        chi router, middleware, handlers, validation, framework surfaces
+internal/plugins        plugin SDK: manifest, routes, migrations, hooks, settings
+internal/plugins/oils   first-party Oil shelf product type
+internal/plugins/pcparts first-party PC parts catalogue
+internal/plugins/pcbuilder first-party Build your PC page and parts API
+internal/plugins/codemode admin AI plan/apply console
+internal/plugins/phone  first-party phone catalog with IMEI stock
+internal/plugins/ai     first-party AI analyst
+internal/storefront     storefront theme model, defaults and validation
 internal/store          queries and row mapping
 internal/seed           idempotent demo seed
-migrations              SQL schema
+migrations              core SQL schema
 scripts/smoke.sh        start the API and run the six contract checks
 ```
 
@@ -23,14 +32,14 @@ The local libSQL server is expected at `http://127.0.0.1:8880`.
 
 ```sh
 cd backend
-go run ./cmd/api
+APP_ENV=development go run ./cmd/api
 ```
 
 Defaults in development:
 
 | Variable | Default |
 |---|---|
-| `APP_ENV` | `development` |
+| `APP_ENV` | required: `development` or `production` |
 | `API_ADDR` | `:8080` |
 | `APP_ORIGIN` | `http://localhost:5173` |
 | `TURSO_DATABASE_URL` | `http://127.0.0.1:8880` |
@@ -40,6 +49,8 @@ Defaults in development:
 | `SEED_DEMO` | true in development, false otherwise |
 | `ADMIN_EMAIL` | `admin@azahar.example` |
 | `ADMIN_PASSWORD` | `azahar-dev-admin-2026` |
+| `EMPLOYEE_EMAIL` | `staff@azahar.example` |
+| `EMPLOYEE_PASSWORD` | `azahar-dev-staff-2026` |
 | `CUSTOMER_EMAIL` | `client@azahar.example` |
 | `CUSTOMER_PASSWORD` | `azahar-dev-client-2026` |
 | `COURIER_API_URL` | `https://freeship.dzbuild.com` |
@@ -47,7 +58,11 @@ Defaults in development:
 | `COURIER_CREDENTIALS` | empty (JSON object for a real courier) |
 | `COURIER_FROM_WILAYA` | `16` |
 | `COURIER_TIMEOUT_SECONDS` | `12` |
-| `SESSION_TTL_HOURS` | `168` (admin sessions are capped at 12 hours) |
+| `PLUGIN_SECRET_KEY` | development key (required in production, at least 16 characters) |
+| `AI_BASE_URL` | `https://api.openai.com/v1` |
+| `AI_TIMEOUT_SECONDS` | `25` |
+| `AUDIT_BATCH_INTERVAL_MS` | `2000` (clamped to 500–60000) |
+| `SESSION_TTL_HOURS` | `168` (admin and employee sessions are capped at 12 hours) |
 
 The startup log prints the demo credentials only when `APP_ENV=development`.
 
@@ -68,12 +83,18 @@ to a local sandbox shipment. Real courier keys never use the local fallback.
 ### Dev credentials
 
 - Admin: `admin@azahar.example` / `azahar-dev-admin-2026`
+- Employee: `staff@azahar.example` / `azahar-dev-staff-2026`
 - Customer: `client@azahar.example` / `azahar-dev-client-2026`
 
 ## Schema notes
 
 Tables: `users`, `sessions`, `categories`, `products`, `orders`, `order_items`,
-`audit_log`, `schema_migrations`, plus `order_sequences` for yearly order numbers.
+`audit_log`, `audit_outbox`, `schema_migrations`, `storefront_settings`, `plugin_settings`,
+`plugin_states`, `plugin_migrations`, `product_images`, plus `order_sequences` for yearly
+order numbers.
+`categories` carries a `plugin_id`; plugins declare their categories in the manifest and the
+API syncs them at startup. Plugin tables are owned by the plugin: `phone_devices`,
+`plugin_ai_runs` and `codemode_plans` in the shipped set.
 
 - IDs are prefixed random text: `usr_`, `ses_`, `cat_`, `prd_`, `ord_`, `itm_`, `aud_`.
 - Timestamps are RFC 3339 UTC text. Date filters compare those strings and are therefore
@@ -82,16 +103,24 @@ Tables: `users`, `sessions`, `categories`, `products`, `orders`, `order_items`,
   in the store layer.
 - `products.concerns`, `products.ingredients` and `products.gallery` are JSON arrays stored
   as text. The API always returns arrays, never null.
+- `products.sale_price_cents` is nullable; `sale_starts_at` and `sale_ends_at` are RFC 3339
+  text or empty. A sale is active only inside that window and only when the sale price is
+  below the regular price.
 - Only a SHA-256 hex hash of a session or order token is stored.
 - `schema_migrations` records each applied file. Migrations are embedded from
   `backend/migrations` and applied in file order inside a transaction.
+- Audit writes go to `audit_outbox` in the same transaction as the action. A background
+  batcher copies up to 200 rows into `audit_log` and deletes them from the outbox in one
+  transaction every `AUDIT_BATCH_INTERVAL_MS`, so `audit_log` may trail an action by one
+  interval. Queued rows survive restarts and database outages.
 - Indexes cover product slug/active, order created_at/status, session token_hash/expires_at,
-  order_items.order_id and audit_log.created_at.
+  order_items.order_id, audit_log.created_at and audit_outbox.created_at.
 
 ## Demo seed
 
-`SEED_DEMO=true` seeds three categories, the eight DESIGN.md products, an admin, a demo
-customer, twelve sample customers and 48 orders over the last 45 days. Status counts are
+`SEED_DEMO=true` seeds three categories, the eight DESIGN.md products, an admin, an employee,
+a demo customer, twelve sample customers and 48 orders over the last 45 days. One demo
+product (Rose clay mask) starts with an active seven-day sale. Status counts are
 6 pending, 6 confirmed, 5 packed, 8 shipped, 20 delivered and 3 cancelled. Six orders are
 guest orders. Each section runs only when its table is empty, so restarts never duplicate
 rows. The seeded order numbers are `AZ-2026-0001` through `AZ-2026-0048` on a fresh

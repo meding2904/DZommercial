@@ -6,7 +6,8 @@
  */
 export function gateConfigured(appEnv: string, token: string): boolean {
 	const env = appEnv.trim().toLowerCase();
-	return env !== 'production' || (token.length >= 32 && token !== 'devtoken');
+	if (env === 'development') return token.trim().length > 0;
+	return token.length >= 32 && token !== 'devtoken';
 }
 
 /**

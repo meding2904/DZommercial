@@ -158,8 +158,31 @@ computed from the same response.
 - Orders: status tabs, search, ledger table, and an order dialog with the allowed status
   transition and the courier panel.
 - Products: table with stock and price visible, create and edit dialog, archive with a
-  confirmation dialog.
+  confirmation dialog, and a product type field that reveals that plugin's fields and
+  customer choices. Product images are uploaded, not picked from a fixed list.
 - Customers: email, orders, spend, last order. No invented avatars.
+- Storefront: the brand layer as a working form, not a settings dump. Identity, home copy,
+  story, type and palette are ruled sections. A Store style dropdown applies one of five
+  palettes, type pairings and radii without touching copy or images. The font choices are
+  radio cards, each set in its own face. Every colour pair carries its measured ratio and a
+  pass or fail label, so colour is never the only signal. A live preview sits beside the form
+  on desktop and below it on a phone; it shows the wordmark, hero, one body line, a primary
+  button and a field.
+- Plugins: installed modules as a short roster. Each entry names the module, its version,
+  what it adds, whether it is configured and whether it is enabled or blocked by a dependency.
+  A Disable action carries a plain warning naming the enabled dependents that will stop
+  working, and the admin confirms before it is applied. The detail screen holds the generic
+  settings form and the plugin's own admin surface. No plugin may look like a second admin.
+- Code mode: an instruction field, a preview panel with a numbered action list, then an
+  explicit Apply. The plan is the object on the page, not a chat transcript. History sits
+  below as a compact ledger of instruction, status and date.
+- Build your PC: a storefront workbench, not a dashboard. Required parts first, optional
+  parts second, each slot a fieldset with the shared custom dropdown and a plain spec list.
+  The summary rail carries the selected parts, the total and the compatibility blockers. No
+  invented compatibility badges; every blocker names the two parts and the values that clash.
+- Sales: a limited-time price is a clear second line, never a red alarm. The storefront shows
+  the effective price, the original price and the end date; the admin product form groups the
+  sale price and window together and leaves the empty state obvious.
 - Login: the same wordmark, colour style, scheme and field styles as the panel, with the same
   sun/moon switch.
 
@@ -171,6 +194,33 @@ swaps one style for another. The style is stored per admin user in Turso and mir
 storage. The scheme is stored on the device, follows the style's primary scheme on the first
 visit, and is then kept across style changes. All eight variants pass AA for body text and
 3:1 for chart strokes against their grounds.
+
+### Storefront theme
+
+The storefront palette and type are not developer-only tokens. The admin owns them, and the
+shipped Azahar palette is the default rather than a hard limit. The framework keeps the
+quality floor:
+
+- Fonts come from a bundled allowlist: Schibsted Grotesk, Source Serif 4, Fraunces, Inter and
+  the system sans. A display face may be serif; body text may be either.
+- Colours are six-digit hex and must pass 7:1 for ink on ground, 4.5:1 for muted text, 4.5:1
+  for ink on panels, 4.5:1 for accent text and 4.5:1 for accent ink on accent, in both
+  schemes. The editor shows the ratio next to each pair.
+- Radius runs from 0 to 12, type scale from 0.85 to 1.15. No free-form CSS.
+- The hero and story images come from the bundled `/images/` set. Product images are
+  uploaded by the admin and served by the API. Alt text is a theme field, not a developer
+  afterthought.
+
+The result can be a different brand without a code change; it cannot become an unreadable
+one.
+
+### Plugin surfaces
+
+A plugin may add a product type. The storefront turns each field into a group of radio chips
+above the add-to-bag control, with a 44px target and a visible selected state. The choices
+travel with the cart line. A phone product also shows a quiet line in the product column:
+every handset is tracked by IMEI. Plugin admin screens sit inside the same rail and dialog
+language; they do not bring a second design system.
 
 | Style | Scheme | Ground | Surface | Ink | Muted | Accent | Chart series |
 |---|---|---|---|---|---|---|---|

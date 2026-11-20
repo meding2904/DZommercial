@@ -17,41 +17,51 @@ import (
 )
 
 type productCreatePayload struct {
-	Name           string   `json:"name"`
-	Slug           string   `json:"slug"`
-	Subtitle       string   `json:"subtitle"`
-	Description    string   `json:"description"`
-	PriceCents     int64    `json:"price_cents"`
-	CompareAtCents *int64   `json:"compare_at_cents"`
-	Size           string   `json:"size"`
-	CategorySlug   string   `json:"category_slug"`
-	Concerns       []string `json:"concerns"`
-	Ingredients    []string `json:"ingredients"`
-	HowTo          string   `json:"how_to"`
-	Image          string   `json:"image"`
-	Gallery        []string `json:"gallery"`
-	Stock          int      `json:"stock"`
-	Featured       bool     `json:"featured"`
-	Active         *bool    `json:"active"`
+	Name           string              `json:"name"`
+	Slug           string              `json:"slug"`
+	Subtitle       string              `json:"subtitle"`
+	Description    string              `json:"description"`
+	PriceCents     int64               `json:"price_cents"`
+	CompareAtCents *int64              `json:"compare_at_cents"`
+	SalePriceCents *int64              `json:"sale_price_cents"`
+	SaleStartsAt   string              `json:"sale_starts_at"`
+	SaleEndsAt     string              `json:"sale_ends_at"`
+	Size           string              `json:"size"`
+	CategorySlug   string              `json:"category_slug"`
+	Concerns       []string            `json:"concerns"`
+	Ingredients    []string            `json:"ingredients"`
+	HowTo          string              `json:"how_to"`
+	Image          string              `json:"image"`
+	Gallery        []string            `json:"gallery"`
+	Stock          int                 `json:"stock"`
+	Featured       bool                `json:"featured"`
+	Active         *bool               `json:"active"`
+	PluginID       string              `json:"plugin_id"`
+	Attributes     map[string][]string `json:"attributes"`
 }
 
 type productPatch struct {
-	Name           *string   `json:"name"`
-	Slug           *string   `json:"slug"`
-	Subtitle       *string   `json:"subtitle"`
-	Description    *string   `json:"description"`
-	PriceCents     *int64    `json:"price_cents"`
-	CompareAtCents *int64    `json:"compare_at_cents"`
-	Size           *string   `json:"size"`
-	CategorySlug   *string   `json:"category_slug"`
-	Concerns       *[]string `json:"concerns"`
-	Ingredients    *[]string `json:"ingredients"`
-	HowTo          *string   `json:"how_to"`
-	Image          *string   `json:"image"`
-	Gallery        *[]string `json:"gallery"`
-	Stock          *int      `json:"stock"`
-	Featured       *bool     `json:"featured"`
-	Active         *bool     `json:"active"`
+	Name           *string              `json:"name"`
+	Slug           *string              `json:"slug"`
+	Subtitle       *string              `json:"subtitle"`
+	Description    *string              `json:"description"`
+	PriceCents     *int64               `json:"price_cents"`
+	CompareAtCents *int64               `json:"compare_at_cents"`
+	SalePriceCents *int64               `json:"sale_price_cents"`
+	SaleStartsAt   *string              `json:"sale_starts_at"`
+	SaleEndsAt     *string              `json:"sale_ends_at"`
+	Size           *string              `json:"size"`
+	CategorySlug   *string              `json:"category_slug"`
+	Concerns       *[]string            `json:"concerns"`
+	Ingredients    *[]string            `json:"ingredients"`
+	HowTo          *string              `json:"how_to"`
+	Image          *string              `json:"image"`
+	Gallery        *[]string            `json:"gallery"`
+	Stock          *int                 `json:"stock"`
+	Featured       *bool                `json:"featured"`
+	Active         *bool                `json:"active"`
+	PluginID       *string              `json:"plugin_id"`
+	Attributes     *map[string][]string `json:"attributes"`
 }
 
 func (s *Server) handleAdminProducts(w http.ResponseWriter, r *http.Request) {
@@ -63,7 +73,7 @@ func (s *Server) handleAdminProducts(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "internal_error", "Something went wrong.")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"products": toProducts(products, true)})
+	writeJSON(w, http.StatusOK, map[string]any{"products": s.toProducts(r.Context(), products, true)})
 }
 
 func (s *Server) handleCreateProduct(w http.ResponseWriter, r *http.Request) {
@@ -73,6 +83,8 @@ func (s *Server) handleCreateProduct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	now := time.Now().UTC()
+	salePrice, saleStarts, saleEnds, saleFields := parseSaleWindow(
+		payload.SalePriceCents, payload.SaleStartsAt, payload.SaleEndsAt)
 	product := store.Product{
 		ID:             ids.New("prd"),
 		Name:           strings.TrimSpace(payload.Name),
@@ -81,6 +93,9 @@ func (s *Server) handleCreateProduct(w http.ResponseWriter, r *http.Request) {
 		Description:    strings.TrimSpace(payload.Description),
 		PriceCents:     payload.PriceCents,
 		CompareAtCents: payload.CompareAtCents,
+		SalePriceCents: salePrice,
+		SaleStartsAt:   saleStarts,
+		SaleEndsAt:     saleEnds,
 		Currency:       "DZD",
 		Size:           strings.TrimSpace(payload.Size),
 		Concerns:       trimAll(payload.Concerns),
@@ -91,6 +106,8 @@ func (s *Server) handleCreateProduct(w http.ResponseWriter, r *http.Request) {
 		Stock:          payload.Stock,
 		Featured:       payload.Featured,
 		Active:         true,
+		PluginID:       store.NormalizePluginID(strings.TrimSpace(payload.PluginID)),
+		Attributes:     normalizeAttributes(payload.Attributes),
 		CreatedAt:      now,
 		UpdatedAt:      now,
 	}
@@ -99,6 +116,12 @@ func (s *Server) handleCreateProduct(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fields := validateProduct(product)
+	for key, message := range saleFields {
+		fields[key] = message
+	}
+	for key, message := range s.validateProductAttributes(product.PluginID, product.Attributes) {
+		fields[key] = message
+	}
 	category, err := s.store.CategoryBySlug(r.Context(), strings.TrimSpace(payload.CategorySlug))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -108,7 +131,11 @@ func (s *Server) handleCreateProduct(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		product.Category = category
+		if category.PluginID != store.NormalizePluginID(product.PluginID) {
+			fields["category_slug"] = "Choose a category that belongs to this product type."
+		} else {
+			product.Category = category
+		}
 	}
 	if len(fields) > 0 {
 		writeProblem(w, problemFields(422, "validation_error", "Check the marked fields.", fields))
@@ -152,7 +179,7 @@ func (s *Server) handleCreateProduct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusCreated, map[string]any{"product": toProduct(product, true)})
+	writeJSON(w, http.StatusCreated, map[string]any{"product": s.toProduct(r.Context(), product, true)})
 }
 
 func (s *Server) handleUpdateProduct(w http.ResponseWriter, r *http.Request) {
@@ -215,6 +242,39 @@ func (s *Server) handleUpdateProduct(w http.ResponseWriter, r *http.Request) {
 	if _, ok := raw["compare_at_cents"]; ok {
 		p.CompareAtCents = patch.CompareAtCents
 	}
+	if _, ok := raw["sale_price_cents"]; ok {
+		if patch.SalePriceCents == nil || *patch.SalePriceCents == 0 {
+			p.SalePriceCents = nil
+		} else {
+			value := *patch.SalePriceCents
+			p.SalePriceCents = &value
+			if !p.SaleWindow().PricePositive() {
+				fields["sale_price_cents"] = "Enter a sale price above 0."
+			}
+		}
+	}
+	if _, ok := raw["sale_starts_at"]; ok {
+		if patch.SaleStartsAt == nil || strings.TrimSpace(*patch.SaleStartsAt) == "" {
+			p.SaleStartsAt = time.Time{}
+		} else if parsed, err := time.Parse(time.RFC3339, strings.TrimSpace(*patch.SaleStartsAt)); err != nil {
+			fields["sale_starts_at"] = "Use a valid date and time."
+		} else {
+			p.SaleStartsAt = parsed
+		}
+	}
+	if _, ok := raw["sale_ends_at"]; ok {
+		if patch.SaleEndsAt == nil || strings.TrimSpace(*patch.SaleEndsAt) == "" {
+			p.SaleEndsAt = time.Time{}
+		} else if parsed, err := time.Parse(time.RFC3339, strings.TrimSpace(*patch.SaleEndsAt)); err != nil {
+			fields["sale_ends_at"] = "Use a valid date and time."
+		} else {
+			p.SaleEndsAt = parsed
+		}
+	}
+	if p.SalePriceCents == nil {
+		p.SaleStartsAt = time.Time{}
+		p.SaleEndsAt = time.Time{}
+	}
 	if _, ok := raw["size"]; ok {
 		if patch.Size == nil {
 			nullField("size")
@@ -236,7 +296,11 @@ func (s *Server) handleUpdateProduct(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 			} else {
-				p.Category = category
+				if category.PluginID != store.NormalizePluginID(p.PluginID) {
+					fields["category_slug"] = "Choose a category that belongs to this product type."
+				} else {
+					p.Category = category
+				}
 			}
 		}
 	}
@@ -296,12 +360,32 @@ func (s *Server) handleUpdateProduct(w http.ResponseWriter, r *http.Request) {
 			p.Active = *patch.Active
 		}
 	}
+	if _, ok := raw["plugin_id"]; ok {
+		if patch.PluginID == nil {
+			nullField("plugin_id")
+		} else {
+			p.PluginID = store.NormalizePluginID(strings.TrimSpace(*patch.PluginID))
+		}
+	}
+	if _, ok := raw["attributes"]; ok {
+		if patch.Attributes == nil {
+			nullField("attributes")
+		} else {
+			p.Attributes = normalizeAttributes(*patch.Attributes)
+		}
+	}
 	if len(fields) > 0 {
 		writeProblem(w, problemFields(422, "validation_error", "Check the marked fields.", fields))
 		return
 	}
 
 	for key, message := range validateProduct(p) {
+		fields[key] = message
+	}
+	if p.Category.ID == "" || p.Category.PluginID != store.NormalizePluginID(p.PluginID) {
+		fields["category_slug"] = "Choose a category that belongs to this product type."
+	}
+	for key, message := range s.validateProductAttributes(p.PluginID, p.Attributes) {
 		fields[key] = message
 	}
 	if len(fields) > 0 {
@@ -354,7 +438,7 @@ func (s *Server) handleUpdateProduct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]any{"product": toProduct(p, true)})
+	writeJSON(w, http.StatusOK, map[string]any{"product": s.toProduct(r.Context(), p, true)})
 }
 
 func (s *Server) handleArchiveProduct(w http.ResponseWriter, r *http.Request) {
@@ -404,6 +488,40 @@ func (s *Server) slugTaken(ctx context.Context, slug, exceptID string) (bool, er
 	return product.ID != exceptID, nil
 }
 
+func parseSaleWindow(salePrice *int64, starts, ends string) (*int64, time.Time, time.Time, map[string]string) {
+	fields := make(map[string]string)
+	starts = strings.TrimSpace(starts)
+	ends = strings.TrimSpace(ends)
+	if salePrice == nil {
+		if starts != "" || ends != "" {
+			fields["sale_price_cents"] = "Add a sale price to use a sale window."
+		}
+		return nil, time.Time{}, time.Time{}, fields
+	}
+	window := store.SaleWindow{PriceCents: salePrice}
+	if *salePrice == 0 {
+		return nil, time.Time{}, time.Time{}, fields
+	}
+	if !window.PricePositive() {
+		fields["sale_price_cents"] = "Enter a sale price above 0."
+		return nil, time.Time{}, time.Time{}, fields
+	}
+	value := *salePrice
+	start, startErr := time.Parse(time.RFC3339, starts)
+	if startErr != nil {
+		fields["sale_starts_at"] = "Choose when the sale starts."
+	}
+	end, endErr := time.Parse(time.RFC3339, ends)
+	if endErr != nil {
+		fields["sale_ends_at"] = "Choose when the sale ends."
+	}
+	window = store.SaleWindow{PriceCents: &value, StartsAt: start, EndsAt: end}
+	if startErr == nil && endErr == nil && !window.EndsAfterStarts() {
+		fields["sale_ends_at"] = "The sale must end after it starts."
+	}
+	return &value, start, end, fields
+}
+
 func validateProduct(p store.Product) map[string]string {
 	fields := make(map[string]string)
 	if runeLen(p.Name) < 2 || runeLen(p.Name) > 120 {
@@ -423,6 +541,20 @@ func validateProduct(p store.Product) map[string]string {
 	}
 	if p.CompareAtCents != nil && (*p.CompareAtCents <= 0 || *p.CompareAtCents >= 100000000) {
 		fields["compare_at_cents"] = "Enter a compare-at price above 0, or leave it empty."
+	}
+	for _, problem := range p.SaleWindow().Problems(p.PriceCents) {
+		switch problem {
+		case store.SalePriceInvalid:
+			fields["sale_price_cents"] = "Enter a sale price above 0 and below the regular price."
+		case store.SalePriceMissing:
+			fields["sale_price_cents"] = "Add a sale price to use a sale window."
+		case store.SaleStartMissing:
+			fields["sale_starts_at"] = "Set when the sale starts."
+		case store.SaleEndMissing:
+			fields["sale_ends_at"] = "Set when the sale ends."
+		case store.SaleEndNotAfterStart:
+			fields["sale_ends_at"] = "The sale must end after it starts."
+		}
 	}
 	if runeLen(p.Size) > 60 {
 		fields["size"] = "Keep the size under 60 characters."
@@ -451,14 +583,14 @@ func validateProduct(p store.Product) map[string]string {
 		fields["how_to"] = "Keep the instructions under 1000 characters."
 	}
 	if !validImagePath(p.Image) {
-		fields["image"] = "Use /images/ or an https:// address."
+		fields["image"] = "Use an uploaded image."
 	}
 	if len(p.Gallery) > 12 {
 		fields["gallery"] = "Use at most 12 images."
 	} else {
 		for _, image := range p.Gallery {
 			if !validImagePath(image) {
-				fields["gallery"] = "Each image must use /images/ or an https:// address."
+				fields["gallery"] = "Each image must be an uploaded image."
 				break
 			}
 		}

@@ -9,6 +9,9 @@
 	} from '#lib/components/store/shipping';
 	import { money } from '#lib/format';
 	import { cart } from '#lib/stores/cart.svelte';
+	import type { PageData } from './$types';
+
+	let { data }: { data: PageData } = $props();
 
 	let mounted = $state(false);
 	let announcement = $state('');
@@ -21,7 +24,7 @@
 			if (line.stock < 1) {
 				notices = {
 					...notices,
-					[line.product_id]: 'This formula is sold out. Remove it to place the order.'
+					[line.key]: 'This product is sold out. Remove it to place the order.'
 				};
 				continue;
 			}
@@ -29,10 +32,10 @@
 			const limit = Math.min(line.stock, 10);
 			if (line.quantity > limit) {
 				const requested = line.quantity;
-				cart.setQty(line.product_id, limit);
+				cart.setQty(line.key, limit);
 				notices = {
 					...notices,
-					[line.product_id]: `Only ${limit} can go in one bag. The quantity changed from ${requested} to ${limit}.`
+					[line.key]: `Only ${limit} can go in one bag. The quantity changed from ${requested} to ${limit}.`
 				};
 			}
 		}
@@ -44,38 +47,38 @@
 		cart.items.some((line) => line.stock < 1 || line.quantity > line.stock)
 	);
 
-	function changeQty(productId: string, quantity: number): void {
-		cart.setQty(productId, quantity);
-		const line = cart.items.find((item) => item.product_id === productId);
+	function changeQty(key: string, quantity: number): void {
+		cart.setQty(key, quantity);
+		const line = cart.items.find((item) => item.key === key);
 		if (!line) return;
 
-		if (notices[productId]) {
+		if (notices[key]) {
 			const next = { ...notices };
-			delete next[productId];
+			delete next[key];
 			notices = next;
 		}
 
 		announcement = `${line.name}, quantity ${line.quantity}. Bag subtotal ${money(cart.subtotal)}.`;
 	}
 
-	function remove(productId: string): void {
-		const line = cart.items.find((item) => item.product_id === productId);
-		cart.remove(productId);
+	function remove(key: string): void {
+		const line = cart.items.find((item) => item.key === key);
+		cart.remove(key);
 
-		if (notices[productId]) {
+		if (notices[key]) {
 			const next = { ...notices };
-			delete next[productId];
+			delete next[key];
 			notices = next;
 		}
 
 		announcement = line
 			? `${line.name} removed from the bag. Bag subtotal ${money(cart.subtotal)}.`
-			: 'Formula removed from the bag.';
+			: 'Product removed from the bag.';
 	}
 </script>
 
 <svelte:head>
-	<title>Your bag | Azahar</title>
+	<title>Your bag | {data.theme.brand_name}</title>
 	<meta
 		name="description"
 		content="The formulas in your bag, the shipping cost and the cash on delivery total."
@@ -92,7 +95,7 @@
 
 <div class="wrap">
 	{#if !mounted}
-		<p class="loading">Loading your bag.</p>
+		<p class="loading">Loading your bag…</p>
 	{:else if cart.items.length === 0}
 		<div class="empty-state">
 			<p class="meta">Empty bag</p>
@@ -105,7 +108,7 @@
 			<div>
 				<h2 class="sr-only">In your bag</h2>
 				<div class="cart-lines">
-					{#each cart.items as line (line.product_id)}
+					{#each cart.items as line (line.key)}
 						<article class="cart-line">
 							<ProductImage
 								src={line.image}
@@ -120,10 +123,13 @@
 									<a class="line-link" href={`/product/${line.slug}`}>{line.name}</a>
 								</h3>
 								<p class="meta">{line.size}</p>
+								{#if line.options_label}
+									<p class="meta">{line.options_label}</p>
+								{/if}
 
-								{#if notices[line.product_id]}
+								{#if notices[line.key]}
 									<p class="form-error line-warning" role="status">
-										{notices[line.product_id]}
+										{notices[line.key]}
 									</p>
 								{/if}
 
@@ -133,7 +139,7 @@
 											value={line.quantity}
 											max={Math.min(line.stock, 10)}
 											label={`Quantity for ${line.name}`}
-											onchange={(value) => changeQty(line.product_id, value)}
+											onchange={(value) => changeQty(line.key, value)}
 										/>
 									{:else}
 										<span class="stock-note">Sold out</span>
@@ -142,7 +148,7 @@
 									<button
 										class="link-button remove-btn"
 										type="button"
-										onclick={() => remove(line.product_id)}
+										onclick={() => remove(line.key)}
 										aria-label={`Remove ${line.name} from the bag`}
 									>
 										Remove

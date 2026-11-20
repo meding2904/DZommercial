@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"net/mail"
-	"net/url"
 	"regexp"
 	"strings"
 	"unicode/utf8"
@@ -34,14 +33,13 @@ func validImagePath(value string) bool {
 	if value == "" || len(value) > 500 {
 		return false
 	}
-	if strings.HasPrefix(value, "https://") {
-		parsed, err := url.Parse(value)
-		return err == nil && parsed.Host != ""
-	}
-	if !strings.HasPrefix(value, "/images/") {
+	if strings.ContainsAny(value, "\\%?#") || strings.Contains(value, "..") {
 		return false
 	}
-	return !strings.Contains(value, "..")
+	if strings.HasPrefix(value, "/api/images/") {
+		return imageIDPattern.MatchString(strings.TrimPrefix(value, "/api/images/"))
+	}
+	return strings.HasPrefix(value, "/images/")
 }
 
 func validPhone(value string) bool {

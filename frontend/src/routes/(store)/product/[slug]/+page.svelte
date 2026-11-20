@@ -10,17 +10,38 @@
 
 	const product = $derived(data.product);
 	const related = $derived(data.related);
-	const onSale = $derived(
-		product.compare_at_cents !== null && product.compare_at_cents > product.price_cents
+	const currentPrice = $derived(product.effective_price_cents ?? product.price_cents);
+	const wasPrice = $derived(
+		product.on_sale
+			? product.price_cents
+			: product.compare_at_cents !== null && product.compare_at_cents > product.price_cents
+				? product.compare_at_cents
+				: null
 	);
+	const saleEnds = $derived(
+		product.on_sale && product.sale_ends_at ? saleEndLabel(product.sale_ends_at) : ''
+	);
+
+	function saleEndLabel(value: string): string {
+		const date = new Date(value);
+		if (Number.isNaN(date.getTime())) return '';
+		const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+		return `${date.getUTCDate()} ${months[date.getUTCMonth()]}`;
+	}
 	const extraImages = $derived(product.gallery.filter((src) => src !== product.image));
+	const pluginDetails = $derived(
+		product.option_schema
+			.filter((field) => field.type !== 'select')
+			.map((field) => ({ field, values: product.attributes[field.key] ?? [] }))
+			.filter((entry) => entry.values.length > 0)
+	);
 </script>
 
 <svelte:head>
-	<title>{product.name} | Azahar</title>
-	<meta name="description" content={product.description} />
-	<meta property="og:title" content={`${product.name} | Azahar`} />
-	<meta property="og:description" content={product.description} />
+	<title>{product.name} | {data.theme.brand_name}</title>
+	<meta name="description" content={product.description || product.subtitle} />
+	<meta property="og:title" content={`${product.name} | ${data.theme.brand_name}`} />
+	<meta property="og:description" content={product.description || product.subtitle} />
 	<meta property="og:type" content="product" />
 	<meta property="og:image" content={`${page.url.origin}${product.image}`} />
 </svelte:head>
@@ -68,35 +89,50 @@
 			</div>
 
 			<div class="price-row">
-				<span class="price">{money(product.price_cents, product.currency)}</span>
-				{#if onSale}
-					<span class="price-was">Was {money(product.compare_at_cents ?? 0, product.currency)}</span>
+				<span class="price">{money(currentPrice, product.currency)}</span>
+				{#if wasPrice !== null}
+					<span class="price-was">Was {money(wasPrice, product.currency)}</span>
+				{/if}
+				{#if saleEnds}
+					<span class="sale-note">Sale ends {saleEnds}</span>
 				{/if}
 			</div>
 
 			<p class="product-desc">{product.description}</p>
 
+			{#if product.plugin_id !== 'core' && product.plugin_summary}
+				<p class="plugin-note">{product.plugin_summary}</p>
+			{/if}
+
 			<AddToBag {product} />
 
-			<section class="detail-section" aria-labelledby="ingredients-title">
-				<h2 class="meta" id="ingredients-title">Ingredients</h2>
-				<ul class="ingredient-tags">
-					{#each product.ingredients as ingredient}
-						<li>{ingredient}</li>
-					{/each}
-				</ul>
-			</section>
-
-			<section class="detail-section" aria-labelledby="how-to-title">
-				<h2 class="meta" id="how-to-title">How to use</h2>
-				<p>{product.how_to}</p>
-			</section>
+			{#each pluginDetails as entry (entry.field.key)}
+				{#if entry.field.type === 'textarea'}
+					<section class="detail-section" aria-labelledby={`detail-${entry.field.key}`}>
+						<h2 class="meta" id={`detail-${entry.field.key}`}>{entry.field.label}</h2>
+						<p>{entry.values[0]}</p>
+					</section>
+				{:else if entry.field.type === 'list'}
+					<section class="detail-section" aria-labelledby={`detail-${entry.field.key}`}>
+						<h2 class="meta" id={`detail-${entry.field.key}`}>{entry.field.label}</h2>
+						<ul class="ingredient-tags">
+							{#each entry.values as value (value)}
+								<li>{value}</li>
+							{/each}
+						</ul>
+					</section>
+				{/if}
+			{/each}
 
 			<dl class="spec-list">
-				<div class="spec">
-					<dt>Size</dt>
-					<dd>{product.size}</dd>
-				</div>
+				{#each pluginDetails as entry (entry.field.key)}
+					{#if entry.field.type === 'text'}
+						<div class="spec">
+							<dt>{entry.field.label}</dt>
+							<dd>{entry.values[0]}</dd>
+						</div>
+					{/if}
+				{/each}
 				<div class="spec">
 					<dt>Category</dt>
 					<dd>
@@ -105,12 +141,6 @@
 						</a>
 					</dd>
 				</div>
-				{#if product.concerns.length > 0}
-					<div class="spec">
-						<dt>Concerns</dt>
-						<dd>{product.concerns.join(', ')}</dd>
-					</div>
-				{/if}
 			</dl>
 		</div>
 	</div>
@@ -122,7 +152,7 @@
 			<div class="section-head">
 				<div>
 					<p class="meta">The rest of the shelf</p>
-					<h2 id="related-title">More formulas</h2>
+					<h2 id="related-title">More from the shelf</h2>
 				</div>
 				<a class="text-link" href="/shop">See the whole shelf</a>
 			</div>
@@ -166,6 +196,14 @@
 		color: var(--muted);
 	}
 
+	.plugin-note {
+		max-width: 46ch;
+		padding: 10px 12px;
+		border-left: 2px solid var(--accent);
+		background: var(--surface);
+		font-size: 13px;
+	}
+
 	.gallery-extra {
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -181,6 +219,7 @@
 
 	.detail-section p {
 		max-width: 46ch;
+		white-space: pre-line;
 	}
 
 	.ingredient-tags {
@@ -211,6 +250,12 @@
 		min-height: 44px;
 		text-decoration: underline;
 		text-underline-offset: 3px;
+	}
+
+	.sale-note {
+		color: var(--accent);
+		font-family: var(--font-mono);
+		font-size: 12px;
 	}
 
 	.related {

@@ -83,11 +83,30 @@ func (s *Server) handleOrderStatus(w http.ResponseWriter, r *http.Request) {
 	now := time.Now().UTC()
 	detail, _ := json.Marshal(map[string]string{"from": order.Status, "to": status})
 	actor, _ := currentAuth(r)
+	if status == "cancelled" && actor.User.Role != "admin" {
+		writeError(w, http.StatusForbidden, "forbidden", "Only an administrator can cancel an order.")
+		return
+	}
+
+	var restock []store.OrderItem
+	if status == "cancelled" {
+		restock, err = s.store.OrderItems(r.Context(), order.ID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "internal_error", "Something went wrong.")
+			return
+		}
+	}
+
 	err = s.store.InTx(r.Context(), func(tx *sql.Tx) error {
 		if err := s.store.UpdateOrderStatus(r.Context(), tx, order.ID, order.Status, status, now); err != nil {
 			return err
 		}
-		return s.store.InsertAudit(r.Context(), tx, store.AuditEntry{
+		for _, item := range restock {
+			if err := s.store.IncrementStock(r.Context(), tx, item.ProductID, item.Quantity); err != nil {
+				return err
+			}
+		}
+		if err := s.store.InsertAudit(r.Context(), tx, store.AuditEntry{
 			ID:          ids.New("aud"),
 			ActorUserID: actor.User.ID,
 			Action:      "order.status",
@@ -95,7 +114,15 @@ func (s *Server) handleOrderStatus(w http.ResponseWriter, r *http.Request) {
 			EntityID:    order.ID,
 			Detail:      string(detail),
 			CreatedAt:   now,
-		})
+		}); err != nil {
+			return err
+		}
+		for _, hook := range s.plugins.OrderStatusHooks() {
+			if err := hook.OnOrderStatusChanged(r.Context(), tx, order.ID, order.Status, status); err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -151,6 +178,107 @@ func (s *Server) handleCustomers(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"customers": result})
+}
+
+type teamMemberDTO struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Email     string `json:"email"`
+	Role      string `json:"role"`
+	CreatedAt string `json:"created_at"`
+}
+
+func (s *Server) handleAdminTeam(w http.ResponseWriter, r *http.Request) {
+	users, err := s.store.ListUsers(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal_error", "Something went wrong.")
+		return
+	}
+	result := make([]teamMemberDTO, 0, len(users))
+	for _, user := range users {
+		result = append(result, teamMemberDTO{
+			ID: user.ID, Name: user.Name, Email: user.Email, Role: user.Role,
+			CreatedAt: store.FormatTime(user.CreatedAt),
+		})
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"users": result})
+}
+
+type teamRolePayload struct {
+	Role string `json:"role"`
+}
+
+var errLastAdmin = errors.New("at least one administrator is required")
+
+func (s *Server) handleUpdateTeamRole(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	payload, _, bad := decodeJSON[teamRolePayload](w, r)
+	if bad != nil {
+		writeProblem(w, bad)
+		return
+	}
+	role := strings.TrimSpace(payload.Role)
+	if role != "admin" && role != "employee" && role != "customer" {
+		writeProblem(w, problemFields(422, "validation_error", "Check the marked fields.",
+			map[string]string{"role": "Choose admin, employee or customer."}))
+		return
+	}
+	target, err := s.store.UserByID(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "not_found", "User not found.")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "internal_error", "Something went wrong.")
+		return
+	}
+	actor, _ := currentAuth(r)
+	if target.ID == actor.User.ID && role != "admin" {
+		writeProblem(w, problemFields(422, "validation_error", "Check the marked fields.",
+			map[string]string{"role": "You cannot remove your own administrator role."}))
+		return
+	}
+
+	now := time.Now().UTC()
+	detail, _ := json.Marshal(map[string]string{"from": target.Role, "to": role})
+	err = s.store.InTx(r.Context(), func(tx *sql.Tx) error {
+		if target.Role == "admin" && role != "admin" {
+			admins, err := s.store.CountAdmins(r.Context(), tx)
+			if err != nil {
+				return err
+			}
+			if admins <= 1 {
+				return errLastAdmin
+			}
+		}
+		if err := s.store.UpdateUserRole(r.Context(), tx, target.ID, role, now); err != nil {
+			return err
+		}
+		return s.store.InsertAudit(r.Context(), tx, store.AuditEntry{
+			ID:          ids.New("aud"),
+			ActorUserID: actor.User.ID,
+			Action:      "user.role",
+			EntityType:  "user",
+			EntityID:    target.ID,
+			Detail:      string(detail),
+			CreatedAt:   now,
+		})
+	})
+	if errors.Is(err, errLastAdmin) {
+		writeProblem(w, problemFields(409, "last_admin", "Keep at least one administrator.",
+			map[string]string{"role": "Promote another administrator first."}))
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal_error", "Something went wrong.")
+		return
+	}
+	target.Role = role
+	target.UpdatedAt = now
+	writeJSON(w, http.StatusOK, map[string]any{"user": teamMemberDTO{
+		ID: target.ID, Name: target.Name, Email: target.Email, Role: target.Role,
+		CreatedAt: store.FormatTime(target.CreatedAt),
+	}})
 }
 
 func (s *Server) handleGetPreferences(w http.ResponseWriter, r *http.Request) {

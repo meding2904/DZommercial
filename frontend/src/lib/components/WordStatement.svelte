@@ -52,7 +52,7 @@
 	});
 </script>
 
-<section class="statement" bind:this={section} aria-label="The house line">
+<section class="statement" bind:this={section} aria-label="Statement">
 	<div class="wrap">
 		<p>
 			{#each words as word, i}

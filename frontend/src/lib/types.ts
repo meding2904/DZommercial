@@ -1,4 +1,4 @@
-export type Role = 'customer' | 'admin';
+export type Role = 'customer' | 'admin' | 'employee';
 
 export type User = {
 	id: string;
@@ -11,6 +11,16 @@ export type Category = {
 	slug: string;
 	name: string;
 	description: string;
+	plugin_id: string;
+};
+
+export type OptionField = {
+	key: string;
+	label: string;
+	type: 'select' | 'text' | 'textarea' | 'list';
+	required: boolean;
+	help?: string;
+	suggestions?: string[];
 };
 
 export type Product = {
@@ -21,9 +31,14 @@ export type Product = {
 	description: string;
 	price_cents: number;
 	compare_at_cents: number | null;
+	sale_price_cents: number | null;
+	sale_starts_at: string;
+	sale_ends_at: string;
+	effective_price_cents: number;
+	on_sale: boolean;
 	currency: string;
 	size: string;
-	category: { slug: string; name: string };
+	category: { slug: string; name: string; plugin_id?: string };
 	concerns: string[];
 	ingredients: string[];
 	how_to: string;
@@ -32,6 +47,12 @@ export type Product = {
 	stock: number;
 	featured: boolean;
 	active: boolean;
+	plugin_id: string;
+	plugin_name: string;
+	plugin_summary: string;
+	option_schema: OptionField[];
+	attributes: Record<string, string[]>;
+	plugin_data?: Record<string, unknown>;
 };
 
 export type AdminProduct = Product & {
@@ -54,6 +75,10 @@ export type OrderItem = {
 	price_cents: number;
 	quantity: number;
 	image: string;
+	options?: Record<string, string>;
+	options_label?: string;
+	plugin_id?: string;
+	id: string;
 };
 
 export type CourierEvent = {
@@ -181,6 +206,82 @@ export type Metrics = {
 };
 
 export type ThemePreset = 'plaster' | 'cellar' | 'terracotta' | 'lagoon';
+
+export type ProductTypeManifest = {
+	label: string;
+	summary?: string;
+	fields: OptionField[];
+};
+
+export type PluginManifest = {
+	id: string;
+	name: string;
+	version: string;
+	description: string;
+	author?: string;
+	dependencies?: string[];
+	product_type?: ProductTypeManifest;
+	categories?: PluginCategory[];
+	storefront_pages?: StorefrontPage[];
+	admin_path?: string;
+	enabled?: boolean;
+};
+
+export type StorefrontPage = {
+	path: string;
+	label: string;
+	sort_order?: number;
+};
+
+export type PluginCategory = {
+	slug: string;
+	name: string;
+	description?: string;
+	sort_order?: number;
+};
+
+export type PluginSettingOption = {
+	value: string;
+	label: string;
+};
+
+export type PluginSettingField = {
+	key: string;
+	label: string;
+	type: 'text' | 'secret' | 'number' | 'boolean' | 'select';
+	help?: string;
+	placeholder?: string;
+	options?: PluginSettingOption[];
+	required: boolean;
+	max_length?: number;
+	default?: string;
+};
+
+export type TeamMember = {
+	id: string;
+	name: string;
+	email: string;
+	role: Role;
+	created_at: string;
+};
+
+export type AdminPlugin = PluginManifest & {	settings?: PluginSettingField[];
+	configured: boolean;
+	settings_state: 'ready' | 'unreadable';
+	updated_at?: string;
+	enabled: boolean;
+	effective_enabled: boolean;
+	dependents?: string[];
+	blocked_by?: string[];
+};
+
+export type PluginSettings = {
+	plugin_id: string;
+	settings: Record<string, string>;
+	secrets_set: string[];
+	configured: boolean;
+	updated_at?: string;
+};
 
 export type ApiErrorBody = {
 	error?: {

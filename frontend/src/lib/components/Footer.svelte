@@ -1,30 +1,31 @@
+<script lang="ts">
+	import type { StorefrontTheme } from '#lib/theme/storefront';
+	import { DEFAULT_THEME } from '#lib/theme/storefront';
+
+	let { theme = DEFAULT_THEME }: { theme?: StorefrontTheme } = $props();
+</script>
+
 <footer class="closing">
 	<div class="wrap">
-		<p class="closing-word" aria-hidden="true">Azahar</p>
+		<p class="closing-word" aria-hidden="true">{theme.brand_name}</p>
 
 		<div class="closing-grid">
 			<div>
-				<p class="closing-note">
-					Botanical skincare from the Mediterranean edge. Oils, clays and blossoms, blended in
-					small batches in Algiers.
-				</p>
+				<p class="closing-note">{theme.footer_note}</p>
 				<p class="meta" style="margin-top: 18px;">
-					<a href="mailto:hello@azahar.example">hello@azahar.example</a>
+					<a href={`mailto:${theme.contact_email}`}>{theme.contact_email}</a>
 				</p>
 			</div>
 
 			<div class="footer-group">
 				<h3>Shop</h3>
-				<a href="/shop">The shelf</a>
-				<a href="/shop?category=face">Face</a>
-				<a href="/shop?category=body">Body</a>
-				<a href="/shop?category=ritual">Ritual</a>
+				<a href="/shop">{theme.shop_title}</a>
+				<a href="/about">{theme.house_label}</a>
+				<a href="/contact">Contact</a>
 			</div>
 
 			<div class="footer-group">
-				<h3>The house</h3>
-				<a href="/about">Our story</a>
-				<a href="/contact">Contact</a>
+				<h3>Practical</h3>
 				<a href="/policies/shipping">Shipping</a>
 				<a href="/policies/returns">Returns</a>
 				<a href="/policies/privacy">Privacy</a>
@@ -34,9 +35,8 @@
 		</div>
 
 		<div class="footer-base">
-			<span>© 2026 Azahar. A demo storefront.</span>
-			<span>Photography from Pexels. Products, prices and story are sample data.</span>
-			<span>Go, Svelte and Turso.</span>
+			<span>© 2026 {theme.brand_name}.</span>
+			<span>{theme.footer_credit}</span>
 		</div>
 	</div>
 </footer>

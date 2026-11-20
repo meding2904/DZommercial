@@ -40,6 +40,57 @@ func (s *Store) UserByID(ctx context.Context, id string) (User, error) {
 	))
 }
 
+// ListUsers returns every account with staff first, then the newest accounts.
+// The admin Team screen uses it to assign roles.
+func (s *Store) ListUsers(ctx context.Context) ([]User, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT id, name, email, password_hash, role, theme_preset, created_at, updated_at
+		 FROM users
+		 ORDER BY CASE role WHEN 'admin' THEN 0 WHEN 'employee' THEN 1 ELSE 2 END,
+		          created_at DESC, email ASC`)
+	if err != nil {
+		return nil, fmt.Errorf("list users: %w", err)
+	}
+	defer rows.Close()
+
+	users := make([]User, 0)
+	for rows.Next() {
+		user, err := s.scanUser(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan user: %w", err)
+		}
+		users = append(users, user)
+	}
+	return users, rows.Err()
+}
+
+func (s *Store) UpdateUserRole(ctx context.Context, q querier, userID, role string, now time.Time) error {
+	result, err := q.ExecContext(ctx,
+		`UPDATE users SET role = ?, updated_at = ? WHERE id = ?`,
+		role, FormatTime(now), userID,
+	)
+	if err != nil {
+		return fmt.Errorf("update user role: %w", err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("update user role rows: %w", err)
+	}
+	if affected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func (s *Store) CountAdmins(ctx context.Context, q querier) (int, error) {
+	var count int
+	if err := q.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM users WHERE role = 'admin'`).Scan(&count); err != nil {
+		return 0, fmt.Errorf("count admins: %w", err)
+	}
+	return count, nil
+}
+
 func (s *Store) scanUser(row scanner) (User, error) {
 	var user User
 	var createdAt, updatedAt string

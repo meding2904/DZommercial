@@ -11,6 +11,14 @@ class Auth {
 		return this.user?.role === 'admin';
 	}
 
+	get isEmployee(): boolean {
+		return this.user?.role === 'employee';
+	}
+
+	get isStaff(): boolean {
+		return this.isAdmin || this.isEmployee;
+	}
+
 	async refresh(): Promise<void> {
 		try {
 			const data = await apiFetch<{ user: User }>('/auth/me');

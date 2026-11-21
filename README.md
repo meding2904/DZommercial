@@ -109,8 +109,9 @@ You can also start that path directly:
 ./deploy/kiri-local.sh
 ```
 
-Only the web app is published on port 3000. The API and database run in separate containers
-on a private network. You do not need to open or configure them for normal use.
+Only the web app is published on port 3000. In development the API is also published on
+`127.0.0.1:8080` so the desktop admin can reach it directly; the database stays on the private
+network. A production start does not publish the API port.
 
 ## Sign in
 
@@ -139,6 +140,66 @@ it again. The old link stops working and a new one is printed.
 
 The demo passwords are public so anyone can try the demo. Change them before using the shop
 for anything real.
+
+## Desktop admin app
+
+The repository also ships an Electron app for the owner's counter. It is the admin panel only,
+not a second storefront: the ledger, a counter sale, orders, products and stock, customers and
+staff. It talks to the Go API directly from the Electron main process. The SvelteKit web app is
+not in the path.
+
+`desktop/` holds the app. It uses the same API, roles and audit trail as the web admin. It is
+the operational panel: the counter, orders, stock, customers and staff. The storefront editor,
+plugin settings and the AI screens remain in the web admin.
+
+### Run it
+
+Start the API and the web app first, from the repository root:
+
+```bash
+./deploy/kiri-up.sh
+```
+
+The development start publishes the API on `http://127.0.0.1:8080`. Then open a second terminal:
+
+```bash
+make desktop
+```
+
+The first run installs the Electron dependencies and copies the bundled fonts and product
+images into the app. Sign in with the admin account. If the API is on another machine, open
+**Connection** on the sign-in screen and enter its `http(s)` address. Leave the origin empty to
+read it from the API health check.
+
+### What the owner can do
+
+- **Ledger**: takings, previous-period comparison, orders, units, average order, revenue by
+  day, the work queue, ranked products, order mix, low stock and recent orders.
+- **Counter sale**: take cash for a walk-in, choose a phone configuration when a product needs
+  one, record the sale, print the receipt. Stock drops and the order is written as a delivered
+  `pickup` sale in one transaction.
+- **Orders**: filter and search, open an order, move it through the allowed status steps,
+  create the courier parcel and refresh tracking.
+- **Products and stock**: price, stock, sale window and active state. The stock stepper writes
+  through the API, so the web shop sees the same number.
+- **Customers and staff**: the customer ledger, and role changes for administrators.
+
+An employee can use the counter and fulfil orders. The API refuses catalogue and stock edits
+for an employee, and the desktop app disables those controls rather than only hiding them.
+
+### Build the bundle
+
+```bash
+make desktop-build
+```
+
+The Linux AppImage is written to `desktop/dist/`. `pnpm --dir desktop dist` does the same. The
+app uses `safeStorage` for the session cookie, keeps the renderer sandboxed and only exposes a
+narrow API bridge.
+
+The desktop app does not use the web admin gate. The gate protects the browser surface; the API
+still enforces the session and the admin or employee role on every request. In production, do
+not publish the API port. Put the API behind TLS and point the desktop app at that address.
 
 ## Stop, restart and reset
 
@@ -414,13 +475,17 @@ make smoke       # call the public API endpoints
 make dev-db      # local database on :8880
 make dev-api     # Go API on :8080
 make dev-web     # SvelteKit development server on :5173
+make desktop     # Electron admin app, pointed at the local API
+make desktop-build  # Linux AppImage in desktop/dist/
+make loadtest    # 5,000 read requests at the API
 ```
 
 In local development without Kiri, the admin gate defaults to
 `http://localhost:5173/ops-devtoken`. Set `ADMIN_ACCESS_TOKEN` to use a different value.
 
 The API contract is in `docs/API.md`. The plugin and theme guide is in `docs/PLUGINS.md`.
-The Go API notes are in `backend/README.md`. Database migrations are in
+The load probe and the last local results are in `scripts/loadtest/README.md`. The Go API
+notes are in `backend/README.md`. Database migrations are in
 `backend/migrations/` and run at startup; plugin migrations run after them. The demo seeder
 is idempotent and runs only when `SEED_DEMO=true` and the tables are empty.
 
@@ -435,11 +500,12 @@ Project layout:
 ```text
 backend/        Go API, migrations, seed, tests, plugin SDK and first-party plugins
 frontend/       SvelteKit shop and admin, generic plugin option UI, plugin admin registry
+desktop/        Electron admin app, direct API client, AppImage build
 deploy/         Dockerfiles and Kiri scripts
 docs/           API contract, plugin and theme guide, security notes, penetration test
 DESIGN.md       brand direction, palette, motion, admin styles
 CREDITS.md      photo sources, font sources and demo disclosure
-scripts/        health check and admin-gate proof of concept
+scripts/        health check, admin-gate proof of concept and load probe
 .opencode/      third-party antislop tooling used during the build
 ```
 

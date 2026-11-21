@@ -1,5 +1,6 @@
 import { INTERNAL_API_URL } from '$app/env/private';
 import { hasGate } from '#lib/server/gate';
+import { optionalClientAddress } from '#lib/server/address';
 import { isAdminApiPath, isPathWithin, normalizePathname } from '#lib/server/path';
 import type { RequestHandler } from './$types';
 
@@ -101,7 +102,7 @@ const handler: RequestHandler = async ({
 	headers.delete('content-length');
 	headers.delete('accept-encoding');
 
-	const client = getClientAddress();
+	const client = optionalClientAddress(getClientAddress);
 	if (client) headers.set('x-forwarded-for', client);
 	headers.set('x-forwarded-proto', url.protocol.replace(':', ''));
 

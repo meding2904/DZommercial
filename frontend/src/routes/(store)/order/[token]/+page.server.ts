@@ -1,5 +1,6 @@
 import { error } from '@sveltejs/kit';
 import { ServerApiError, serverGet } from '#lib/server/api';
+import { optionalClientAddress } from '#lib/server/address';
 import type { Order } from '#lib/types';
 import type { PageServerLoad } from './$types';
 
@@ -13,7 +14,7 @@ export const load: PageServerLoad = async ({ params, getClientAddress, setHeader
 	try {
 		const data = await serverGet<{ order: Order }>(
 			`/api/orders/${encodeURIComponent(params.token)}`,
-			getClientAddress()
+			optionalClientAddress(getClientAddress)
 		);
 
 		const { token, ...orderData } = data.order;

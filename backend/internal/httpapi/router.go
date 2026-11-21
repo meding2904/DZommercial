@@ -27,6 +27,7 @@ type Server struct {
 	captchaLimiter  *rateLimiter
 	adminLimiter    *rateLimiter
 	captcha         *captchaStore
+	readCache       *readCache
 	handler         http.Handler
 }
 
@@ -47,6 +48,7 @@ func New(cfg config.Config, st *store.Store, logger *slog.Logger, shipping *cour
 		captchaLimiter:  newRateLimiter(30, 10*time.Minute),
 		adminLimiter:    newRateLimiter(60, time.Minute),
 		captcha:         newCaptchaStore(10 * time.Minute),
+		readCache:       newReadCache(readCacheMaxEntries),
 	}
 	server.pluginEnv = &plugins.Env{
 		DB:            st.DB(),
@@ -97,6 +99,7 @@ func (s *Server) routes() http.Handler {
 	r.Use(s.requireChallengeHeader)
 	r.Use(s.rateLimit(s.generalLimiter))
 	r.Use(s.enforceCSRF)
+	r.Use(s.invalidateReadCacheOnWrite)
 
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found", "Not found.")
@@ -106,15 +109,17 @@ func (s *Server) routes() http.Handler {
 	})
 
 	r.Route("/api", func(r chi.Router) {
-		r.Get("/categories", s.handleCategories)
-		r.Get("/products", s.handleProducts)
-		r.Get("/products/{slug}", s.handleProduct)
+		r.Get("/health", s.handleHealth)
+		r.Get("/csrf", s.handleCSRF)
+		r.With(s.cacheRead(5*time.Second)).Get("/categories", s.handleCategories)
+		r.With(s.cacheRead(2*time.Second)).Get("/products", s.handleProducts)
+		r.With(s.cacheRead(2*time.Second)).Get("/products/{slug}", s.handleProduct)
 		r.Get("/orders/{token}", s.handleOrderByToken)
 		r.Get("/shipping/wilayas", s.handleShippingWilayas)
 		r.Get("/shipping/communes", s.handleShippingCommunes)
 		r.Get("/shipping/desks", s.handleShippingDesks)
-		r.Get("/plugins", s.handlePluginManifests)
-		r.Get("/storefront/theme", s.handleStorefrontTheme)
+		r.With(s.cacheRead(5*time.Second)).Get("/plugins", s.handlePluginManifests)
+		r.With(s.cacheRead(2*time.Second)).Get("/storefront/theme", s.handleStorefrontTheme)
 		r.Get("/images/{id}", s.handleProductImage)
 
 		s.mountPluginRoutes(r)
@@ -137,13 +142,14 @@ func (s *Server) routes() http.Handler {
 			r.Use(s.requireStaff)
 			r.Use(s.adminMutationLimit)
 
-			r.Get("/metrics", s.handleMetrics)
-			r.Get("/products", s.handleAdminProducts)
-			r.Get("/orders", s.handleAdminOrders)
+			r.With(s.cacheRead(3*time.Second)).Get("/metrics", s.handleMetrics)
+			r.Post("/sales", s.handleCounterSale)
+			r.With(s.cacheRead(time.Second)).Get("/products", s.handleAdminProducts)
+			r.With(s.cacheRead(time.Second)).Get("/orders", s.handleAdminOrders)
 			r.Patch("/orders/{id}/status", s.handleOrderStatus)
 			r.Post("/orders/{id}/shipment", s.handleCreateShipment)
 			r.Post("/orders/{id}/tracking", s.handleRefreshTracking)
-			r.Get("/customers", s.handleCustomers)
+			r.With(s.cacheRead(5*time.Second)).Get("/customers", s.handleCustomers)
 			r.Get("/preferences", s.handleGetPreferences)
 			r.Put("/preferences", s.handlePutPreferences)
 

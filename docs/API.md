@@ -34,6 +34,40 @@ Error envelope:
 }
 ```
 
+## Client bootstrap
+
+### `GET /api/health`
+
+Public liveness probe for the desktop shell and deployments. It does not touch Turso.
+
+```json
+{ "status": "ok", "service": "azahar-api", "env": "development", "origin": "http://localhost:3000", "server_time": "2026-11-21T10:46:28Z" }
+```
+
+The `origin` is the configured `APP_ORIGIN`. A native client uses it when it has no
+user-provided origin, so its unsafe requests pass the same-origin check below.
+
+### `GET /api/csrf`
+
+Issues the double-submit token used by native clients. The web app gets the same cookie
+from the SvelteKit hook; a desktop client has no document, so it calls this once and mirrors
+the value in `X-CSRF-Token`.
+
+```json
+{ "csrf_token": "7d88f1f4...", "expires_in": 604800 }
+```
+
+Sets `azahar_csrf`, `Path=/`, `SameSite=Lax`, readable by a page, `Secure` when configured.
+A valid existing cookie is reused. An unsafe request still needs `X-Requested-With:
+azahar-web`, a matching `Origin` and the matching header.
+
+## Read caching
+
+The public catalogue responses and the shop-wide admin reads are cached in process for 1 to
+5 seconds. Any `POST`, `PUT`, `PATCH` or `DELETE` clears the cache, so a counter sale or a
+stock edit is visible on the next read. Checkout always re-reads price and stock from the
+database; the cache never decides what a customer is charged.
+
 ## Public catalog
 
 ### `GET /api/categories`
@@ -248,7 +282,7 @@ verification. When Turnstile is configured, `turnstile_token` is required instea
 `captcha_token` and `captcha_answer`; a verification-service failure returns `503
 captcha_unavailable`.
 
-`delivery_type` is `home` or `stopdesk`. A stop desk sends the desk `id` as `stop_desk_id`.
+`delivery_type` is `home` or `stopdesk` for a checkout, and `pickup` for an admin counter sale. A stop desk sends the desk `id` as `stop_desk_id`.
 The server checks the wilaya, commune and stop desk against the courier reference data and
 stores the canonical French spelling. `address` is required for home delivery and optional
 for a stop desk. `phone` must be an Algerian mobile: 05, 06 or 07, with spaces, `+`, `-` or
@@ -330,6 +364,32 @@ The shared operational routes require an authenticated `admin` or `employee`. Ro
 
 Revenue counts orders whose status is not `cancelled`. The delta is only shown when the
 previous period has revenue.
+
+### `POST /api/admin/sales`
+
+Records a paid in-store counter sale. Available to `admin` and `employee`. The server
+re-reads every product, validates stock and plugin options, decrements stock and writes the
+order in one transaction, then marks it `delivered`. Phone inventory is reserved and marked
+sold through the same plugin hooks as an online order.
+
+```json
+{
+  "customer_name": "Walk-in customer",
+  "phone": "0550 12 34 56",
+  "note": "Second jar is a gift",
+  "items": [
+    { "product_id": "prd_01", "quantity": 2, "options": {} }
+  ]
+}
+```
+
+`201 { "order": Order }`. The order has `delivery_type: "pickup"`, `shipping_cents: 0`,
+`status: "delivered"` and includes `token` once, for a printable receipt. `customer_name`
+and `phone` are optional. `phone` must be an Algerian mobile when present.
+
+Errors: `422` for missing items, bad quantities, an invalid phone or unknown options;
+`409` when a product is archived, its plugin is disabled, or the stock changed under the
+sale.
 
 ### `GET /api/admin/products`
 

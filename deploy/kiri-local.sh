@@ -94,8 +94,16 @@ kiri run -d --name azahar-db --network azahar-net \
 
 sleep 3
 
+# The desktop admin talks to the API directly. Publish the API on loopback
+# for development only; production keeps it on the private network.
+API_PUBLISH=()
+if [[ "$APP_ENV" != "production" ]]; then
+	API_PUBLISH=(-p 127.0.0.1:8080:8080)
+fi
+
 echo "Starting the API..."
 kiri run -d --name azahar-api --network azahar-net \
+	"${API_PUBLISH[@]}" \
 	-v "$ROOT/deploy/bin/azahar-api:/azahar-api:ro" \
 	-e APP_ENV="$APP_ENV" \
 	-e API_ADDR=:8080 \
@@ -144,6 +152,7 @@ echo "Azahar is running at $APP_ORIGIN"
 echo "Admin gate: $APP_ORIGIN/ops-$ADMIN_ACCESS_TOKEN"
 echo "Keep the gate link private. It rotates on every restart."
 if [[ "$APP_ENV" != "production" ]]; then
+	echo "Desktop admin API: http://127.0.0.1:8080 (development only)"
 	echo "Admin login: $ADMIN_EMAIL / $ADMIN_PASSWORD"
 	echo "Employee login: $EMPLOYEE_EMAIL / $EMPLOYEE_PASSWORD"
 	echo "Customer: $CUSTOMER_EMAIL / $CUSTOMER_PASSWORD"

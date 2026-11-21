@@ -4,10 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"sync"
 )
 
 type Store struct {
-	db *sql.DB
+	db      *sql.DB
+	writeMu sync.Mutex
 }
 
 func New(handle *sql.DB) *Store {
@@ -18,7 +20,14 @@ func (s *Store) DB() *sql.DB {
 	return s.db
 }
 
+// InTx serialises write transactions. The bundled libsql server has a single
+// writer and resets or times out connections when many write transactions
+// arrive at once. Shop writes are small and infrequent, so one writer at a
+// time is cheaper than retrying a failed transaction under contention.
 func (s *Store) InTx(ctx context.Context, fn func(*sql.Tx) error) error {
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)

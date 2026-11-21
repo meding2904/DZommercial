@@ -1,4 +1,5 @@
 import { serverGet } from '#lib/server/api';
+import { optionalClientAddress } from '#lib/server/address';
 import type { StorefrontTheme } from '#lib/theme/storefront';
 import type { Category, Product } from '#lib/types';
 import type { PageServerLoad } from './$types';
@@ -13,7 +14,7 @@ function readSort(value: string | null): Sort {
 }
 
 export const load: PageServerLoad = async ({ url, getClientAddress }) => {
-	const client = getClientAddress();
+	const client = optionalClientAddress(getClientAddress);
 	const sort = readSort(url.searchParams.get('sort'));
 	const rawConcern = url.searchParams.get('concern')?.trim() ?? '';
 	const q = url.searchParams.get('q')?.trim() ?? '';

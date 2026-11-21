@@ -8,6 +8,8 @@ checked on the server; hiding a button in the admin UI is never the control.
 | Storefront, own account, own orders | Yes | Yes | Yes |
 | Admin overview and metrics | No | Read | Read |
 | Admin products | No | Read | Read, create, edit, archive |
+| Record a counter sale | No | Yes | Yes |
+| Change stock directly | No | No | Yes |
 | Product image upload | No | No | Yes |
 | Admin orders | No | Read, advance status, create shipments, refresh tracking | Full |
 | Cancel an order | No | No | Yes |
@@ -26,6 +28,8 @@ checked on the server; hiding a button in the admin UI is never the control.
 - Routes that change catalogue, storefront, plugins or settings add `requireAdmin`:
   product create/update/archive, image upload, theme reads and writes, plugin reads,
   settings, state changes and plugin routes.
+- `POST /api/admin/sales` is available to staff, so an employee at the counter can take a cash sale. It moves stock and runs plugin hooks.
+- `PATCH /api/admin/products/{id}` (including the stock field) is admin-only, so an employee cannot silently change the catalogue.
 - `PATCH /api/admin/orders/{id}/status` is available to staff, but `cancelled` is rejected
   for employees because cancellation restocks products and releases IMEIs.
 - `GET`/`PUT /api/admin/preferences` is personal and available to both staff roles.

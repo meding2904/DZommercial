@@ -71,5 +71,7 @@ export function courierLabel(key: string | undefined): string {
 }
 
 export function deliveryTypeLabel(type: string | undefined): string {
-	return type === 'stopdesk' ? 'Stop desk' : 'Home delivery';
+	if (type === 'stopdesk') return 'Stop desk';
+	if (type === 'pickup') return 'Counter sale';
+	return 'Home delivery';
 }

@@ -379,14 +379,17 @@ func (s *Server) handleUpdateProduct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	for key, message := range validateProduct(p) {
+	for key, message := range filterFieldProblems(validateProduct(p), raw) {
 		fields[key] = message
 	}
-	if p.Category.ID == "" || p.Category.PluginID != store.NormalizePluginID(p.PluginID) {
+	if hasAny(raw, "category_slug", "plugin_id") &&
+		(p.Category.ID == "" || p.Category.PluginID != store.NormalizePluginID(p.PluginID)) {
 		fields["category_slug"] = "Choose a category that belongs to this product type."
 	}
-	for key, message := range s.validateProductAttributes(p.PluginID, p.Attributes) {
-		fields[key] = message
+	if hasAny(raw, "attributes", "plugin_id") {
+		for key, message := range s.validateProductAttributes(p.PluginID, p.Attributes) {
+			fields[key] = message
+		}
 	}
 	if len(fields) > 0 {
 		writeProblem(w, problemFields(422, "validation_error", "Check the marked fields.", fields))
@@ -520,6 +523,33 @@ func parseSaleWindow(salePrice *int64, starts, ends string) (*int64, time.Time, 
 		fields["sale_ends_at"] = "The sale must end after it starts."
 	}
 	return &value, start, end, fields
+}
+
+// A partial patch only validates the fields it actually sends. A stock
+// adjustment on a legacy row with an outdated plugin schema must still work;
+// the full form validation belongs to a full form save.
+func filterFieldProblems(problems map[string]string, raw map[string]json.RawMessage) map[string]string {
+	out := make(map[string]string)
+	saleTouched := hasAny(raw, "sale_price_cents", "sale_starts_at", "sale_ends_at")
+	for key, message := range problems {
+		keep := hasAny(raw, key)
+		if !keep && strings.HasPrefix(key, "sale_") {
+			keep = saleTouched
+		}
+		if keep {
+			out[key] = message
+		}
+	}
+	return out
+}
+
+func hasAny(raw map[string]json.RawMessage, keys ...string) bool {
+	for _, key := range keys {
+		if _, ok := raw[key]; ok {
+			return true
+		}
+	}
+	return false
 }
 
 func validateProduct(p store.Product) map[string]string {

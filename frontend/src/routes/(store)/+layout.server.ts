@@ -1,10 +1,11 @@
 import { serverGet } from '#lib/server/api';
+import { optionalClientAddress } from '#lib/server/address';
 import { DEFAULT_THEME, type StorefrontTheme } from '#lib/theme/storefront';
 import type { PluginManifest, StorefrontPage } from '#lib/types';
 import type { LayoutServerLoad } from './$types';
 
 export const load: LayoutServerLoad = async ({ getClientAddress }) => {
-	const client = getClientAddress();
+	const client = optionalClientAddress(getClientAddress);
 	const [themeData, pluginData] = await Promise.all([
 		serverGet<{ theme: StorefrontTheme }>('/api/storefront/theme', client).catch(() => null),
 		serverGet<{ plugins: PluginManifest[] }>('/api/plugins', client).catch(() => null)

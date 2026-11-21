@@ -35,14 +35,18 @@ func (s *Server) handleAdminOrders(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "internal_error", "Something went wrong.")
 		return
 	}
+	ids := make([]string, 0, len(orders))
+	for _, order := range orders {
+		ids = append(ids, order.ID)
+	}
+	itemsByOrder, err := s.store.OrderItemsByOrderIDs(r.Context(), ids)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal_error", "Something went wrong.")
+		return
+	}
 	result := make([]orderDTO, 0, len(orders))
 	for _, order := range orders {
-		items, err := s.store.OrderItems(r.Context(), order.ID)
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, "internal_error", "Something went wrong.")
-			return
-		}
-		result = append(result, toOrder(order, items, "", true))
+		result = append(result, toOrder(order, itemsByOrder[order.ID], "", true))
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"orders": result})
 }

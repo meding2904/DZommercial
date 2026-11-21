@@ -51,6 +51,9 @@ hard requirement, not a suggestion.
 - `/api/auth/login` stays reachable so the gated login page can create the admin session.
   An attacker who knows the admin password but not the gate still cannot use the admin UI or
   the admin API through the web origin. The API port must never be published in production.
+- The development Kiri start publishes the API on `127.0.0.1:8080` so the desktop admin can
+  reach it directly. Production does not publish the API port; the container is reachable only
+  on the private network. Point the desktop app at a TLS reverse proxy in that case.
 - In production, `ADMIN_ACCESS_TOKEN` must be at least 32 characters and must not be the
   development default. If it is missing or weak, the gate and admin paths return 404 and the
   rest of the store keeps working.
@@ -71,9 +74,20 @@ hard requirement, not a suggestion.
 - The SvelteKit hook sets a random `azahar_csrf` cookie on document requests. The cookie is
   readable by the page, `SameSite=Lax`, `Path=/` and `Secure` in production. It is a
   64-character lowercase hex token; the hook rotates any value that does not match that shape.
+- A native client has no document, so `GET /api/csrf` issues the same cookie and returns the
+  token. The desktop admin stores it in memory and sends it as `X-CSRF-Token`. Unsafe calls
+  still need `X-Requested-With: azahar-web` and an `Origin` equal to `APP_ORIGIN`; the
+  desktop reads the expected origin from `GET /api/health` when the user leaves it on auto.
+- The desktop session cookie is stored in the app profile, encrypted with Electron
+  `safeStorage` when the platform provides it, with a `0600` fallback. Signing out removes the
+  file and the in-memory cookie.
 - Every unsafe request must also send `X-CSRF-Token` with exactly the cookie value. The API
   compares the two in constant time. A request without a matching pair returns `403`.
 - The API does not enable CORS. Cross-origin reads are blocked by the browser.
+- The desktop admin does not load the API in a browser frame. Its Electron main process makes
+  the requests, keeps the cookie, and exposes only a narrow `api:request` bridge to a
+  sandboxed renderer with `contextIsolation`, no Node integration and a `connect-src 'none'`
+  policy.
 
 ## Captcha, bot detection and terms
 

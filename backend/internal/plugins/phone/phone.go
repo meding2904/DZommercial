@@ -4,7 +4,9 @@ package phone
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	"azahar/internal/plugins"
@@ -71,6 +73,87 @@ func (p *Plugin) Init(env *plugins.Env) {
 		store.FormatTime(time.Now().UTC()), pluginID); err != nil && env.Logger != nil {
 		env.Logger.Warn("phone stock reconciliation failed", "error", err)
 	}
+	p.repairLegacyAttributes(env)
+}
+
+// Older demo seeds stored separate ram and storage lists. The product type
+// now sells one paired configuration, so a legacy row could not be edited or
+// sold. Pair the old lists once at startup and keep the row usable.
+func (p *Plugin) repairLegacyAttributes(env *plugins.Env) {
+	ctx := context.Background()
+	rows, err := p.db.QueryContext(ctx,
+		`SELECT id, attributes FROM products WHERE plugin_id = ?`, pluginID)
+	if err != nil {
+		if env.Logger != nil {
+			env.Logger.Warn("phone attribute repair failed", "error", err)
+		}
+		return
+	}
+	type repair struct {
+		id         string
+		attributes string
+	}
+	pending := make([]repair, 0)
+	for rows.Next() {
+		var id, raw string
+		if err := rows.Scan(&id, &raw); err != nil {
+			rows.Close()
+			return
+		}
+		var attributes map[string][]string
+		if err := json.Unmarshal([]byte(raw), &attributes); err != nil {
+			continue
+		}
+		if len(attributes["config"]) > 0 {
+			continue
+		}
+		configs := legacyConfigs(attributes["ram"], attributes["storage"])
+		if len(configs) == 0 {
+			continue
+		}
+		attributes["config"] = configs
+		delete(attributes, "ram")
+		delete(attributes, "storage")
+		encoded, err := json.Marshal(attributes)
+		if err != nil {
+			continue
+		}
+		pending = append(pending, repair{id: id, attributes: string(encoded)})
+	}
+	rows.Close()
+	if len(pending) == 0 {
+		return
+	}
+	err = p.store.InTx(ctx, func(tx *sql.Tx) error {
+		for _, item := range pending {
+			if _, err := tx.ExecContext(ctx,
+				`UPDATE products SET attributes = ?, updated_at = ? WHERE id = ?`,
+				item.attributes, store.FormatTime(time.Now().UTC()), item.id); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil && env.Logger != nil {
+		env.Logger.Warn("phone attribute repair write failed", "error", err)
+	}
+}
+
+func legacyConfigs(ram, storage []string) []string {
+	limit := len(ram)
+	if len(storage) < limit {
+		limit = len(storage)
+	}
+	configs := make([]string, 0, limit)
+	for index := 0; index < limit; index++ {
+		memory := strings.TrimSpace(ram[index])
+		disk := strings.TrimSpace(storage[index])
+		if memory == "" || disk == "" {
+			continue
+		}
+		configs = append(configs, memory+" RAM + "+disk)
+	}
+	return configs
 }
 
 func (p *Plugin) Manifest() plugins.Manifest {

@@ -225,3 +225,22 @@ func TestValidateCheckoutLineChecksOptionsBeforeStock(t *testing.T) {
 		}
 	}
 }
+
+func TestLegacyConfigsPairTheOldLists(t *testing.T) {
+	got := legacyConfigs(
+		[]string{"12 GB", "16 GB"},
+		[]string{"256 GB", "512 GB"},
+	)
+	want := []string{"12 GB RAM + 256 GB", "16 GB RAM + 512 GB"}
+	if len(got) != len(want) {
+		t.Fatalf("legacyConfigs = %#v, want %#v", got, want)
+	}
+	for index := range want {
+		if got[index] != want[index] {
+			t.Fatalf("legacyConfigs[%d] = %q, want %q", index, got[index], want[index])
+		}
+	}
+	if got := legacyConfigs([]string{"12 GB"}, nil); len(got) != 0 {
+		t.Fatalf("legacyConfigs with no storage = %#v, want empty", got)
+	}
+}

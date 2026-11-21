@@ -1,9 +1,10 @@
 import { serverGet } from '#lib/server/api';
+import { optionalClientAddress } from '#lib/server/address';
 import type { Category, Product } from '#lib/types';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ getClientAddress }) => {
-	const client = getClientAddress();
+	const client = optionalClientAddress(getClientAddress);
 	try {
 		const [productData, categoryData] = await Promise.all([
 			serverGet<{ products: Product[] }>('/api/products?sort=featured', client),

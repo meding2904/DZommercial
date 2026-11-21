@@ -59,7 +59,7 @@
 		[current.commune_name || current.city, current.wilaya_name].filter(Boolean).join(', ')
 	);
 	const courierClosed = $derived(
-		current.status === 'cancelled' || current.status === 'delivered'
+		current.status === 'cancelled' || current.status === 'delivered' || deliveryType === 'pickup'
 	);
 	const courierReady = $derived(
 		(current.wilaya_code ?? 0) >= 1 &&

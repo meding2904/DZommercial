@@ -1,5 +1,6 @@
 import { error } from '@sveltejs/kit';
 import { serverGet } from '#lib/server/api';
+import { optionalClientAddress } from '#lib/server/address';
 import type { PluginManifest } from '#lib/types';
 import type { PageServerLoad } from './$types';
 
@@ -30,7 +31,7 @@ type PartCategory = {
 };
 
 export const load: PageServerLoad = async ({ getClientAddress }) => {
-	const client = getClientAddress();
+	const client = optionalClientAddress(getClientAddress);
 	const [pluginData, parts] = await Promise.all([
 		serverGet<{ plugins: PluginManifest[] }>('/api/plugins', client).catch(() => null),
 		serverGet<{ categories: PartCategory[] }>(

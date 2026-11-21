@@ -1,0 +1,52 @@
+{
+	"name": "azahar-desktop",
+	"version": "1.0.0",
+	"private": true,
+	"description": "The Azahar admin ledger for the counter, orders and stock, talking to the Go API directly.",
+	"license": "Apache-2.0",
+	"author": "Azahar",
+	"desktopName": "azahar-admin.desktop",
+	"main": "main.js",
+	"scripts": {
+		"prepare-assets": "node scripts/prepare-assets.mjs",
+		"start": "pnpm prepare-assets && electron .",
+		"dist": "pnpm prepare-assets && electron-builder --linux AppImage",
+		"dist:dir": "pnpm prepare-assets && electron-builder --linux dir"
+	},
+	"devDependencies": {
+		"electron": "^45.4.1",
+		"electron-builder": "^26.18.0"
+	},
+	"build": {
+		"appId": "com.azahar.desktop",
+		"productName": "Azahar",
+		"copyright": "Copyright 2026 Azahar",
+		"asar": true,
+		"directories": {
+			"output": "dist",
+			"buildResources": "build"
+		},
+		"files": [
+			"main.js",
+			"preload.js",
+			"renderer/**/*",
+			"package.json"
+		],
+		"extraResources": [
+			{
+				"from": "resources",
+				"to": "resources"
+			}
+		],
+		"linux": {
+			"target": [
+				"AppImage"
+			],
+			"category": "Shopping",
+			"icon": "build/icon.png",
+			"syncDesktopName": true,
+			"synopsis": "Azahar admin ledger",
+			"description": "Run the counter, the orders and the stock of the Azahar shop from one desktop app."
+		}
+	}
+}

@@ -123,7 +123,7 @@ export type Order = {
 	wilaya_code?: number;
 	wilaya_name?: string;
 	commune_name?: string;
-	delivery_type?: 'home' | 'stopdesk';
+	delivery_type?: 'home' | 'stopdesk' | 'pickup';
 	stop_desk_id?: string;
 	stop_desk_name?: string;
 	courier_key?: string;

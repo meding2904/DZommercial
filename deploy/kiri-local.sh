@@ -9,6 +9,10 @@ if ! command -v kiri >/dev/null 2>&1; then
 	exit 1
 fi
 
+if [[ -z "${APP_ENV:-}" ]]; then
+	echo "APP_ENV is not set; starting the development demo with demo data." >&2
+	echo "Set APP_ENV=production for a public deployment." >&2
+fi
 APP_ENV="${APP_ENV:-development}"
 APP_ENV="${APP_ENV,,}"
 
@@ -19,6 +23,7 @@ if [[ "$APP_ENV" == "production" ]]; then
 	: "${TURSO_AUTH_TOKEN:?set TURSO_AUTH_TOKEN before running production}"
 	: "${TURNSTILE_SECRET_KEY:?set TURNSTILE_SECRET_KEY before running production}"
 	: "${PUBLIC_TURNSTILE_SITE_KEY:?set PUBLIC_TURNSTILE_SITE_KEY before running production}"
+	: "${PLUGIN_SECRET_KEY:?set PLUGIN_SECRET_KEY before running production}"
 	if [[ "$ADMIN_PASSWORD" == "azahar-dev-admin-2026" ]]; then
 		echo "error: ADMIN_PASSWORD must not be the development default." >&2
 		exit 1
@@ -27,6 +32,11 @@ if [[ "$APP_ENV" == "production" ]]; then
 		: "${CUSTOMER_PASSWORD:?set CUSTOMER_PASSWORD when SEED_DEMO=true}"
 		if [[ "$CUSTOMER_PASSWORD" == "azahar-dev-client-2026" ]]; then
 			echo "error: CUSTOMER_PASSWORD must not be the development default." >&2
+			exit 1
+		fi
+		: "${EMPLOYEE_PASSWORD:?set EMPLOYEE_PASSWORD when SEED_DEMO=true}"
+		if [[ "$EMPLOYEE_PASSWORD" == "azahar-dev-staff-2026" ]]; then
+			echo "error: EMPLOYEE_PASSWORD must not be the development default." >&2
 			exit 1
 		fi
 	fi
@@ -40,10 +50,15 @@ fi
 APP_ORIGIN="${APP_ORIGIN:-http://localhost:3000}"
 ADMIN_EMAIL="${ADMIN_EMAIL:-admin@azahar.example}"
 ADMIN_PASSWORD="${ADMIN_PASSWORD:-azahar-dev-admin-2026}"
+EMPLOYEE_EMAIL="${EMPLOYEE_EMAIL:-staff@azahar.example}"
+EMPLOYEE_PASSWORD="${EMPLOYEE_PASSWORD:-azahar-dev-staff-2026}"
 CUSTOMER_EMAIL="${CUSTOMER_EMAIL:-client@azahar.example}"
 CUSTOMER_PASSWORD="${CUSTOMER_PASSWORD:-azahar-dev-client-2026}"
 TURNSTILE_SECRET_KEY="${TURNSTILE_SECRET_KEY:-}"
 PUBLIC_TURNSTILE_SITE_KEY="${PUBLIC_TURNSTILE_SITE_KEY:-}"
+PLUGIN_SECRET_KEY="${PLUGIN_SECRET_KEY:-azahar-dev-plugin-key-2026}"
+AI_BASE_URL="${AI_BASE_URL:-https://api.openai.com/v1}"
+AI_TIMEOUT_SECONDS="${AI_TIMEOUT_SECONDS:-25}"
 COOKIE_SECURE="${COOKIE_SECURE:-false}"
 SEED_DEMO="${SEED_DEMO:-true}"
 TURSO_AUTH_TOKEN="${TURSO_AUTH_TOKEN:-}"
@@ -64,7 +79,7 @@ mkdir -p deploy/bin
 (cd backend && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o ../deploy/bin/azahar-api ./cmd/api)
 
 echo "Building the SvelteKit app..."
-(cd frontend && pnpm build)
+(cd frontend && APP_ENV="$APP_ENV" PUBLIC_TURNSTILE_SITE_KEY="$PUBLIC_TURNSTILE_SITE_KEY" pnpm build)
 
 echo "Preparing the Kiri network and volume..."
 kiri network create azahar-net >/dev/null 2>&1 || true
@@ -84,8 +99,16 @@ kiri run -d --name azahar-db --network azahar-net \
 
 sleep 3
 
+# The desktop admin talks to the API directly. Publish the API on loopback
+# for development only; production keeps it on the private network.
+API_PUBLISH=()
+if [[ "$APP_ENV" != "production" ]]; then
+	API_PUBLISH=(-p 127.0.0.1:8080:8080)
+fi
+
 echo "Starting the API..."
 kiri run -d --name azahar-api --network azahar-net \
+	"${API_PUBLISH[@]}" \
 	-v "$ROOT/deploy/bin/azahar-api:/azahar-api:ro" \
 	-e APP_ENV="$APP_ENV" \
 	-e API_ADDR=:8080 \
@@ -97,9 +120,14 @@ kiri run -d --name azahar-api --network azahar-net \
 	-e SEED_DEMO="$SEED_DEMO" \
 	-e ADMIN_EMAIL="$ADMIN_EMAIL" \
 	-e ADMIN_PASSWORD="$ADMIN_PASSWORD" \
+	-e EMPLOYEE_EMAIL="$EMPLOYEE_EMAIL" \
+	-e EMPLOYEE_PASSWORD="$EMPLOYEE_PASSWORD" \
 	-e CUSTOMER_EMAIL="$CUSTOMER_EMAIL" \
 	-e CUSTOMER_PASSWORD="$CUSTOMER_PASSWORD" \
 	-e TURNSTILE_SECRET_KEY="$TURNSTILE_SECRET_KEY" \
+	-e PLUGIN_SECRET_KEY="$PLUGIN_SECRET_KEY" \
+	-e AI_BASE_URL="$AI_BASE_URL" \
+	-e AI_TIMEOUT_SECONDS="$AI_TIMEOUT_SECONDS" \
 	gcr.io/distroless/static-debian12:nonroot /azahar-api >/dev/null
 
 sleep 2
@@ -129,7 +157,9 @@ echo "Azahar is running at $APP_ORIGIN"
 echo "Admin gate: $APP_ORIGIN/ops-$ADMIN_ACCESS_TOKEN"
 echo "Keep the gate link private. It rotates on every restart."
 if [[ "$APP_ENV" != "production" ]]; then
+	echo "Desktop admin API: http://127.0.0.1:8080 (development only)"
 	echo "Admin login: $ADMIN_EMAIL / $ADMIN_PASSWORD"
+	echo "Employee login: $EMPLOYEE_EMAIL / $EMPLOYEE_PASSWORD"
 	echo "Customer: $CUSTOMER_EMAIL / $CUSTOMER_PASSWORD"
 fi
 echo "Stop with ./deploy/kiri-down.sh"

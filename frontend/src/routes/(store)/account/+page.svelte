@@ -141,7 +141,7 @@
 				fieldErrors = err.fields;
 				formError = err.message;
 			} else {
-				formError = 'The house could not be reached. Try again.';
+				formError = 'The shop could not be reached. Try again.';
 			}
 
 			await tick();

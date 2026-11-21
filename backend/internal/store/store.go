@@ -4,10 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"sync"
 )
 
 type Store struct {
-	db *sql.DB
+	db      *sql.DB
+	writeMu sync.Mutex
 }
 
 func New(handle *sql.DB) *Store {
@@ -18,7 +20,14 @@ func (s *Store) DB() *sql.DB {
 	return s.db
 }
 
+// InTx serialises write transactions. The bundled libsql server has a single
+// writer and resets or times out connections when many write transactions
+// arrive at once. Shop writes are small and infrequent, so one writer at a
+// time is cheaper than retrying a failed transaction under contention.
 func (s *Store) InTx(ctx context.Context, fn func(*sql.Tx) error) error {
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
@@ -35,17 +44,20 @@ func (s *Store) InTx(ctx context.Context, fn func(*sql.Tx) error) error {
 
 func scanProduct(row scanner) (Product, error) {
 	var p Product
-	var compareAt sql.NullInt64
-	var concerns, ingredients, gallery string
+	var compareAt, salePrice sql.NullInt64
+	var concerns, ingredients, gallery, attributes string
 	var featured, active int
+	var saleStarts, saleEnds string
 	var createdAt, updatedAt string
 
 	err := row.Scan(
 		&p.ID, &p.Slug, &p.Name, &p.Subtitle, &p.Description,
-		&p.PriceCents, &compareAt, &p.Currency, &p.Size,
+		&p.PriceCents, &compareAt, &salePrice, &saleStarts, &saleEnds, &p.Currency, &p.Size,
 		&concerns, &ingredients, &p.HowTo, &p.Image, &gallery,
-		&p.Stock, &featured, &active, &createdAt, &updatedAt,
+		&p.Stock, &featured, &active, &p.PluginID, &attributes,
+		&createdAt, &updatedAt,
 		&p.Category.ID, &p.Category.Slug, &p.Category.Name, &p.Category.Description,
+		&p.Category.PluginID,
 	)
 	if err != nil {
 		return Product{}, err
@@ -54,9 +66,16 @@ func scanProduct(row scanner) (Product, error) {
 		value := compareAt.Int64
 		p.CompareAtCents = &value
 	}
+	if salePrice.Valid {
+		value := salePrice.Int64
+		p.SalePriceCents = &value
+	}
+	p.SaleStartsAt = ParseTime(saleStarts)
+	p.SaleEndsAt = ParseTime(saleEnds)
 	p.Concerns = decodeJSON(concerns)
 	p.Ingredients = decodeJSON(ingredients)
 	p.Gallery = decodeJSON(gallery)
+	p.Attributes = decodeStringListMap(attributes)
 	p.Featured = featured != 0
 	p.Active = active != 0
 	p.CreatedAt = ParseTime(createdAt)
@@ -65,10 +84,23 @@ func scanProduct(row scanner) (Product, error) {
 }
 
 const productColumns = `p.id, p.slug, p.name, p.subtitle, p.description,
-	p.price_cents, p.compare_at_cents, p.currency, p.size,
+	p.price_cents, p.compare_at_cents, p.sale_price_cents, p.sale_starts_at, p.sale_ends_at,
+	p.currency, p.size,
 	p.concerns, p.ingredients, p.how_to, p.image, p.gallery,
-	p.stock, p.featured, p.active, p.created_at, p.updated_at,
-	c.id, c.slug, c.name, c.description`
+	p.stock, p.featured, p.active, p.plugin_id, p.attributes,
+	p.created_at, p.updated_at,
+	c.id, c.slug, c.name, c.description, c.plugin_id`
+
+// effectivePriceOrder mirrors Product.EffectivePriceCents for SQL ordering.
+const effectivePriceOrder = `(CASE
+	WHEN p.sale_price_cents IS NOT NULL
+	 AND p.sale_price_cents > 0
+	 AND p.sale_price_cents < p.price_cents
+	 AND p.sale_starts_at <> ''
+	 AND p.sale_ends_at <> ''
+	 AND p.sale_starts_at <= ?
+	 AND p.sale_ends_at > ?
+	THEN p.sale_price_cents ELSE p.price_cents END)`
 
 func scanOrder(row scanner) (Order, error) {
 	var o Order

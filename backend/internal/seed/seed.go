@@ -18,6 +18,8 @@ type Options struct {
 	AdminPassword    string
 	CustomerEmail    string
 	CustomerPassword string
+	EmployeeEmail    string
+	EmployeePassword string
 }
 
 type Summary struct {
@@ -37,6 +39,12 @@ func Run(ctx context.Context, db *sql.DB, logger *slog.Logger, opts Options) (Su
 	}
 	summary.Categories = catalog.categories
 	summary.Products = catalog.products
+
+	pluginProducts, err := seedPluginCatalog(ctx, db, repo)
+	if err != nil {
+		return summary, fmt.Errorf("seed plugin catalog: %w", err)
+	}
+	summary.Products += pluginProducts
 
 	users, err := seedUsers(ctx, repo, opts)
 	if err != nil {
@@ -61,33 +69,21 @@ func Run(ctx context.Context, db *sql.DB, logger *slog.Logger, opts Options) (Su
 	return summary, nil
 }
 
-type seedCategory struct {
-	Slug        string
-	Name        string
-	Description string
-	SortOrder   int
-}
-
 type seedProduct struct {
-	Slug        string
-	Name        string
-	Subtitle    string
-	Description string
-	PriceCents  int64
-	Size        string
-	Category    string
-	Concerns    []string
-	Ingredients []string
-	HowTo       string
-	Image       string
-	Stock       int
-	Featured    bool
-}
-
-var categories = []seedCategory{
-	{Slug: "face", Name: "Face", Description: "Oils, serums and masks for the face.", SortOrder: 1},
-	{Slug: "body", Name: "Body", Description: "Balms, oils and creams for the body.", SortOrder: 2},
-	{Slug: "ritual", Name: "Ritual", Description: "Soaks for the bath.", SortOrder: 3},
+	Slug           string
+	Name           string
+	Subtitle       string
+	Description    string
+	PriceCents     int64
+	SalePriceCents int64
+	Size           string
+	Category       string
+	Concerns       []string
+	Ingredients    []string
+	HowTo          string
+	Image          string
+	Stock          int
+	Featured       bool
 }
 
 var products = []seedProduct{
@@ -115,7 +111,7 @@ var products = []seedProduct{
 		Slug: "rose-clay-mask", Name: "Rose clay mask",
 		Subtitle:    "Ten minutes in the grove",
 		Description: "A soft clay mask with rose and chamomile. It lifts oil from the surface and leaves the skin comfortable, not tight.",
-		PriceCents:  360000, Size: "75 g", Category: "face",
+		PriceCents:  360000, SalePriceCents: 288000, Size: "75 g", Category: "face",
 		Concerns:    []string{"oily", "congested"},
 		Ingredients: []string{"Rose clay", "Kaolin", "Chamomile"},
 		HowTo:       "Spread a thin layer over clean skin, leave for ten minutes, then rinse with warm water.",
@@ -189,45 +185,65 @@ func seedCatalog(ctx context.Context, repo *store.Store) (catalogResult, error) 
 	}
 
 	now := time.Now().UTC()
-	err = repo.InTx(ctx, func(tx *sql.Tx) error {
-		for _, category := range categories {
-			_, err := tx.ExecContext(ctx,
-				`INSERT INTO categories (id, slug, name, description, sort_order)
-				 VALUES (?, ?, ?, ?, ?) ON CONFLICT(slug) DO NOTHING`,
-				ids.New("cat"), category.Slug, category.Name, category.Description, category.SortOrder,
-			)
-			if err != nil {
-				return err
-			}
-			result.categories++
+	existing, err := repo.Categories(ctx)
+	if err != nil {
+		return result, err
+	}
+	bySlug := make(map[string]store.Category, len(existing))
+	for _, category := range existing {
+		if category.PluginID == "oils" {
+			bySlug[category.Slug] = category
 		}
+	}
+	for _, item := range products {
+		if _, ok := bySlug[item.Category]; !ok {
+			return result, fmt.Errorf("category %s is not registered by the oils plugin", item.Category)
+		}
+	}
+	result.categories = len(bySlug)
 
+	err = repo.InTx(ctx, func(tx *sql.Tx) error {
 		for index, item := range products {
-			category, err := repo.CategoryBySlugTx(ctx, tx, item.Category)
-			if err != nil {
-				return fmt.Errorf("category %s: %w", item.Category, err)
-			}
+			category := bySlug[item.Category]
 			createdAt := now.AddDate(0, 0, -(len(products) - index))
+			var salePrice *int64
+			var saleStarts, saleEnds time.Time
+			if item.SalePriceCents > 0 && item.SalePriceCents < item.PriceCents {
+				value := item.SalePriceCents
+				salePrice = &value
+				saleStarts = now.Add(-time.Hour)
+				saleEnds = now.AddDate(0, 0, 7)
+			}
 			product := store.Product{
-				ID:          fmt.Sprintf("prd_%02d", index+1),
-				Slug:        item.Slug,
-				Name:        item.Name,
-				Subtitle:    item.Subtitle,
-				Description: item.Description,
-				PriceCents:  item.PriceCents,
-				Currency:    "DZD",
-				Size:        item.Size,
-				Category:    category,
-				Concerns:    item.Concerns,
-				Ingredients: item.Ingredients,
-				HowTo:       item.HowTo,
-				Image:       item.Image,
-				Gallery:     []string{item.Image},
-				Stock:       item.Stock,
-				Featured:    item.Featured,
-				Active:      true,
-				CreatedAt:   createdAt,
-				UpdatedAt:   createdAt,
+				ID:             fmt.Sprintf("prd_%02d", index+1),
+				Slug:           item.Slug,
+				Name:           item.Name,
+				Subtitle:       item.Subtitle,
+				Description:    item.Description,
+				PriceCents:     item.PriceCents,
+				SalePriceCents: salePrice,
+				SaleStartsAt:   saleStarts,
+				SaleEndsAt:     saleEnds,
+				Currency:       "DZD",
+				Size:           item.Size,
+				Category:       category,
+				Concerns:       item.Concerns,
+				Ingredients:    item.Ingredients,
+				HowTo:          item.HowTo,
+				Image:          item.Image,
+				Gallery:        []string{item.Image},
+				Stock:          item.Stock,
+				Featured:       item.Featured,
+				Active:         true,
+				PluginID:       "oils",
+				Attributes: map[string][]string{
+					"size":        {item.Size},
+					"concerns":    item.Concerns,
+					"ingredients": item.Ingredients,
+					"how_to":      {item.HowTo},
+				},
+				CreatedAt: createdAt,
+				UpdatedAt: createdAt,
 			}
 			if err := repo.CreateProduct(ctx, tx, product); err != nil {
 				return err
@@ -269,6 +285,10 @@ func seedUsers(ctx context.Context, repo *store.Store, opts Options) (int, error
 	if err != nil {
 		return 0, err
 	}
+	employeeHash, err := auth.HashPassword(opts.EmployeePassword)
+	if err != nil {
+		return 0, err
+	}
 	sampleHash, err := auth.HashPassword("azahar-sample-customer-2026")
 	if err != nil {
 		return 0, err
@@ -276,6 +296,7 @@ func seedUsers(ctx context.Context, repo *store.Store, opts Options) (int, error
 
 	users := []seedUser{
 		{ID: "usr_admin", Name: "Azahar admin", Email: opts.AdminEmail, Role: "admin", CreatedAt: now.AddDate(0, 0, -60)},
+		{ID: "usr_staff", Name: "Azahar staff", Email: opts.EmployeeEmail, Role: "employee", CreatedAt: now.AddDate(0, 0, -55)},
 		{ID: "usr_client", Name: "Demo client", Email: opts.CustomerEmail, Role: "customer", CreatedAt: now.AddDate(0, 0, -50)},
 	}
 	for index := 1; index <= 12; index++ {
@@ -293,6 +314,8 @@ func seedUsers(ctx context.Context, repo *store.Store, opts Options) (int, error
 			hash := sampleHash
 			if user.Role == "admin" {
 				hash = adminHash
+			} else if user.Role == "employee" {
+				hash = employeeHash
 			} else if user.Email == opts.CustomerEmail {
 				hash = customerHash
 			}
@@ -324,6 +347,7 @@ type seedOrderProduct struct {
 	Slug       string
 	Name       string
 	Image      string
+	PluginID   string
 	PriceCents int64
 }
 
@@ -350,7 +374,8 @@ func seedOrders(ctx context.Context, db *sql.DB, repo *store.Store) (int, error)
 	}
 
 	productRows, err := db.QueryContext(ctx,
-		`SELECT id, slug, name, image, price_cents FROM products WHERE active = 1 ORDER BY id`)
+		`SELECT id, slug, name, image, plugin_id, price_cents FROM products
+		 WHERE active = 1 AND plugin_id = 'oils' ORDER BY id`)
 	if err != nil {
 		return 0, err
 	}
@@ -358,7 +383,7 @@ func seedOrders(ctx context.Context, db *sql.DB, repo *store.Store) (int, error)
 	for productRows.Next() {
 		var product seedOrderProduct
 		if err := productRows.Scan(&product.ID, &product.Slug, &product.Name,
-			&product.Image, &product.PriceCents); err != nil {
+			&product.Image, &product.PluginID, &product.PriceCents); err != nil {
 			productRows.Close()
 			return 0, err
 		}
@@ -477,6 +502,7 @@ func seedOrders(ctx context.Context, db *sql.DB, repo *store.Store) (int, error)
 					UnitPriceCents: product.PriceCents,
 					Quantity:       quantity,
 					LineTotalCents: lineTotal,
+					PluginID:       store.NormalizePluginID(product.PluginID),
 				})
 			}
 

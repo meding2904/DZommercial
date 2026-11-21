@@ -48,6 +48,8 @@ check /api/admin%2Fmetrics 404
 check /api/%252e%252e/api/admin/metrics 404
 check /api/foo%5C..%5Cadmin%5Cmetrics 404
 check /api/%2e%2e%2fapi%2fadmin%2fmetrics 404
+check /api/health
+check /api/csrf
 check /api/products
 check /api/shipping/wilayas
 check /api/shipping/communes?wilaya=16

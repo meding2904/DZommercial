@@ -11,6 +11,7 @@ import (
 
 	"azahar/internal/auth"
 	"azahar/internal/ids"
+	"azahar/internal/plugins"
 	"azahar/internal/store"
 
 	"github.com/go-chi/chi/v5"
@@ -39,8 +40,10 @@ type checkoutPayload struct {
 }
 
 type checkoutLine struct {
-	ProductID string `json:"product_id"`
-	Quantity  int    `json:"quantity"`
+	ProductID          string            `json:"product_id"`
+	Quantity           int               `json:"quantity"`
+	Options            map[string]string `json:"options"`
+	ExpectedPriceCents *int64            `json:"expected_price_cents"`
 }
 
 func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
@@ -124,8 +127,10 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type line struct {
-		productID string
-		quantity  int
+		productID          string
+		quantity           int
+		options            map[string]string
+		expectedPriceCents *int64
 	}
 	lines := make([]line, 0, len(payload.Items))
 	index := make(map[string]int)
@@ -139,15 +144,22 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 			fields["items"] = "Use between 1 and 10 units per product."
 			continue
 		}
-		if existing, ok := index[productID]; ok {
+		options := normalizeOptions(item.Options)
+		lineKey := productID + "|" + optionsKey(options)
+		if existing, ok := index[lineKey]; ok {
 			lines[existing].quantity += item.Quantity
 			if lines[existing].quantity > 10 {
 				fields["items"] = "Use between 1 and 10 units per product."
 			}
 			continue
 		}
-		index[productID] = len(lines)
-		lines = append(lines, line{productID: productID, quantity: item.Quantity})
+		index[lineKey] = len(lines)
+		lines = append(lines, line{
+			productID:          productID,
+			quantity:           item.Quantity,
+			options:            options,
+			expectedPriceCents: item.ExpectedPriceCents,
+		})
 	}
 	if len(fields) > 0 {
 		writeProblem(w, problemFields(422, "validation_error", "Check the marked fields.", fields))
@@ -225,6 +237,7 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 	order.TokenHash = auth.HashToken(token)
 
 	items := make([]store.OrderItem, 0, len(lines))
+	pluginLines := make(map[string][]plugins.CheckoutLine)
 	var problem *apiProblem
 
 	err = s.store.InTx(r.Context(), func(tx *sql.Tx) error {
@@ -239,23 +252,65 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 				}
 				return err
 			}
+			if !s.plugins.EffectiveEnabled(product.PluginID) {
+				problem = problemFields(409, "conflict", "Some products are no longer available.",
+					map[string]string{"items": product.Name + " is no longer available."})
+				return problem
+			}
+
+			schema := s.optionSchema(product)
+			for _, message := range validateSelectedOptions(schema, product.Attributes, line.options) {
+				problem = problemFields(409, "conflict", "Some product options have changed.",
+					map[string]string{"items": message})
+				return problem
+			}
+
+			itemID := ids.New("itm")
+			pluginLine := plugins.CheckoutLine{
+				Product:  product,
+				Options:  line.options,
+				Quantity: line.quantity,
+				OrderID:  order.ID,
+				ItemID:   itemID,
+			}
+			if hook := s.plugins.CheckoutHook(product.PluginID); hook != nil {
+				if hookProblem := hook.ValidateCheckoutLine(r.Context(), tx, pluginLine); hookProblem != nil {
+					problem = problemFields(hookProblem.Status, hookProblem.Code,
+						hookProblem.Message, hookProblem.Fields)
+					return problem
+				}
+			}
+
 			if product.Stock < line.quantity {
 				problem = problemFields(409, "conflict", "Some products do not have enough stock.",
 					map[string]string{"items": "Reduce the quantity for " + product.Name + "."})
 				return problem
 			}
-			lineTotal := product.PriceCents * int64(line.quantity)
+			unitPrice := product.EffectivePriceCents(now)
+			if line.expectedPriceCents != nil && *line.expectedPriceCents != unitPrice {
+				problem = problemFields(409, "price_changed",
+					"A price changed while the bag was open. Review the bag and try again.",
+					map[string]string{"items": product.Name + " now costs a different amount."})
+				return problem
+			}
+			lineTotal := unitPrice * int64(line.quantity)
 			subtotal += lineTotal
 			items = append(items, store.OrderItem{
-				ID:             ids.New("itm"),
+				ID:             itemID,
 				ProductID:      product.ID,
 				Slug:           product.Slug,
 				Name:           product.Name,
 				Image:          product.Image,
-				UnitPriceCents: product.PriceCents,
+				UnitPriceCents: unitPrice,
 				Quantity:       line.quantity,
 				LineTotalCents: lineTotal,
+				Options:        line.options,
+				OptionsLabel:   optionLabel(schema, line.options),
+				PluginID:       store.NormalizePluginID(product.PluginID),
 			})
+			if store.NormalizePluginID(product.PluginID) != store.CorePluginID {
+				pluginLines[product.PluginID] = append(pluginLines[product.PluginID], pluginLine)
+			}
 		}
 
 		order.SubtotalCents = subtotal
@@ -302,6 +357,19 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 				problem = problemFields(409, "conflict", "Some products do not have enough stock.",
 					map[string]string{"items": "Reduce the quantity in the bag."})
 				return problem
+			}
+		}
+		for pluginID, hookLines := range pluginLines {
+			hook := s.plugins.CheckoutHook(pluginID)
+			if hook == nil {
+				continue
+			}
+			if err := hook.OnOrderCreated(r.Context(), tx, plugins.OrderRef{
+				ID:     order.ID,
+				Number: order.Number,
+				Status: order.Status,
+			}, hookLines); err != nil {
+				return err
 			}
 		}
 		return nil

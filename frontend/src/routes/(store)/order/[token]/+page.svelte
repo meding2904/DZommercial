@@ -38,7 +38,7 @@
 </script>
 
 <svelte:head>
-	<title>Order {order.number} | Azahar</title>
+	<title>Order {order.number} | {data.theme.brand_name}</title>
 	<meta
 		name="description"
 		content={`The confirmation for order ${order.number}, with the items, total and delivery address.`}
@@ -63,7 +63,7 @@
 		</div>
 
 		<div class="order-items">
-			{#each order.items as item (item.product_id)}
+			{#each order.items as item (item.id)}
 				<div class="order-item">
 					<ProductImage
 						src={item.image}
@@ -74,6 +74,9 @@
 					/>
 					<div>
 						<p>{item.name}</p>
+						{#if item.options_label}
+							<p class="meta">{item.options_label}</p>
+						{/if}
 						<p class="meta">{item.quantity} × {money(item.price_cents)}</p>
 					</div>
 					<p class="mono order-item-total">{money(item.price_cents * item.quantity)}</p>
@@ -131,7 +134,8 @@
 			<p class="muted cash-note">Pay the courier when the order arrives.</p>
 		{/if}
 
-		<div>
+		<div class="order-actions">
+			<a class="btn btn-primary" href={data.receiptPath}>Open the receipt</a>
 			<a class="btn btn-secondary" href="/shop">Back to the shelf</a>
 		</div>
 	</section>
@@ -170,5 +174,11 @@
 
 	.cash-note {
 		font-size: 14px;
+	}
+
+	.order-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 10px;
 	}
 </style>

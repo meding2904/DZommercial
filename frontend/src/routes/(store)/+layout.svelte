@@ -4,19 +4,28 @@
 	import Footer from '#lib/components/Footer.svelte';
 	import Toast from '#lib/components/Toast.svelte';
 	import { auth } from '#lib/stores/auth.svelte';
+	import { themeCss } from '#lib/theme/storefront';
 	import type { LayoutProps } from './$types';
 
-	let { children }: LayoutProps = $props();
+	let { children, data }: LayoutProps = $props();
+
+	const theme = $derived(data.theme);
+	const pages = $derived(data.pages ?? []);
 
 	onMount(() => {
 		auth.refresh();
 	});
 </script>
 
+<svelte:head>
+	{@html `<style>${themeCss(theme)}</style>`}
+	<meta name="theme-color" content={theme.light.ground} />
+</svelte:head>
+
 <a class="skip-link" href="#main">Skip to content</a>
-<Header />
+<Header {theme} {pages} />
 <main id="main">
 	{@render children()}
 </main>
-<Footer />
+<Footer {theme} />
 <Toast />

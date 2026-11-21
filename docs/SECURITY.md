@@ -51,6 +51,9 @@ hard requirement, not a suggestion.
 - `/api/auth/login` stays reachable so the gated login page can create the admin session.
   An attacker who knows the admin password but not the gate still cannot use the admin UI or
   the admin API through the web origin. The API port must never be published in production.
+- The development Kiri start publishes the API on `127.0.0.1:8080` so the desktop admin can
+  reach it directly. Production does not publish the API port; the container is reachable only
+  on the private network. Point the desktop app at a TLS reverse proxy in that case.
 - In production, `ADMIN_ACCESS_TOKEN` must be at least 32 characters and must not be the
   development default. If it is missing or weak, the gate and admin paths return 404 and the
   rest of the store keeps working.
@@ -71,9 +74,20 @@ hard requirement, not a suggestion.
 - The SvelteKit hook sets a random `azahar_csrf` cookie on document requests. The cookie is
   readable by the page, `SameSite=Lax`, `Path=/` and `Secure` in production. It is a
   64-character lowercase hex token; the hook rotates any value that does not match that shape.
+- A native client has no document, so `GET /api/csrf` issues the same cookie and returns the
+  token. The desktop admin stores it in memory and sends it as `X-CSRF-Token`. Unsafe calls
+  still need `X-Requested-With: azahar-web` and an `Origin` equal to `APP_ORIGIN`; the
+  desktop reads the expected origin from `GET /api/health` when the user leaves it on auto.
+- The desktop session cookie is stored in the app profile, encrypted with Electron
+  `safeStorage` when the platform provides it, with a `0600` fallback. Signing out removes the
+  file and the in-memory cookie.
 - Every unsafe request must also send `X-CSRF-Token` with exactly the cookie value. The API
   compares the two in constant time. A request without a matching pair returns `403`.
 - The API does not enable CORS. Cross-origin reads are blocked by the browser.
+- The desktop admin does not load the API in a browser frame. Its Electron main process makes
+  the requests, keeps the cookie, and exposes only a narrow `api:request` bridge to a
+  sandboxed renderer with `contextIsolation`, no Node integration and a `connect-src 'none'`
+  policy.
 
 ## Captcha, bot detection and terms
 
@@ -100,11 +114,44 @@ hard requirement, not a suggestion.
 ## Authorization
 
 - `requireUser` loads the session and the user on every protected request.
-- `requireAdmin` checks `role = "admin"` after `requireUser`.
-- Product, order and preference mutations are admin-only. A customer can read only their own
-  orders. The public order endpoint is gated by a 256-bit token, not by an ID.
-- Admin actions write to `audit_log`: product create/update/archive, order status change and
-  preference change.
+- `requireStaff` allows `admin` and `employee` into the operational admin area. `requireAdmin`
+  then guards every mutation that changes the catalogue, storefront, plugins or settings.
+- Employees can read the dashboard, products, orders and customers, update order status and
+  courier tracking, and change their own admin colour style. They cannot create, edit or
+  archive products, upload images, change the storefront theme, manage plugins or cancel an
+  order. Admin-only routes return `403` to an employee, and the admin UI hides those surfaces.
+  See `docs/PERMISSIONS.md` for the matrix.
+- A customer can read only their own orders. The public order endpoint is gated by a 256-bit
+  token, not by an ID.
+- Storefront theme writes and plugin settings are admin-only. The public theme and plugin
+  manifest reads contain no secrets.
+- Team role changes are admin-only and audited. An admin cannot remove their own admin role,
+  and the last administrator cannot be demoted. The session user is reloaded on every
+  request, so a demotion takes effect immediately.
+- Plugin admin routes live under `/api/plugins/{id}/admin` and run the same `requireUser`,
+  `requireAdmin` and mutation limit as the core admin. The SvelteKit proxy also requires the
+  private gate cookie for that path shape.
+- Admin actions are audited through `audit_outbox`, batched into `audit_log`: product
+  create/update/archive, order status change, preference change, storefront theme change,
+  plugin settings change and plugin enable/disable. Plugin settings audit entries list the
+  changed keys, never the values.
+
+## Audit durability
+
+- Every audited action inserts one `audit_outbox` row inside the same database transaction
+  as the change it records. The row commits or rolls back with the action, so a successful
+  change can never lose its audit entry and a failed change cannot leave one behind. Business
+  writes remain in their own transaction; the batching applies to the append-only audit
+  stream.
+- A background batcher copies up to 200 queued rows into `audit_log` with `INSERT OR IGNORE`
+  and deletes those rows from `audit_outbox` in one transaction. A burst of audit entries
+  becomes one `audit_log` transaction instead of one write per entry.
+- The batcher flushes at startup, then every `AUDIT_BATCH_INTERVAL_MS` (default 2000,
+  clamped to 500–60000). On failure the rows stay queued and are retried on the next tick.
+  Rows committed before a restart or a temporary database outage are replayed on startup.
+- `audit_log` can trail the action that produced it by at most one batch interval. The
+  outbox is a write-through queue, not a second source of truth: once flushed, the entry is
+  in `audit_log` and removed from the queue in the same transaction.
 
 ## Input and data integrity
 
@@ -121,8 +168,71 @@ hard requirement, not a suggestion.
   simultaneous orders cannot sell the last unit twice.
 - Order numbers are generated from a sequence and are not the capability. The token is.
 - A request with more than 20 lines or more than 10 units per line is rejected.
-- Product image paths must start with `/images/` and contain no `..`, or be an `https://`
-  URL. This keeps the admin form from injecting `javascript:` or local file paths.
+- Product image paths must be a bundled `/images/` path or an uploaded `/api/images/{id}`.
+  This keeps the admin form from injecting `javascript:`, remote trackers or local file
+  paths. Uploads are admin-only, multipart, capped at 5 MB, and accepted only when the bytes
+  sniff as JPEG, PNG or WebP. The upload id is random and the served bytes are immutable.
+- Plugin product options are validated twice: the admin may store only allowed values, and
+  checkout compares the customer's choice with the product's stored values. Unknown fields
+  and unlisted values are rejected. Core products reject options entirely.
+- A limited-time sale is only active between `sale_starts_at` (inclusive) and
+  `sale_ends_at` (exclusive), and only when the sale price is above zero and below the
+  regular price. Checkout recomputes the effective price from the server clock and writes it
+  into the order item; a client-supplied cart price is ignored.
+- Storefront theme values are an allowlist: six-digit hex colours, bundled font ids, a
+  bundled image path within `/images/`, bounded text and numeric ranges. No free-form CSS
+  reaches the page. Both palettes must pass the contrast minimums in `docs/PLUGINS.md`.
+
+## Plugins, themes and the AI provider
+
+- Plugin settings are encrypted with AES-256-GCM before they reach the database. The key is
+  derived from `PLUGIN_SECRET_KEY`; production refuses to start without one of at least 16
+  characters. Secret values are masked in every response and never written to logs.
+- A key change makes old plugin settings unreadable. The admin console asks for them again
+  and replaces the row; the old ciphertext is not silently reinterpreted as plaintext.
+- The AI provider base URL is operator-owned (`AI_BASE_URL`), not an admin field, so a
+  compromised admin browser cannot point the server at an internal address. It must use
+  https in production.
+- The AI request carries only aggregate sales facts or product facts. Customer names, emails,
+  phones, addresses, order numbers and tokens never enter the prompt. The API key travels
+  only in the `Authorization` header and is not logged. Upstream responses are capped at
+  2 MiB and 8000 characters, and the upstream body is never returned to the browser.
+- Plugin routes are registered at startup. Duplicate ids, duplicate routes, admin routes that
+  try to add the `/admin` prefix again, malformed option keys and unknown setting types fail
+  the process instead of reaching a request.
+- Plugin categories and storefront page paths are claimed once. Category slugs and page paths
+  are unique across plugins; a product category must belong to the product's plugin.
+- Plugin enable/disable state is admin-only, CSRF-protected and audited. Dependency graphs are
+  validated at startup. Disabling a plugin with enabled dependents returns a warning until the
+  admin confirms; the dependents become blocked, not silently enabled. Disabled routes return
+  `404`, and the public catalog, storefront navigation and checkout all apply the same
+  effective state. Data, settings and order-status hooks stay intact so existing orders remain
+  correct.
+- Product image uploads are admin-only, multipart, capped at 5 MB, and accepted only when the
+  bytes sniff as JPEG, PNG or WebP. Images are stored in the database and served with
+  immutable public cache headers only for successful responses.
+- Plugin migrations are recorded per plugin and version. A plugin cannot edit another
+  plugin's tables through the framework; it owns its own SQL.
+
+## Code mode
+
+- Code mode is not an MCP server and does not execute shell commands or arbitrary code. The
+  model returns a typed JSON plan; the server accepts only five action types: theme update,
+  product update, product archive, product create and order status.
+- A preview plan is stored server-side and applied by id. The client cannot tamper with the
+  actions. Applying claims the plan atomically so it cannot run twice, and all actions run in
+  one transaction; a failure rolls back the plan. A plan is bound to the admin who previewed
+  it. The baseline stores the exact product fields, order status and theme the model saw, and
+  apply compares them inside the same write transaction, so a checkout, stock change or theme
+  edit made after the preview is rejected as stale.
+- Theme patches pass the storefront allowlist and contrast validator. Product creation checks
+  the installed plugin, category ownership, slug uniqueness, image path and option attributes.
+  Every applied action writes an audit entry with the plan id.
+- Code mode deliberately stops at the storefront theme, the product catalogue and order
+  status. Customer details, payments, plugin secrets and navigation are out of scope, so a
+  plan cannot move money or exfiltrate credentials.
+- The provider key is encrypted, never returned to the browser and never logged. Plans are
+  admin-only; the AI cannot read customer PII through this plugin.
 
 ## Courier integration
 
@@ -160,6 +270,11 @@ evicting the oldest when full. They are per process. Before running more than on
 replica, move the limiter to a shared store. `TRUST_PROXY=true` makes the limiter use the
 first `X-Forwarded-For` hop. Leave it false unless a trusted proxy sets that header.
 
+Pending orders hold their stock, and phone orders hold concrete IMEIs, from checkout until an
+admin confirms or cancels them. This release has no automatic pending-order TTL, so confirm or
+cancel pending orders promptly. Captcha and the checkout limit reduce deliberate stock holding
+but do not remove it.
+
 SvelteKit server-side catalog and order loads forward `getClientAddress()` as
 `X-Forwarded-For`, so SSR traffic uses the visitor's bucket instead of one shared web-server
 bucket. If the web app runs behind a reverse proxy, adapter-node must set `ADDRESS_HEADER`
@@ -183,8 +298,8 @@ API:
 
 SvelteKit document:
 
-- `Content-Security-Policy` with a nonce for scripts, `'self'` for connect, img, font and
-  form actions, `data:` for the inlined font subsets, `'unsafe-inline'` for styles only,
+- `Content-Security-Policy` with a nonce for scripts, `'self'` for connect, font and
+  form actions, `'self'` and `data:` for images, `'unsafe-inline'` for styles only,
   `frame-ancestors 'none'`, `base-uri 'self'`, `object-src 'none'`. When Turnstile is
   configured, `script-src`, `connect-src` and `frame-src` also allow
   `https://challenges.cloudflare.com`.
@@ -194,9 +309,11 @@ SvelteKit document:
 ## Secrets and deployment
 
 - `.env` is ignored. `.env.example` holds names only.
-- The API refuses to start in production unless `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`,
-  `APP_ORIGIN`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` and `TURNSTILE_SECRET_KEY` are set
-  explicitly. The development admin password is rejected even though it is long enough.
+- The API refuses to start unless `APP_ENV` is set explicitly to `development` or
+  `production`. In production it also requires `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`,
+  `APP_ORIGIN`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `TURNSTILE_SECRET_KEY` and
+  `PLUGIN_SECRET_KEY`. The development admin password is rejected even though it is long
+  enough.
 - The web app must also receive `PUBLIC_TURNSTILE_SITE_KEY` in production. A one-sided setup
   fails checkout rather than falling back to the weaker local captcha. Cloudflare test keys
   are rejected in production on both sides.
@@ -214,6 +331,10 @@ SvelteKit document:
 ## Before production
 
 - Replace the demo product photography and sample orders.
+- Set `PLUGIN_SECRET_KEY` to a long random value and keep it stable. Changing it makes saved
+  plugin settings unreadable.
+- If the AI plugin is used, set a real provider key in Admin, Plugins, AI analyst and confirm
+  `AI_BASE_URL` points at the provider you intend. Leave the plugin disabled otherwise.
 - Set `COURIER_KEY` and `COURIER_CREDENTIALS` for a real courier. The `sandbox` key creates
   no parcels and must not be used for live orders.
 - Add email verification, password reset and a change-password flow.

@@ -138,7 +138,11 @@ func (s *Server) recoverPanic(next http.Handler) http.Handler {
 
 func (s *Server) limitBody(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+		limit := int64(1 << 20)
+		if r.Method == http.MethodPost && r.URL.Path == "/api/admin/product-images" {
+			limit = maxProductImageBytes + (1 << 20)
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, limit)
 		next.ServeHTTP(w, r)
 	})
 }
@@ -280,6 +284,23 @@ func (s *Server) requireAdmin(next http.Handler) http.Handler {
 			return
 		}
 		if current.User.Role != "admin" {
+			writeError(w, http.StatusForbidden, "forbidden", "This account does not have access.")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// requireStaff allows admins and employees into the operational admin area.
+// Each route decides whether it also needs requireAdmin.
+func (s *Server) requireStaff(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		current, ok := r.Context().Value(authKey).(authContext)
+		if !ok {
+			writeError(w, http.StatusUnauthorized, "unauthorized", "Sign in to continue.")
+			return
+		}
+		if current.User.Role != "admin" && current.User.Role != "employee" {
 			writeError(w, http.StatusForbidden, "forbidden", "This account does not have access.")
 			return
 		}

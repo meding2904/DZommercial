@@ -9,6 +9,9 @@ export type AdminOrderItem = {
 	unit_price_cents: number;
 	quantity: number;
 	line_total_cents: number;
+	options?: Record<string, string>;
+	options_label?: string;
+	plugin_id: string;
 };
 
 export type AdminOrder = {
@@ -24,7 +27,7 @@ export type AdminOrder = {
 	wilaya_code?: number;
 	wilaya_name?: string;
 	commune_name?: string;
-	delivery_type?: 'home' | 'stopdesk';
+	delivery_type?: 'home' | 'stopdesk' | 'pickup';
 	stop_desk_id?: string;
 	stop_desk_name?: string;
 	courier_key?: string;
@@ -53,6 +56,9 @@ export type ProductPayload = {
 	subtitle: string;
 	description: string;
 	price_cents: number;
+	sale_price_cents: number;
+	sale_starts_at: string;
+	sale_ends_at: string;
 	size: string;
 	category_slug: string;
 	concerns: string[];
@@ -63,6 +69,8 @@ export type ProductPayload = {
 	stock: number;
 	featured: boolean;
 	active: boolean;
+	plugin_id: string;
+	attributes: Record<string, string[]>;
 };
 
 export type ProductPayloadField = keyof ProductPayload;

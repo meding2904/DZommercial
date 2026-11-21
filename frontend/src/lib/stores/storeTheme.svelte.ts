@@ -4,9 +4,13 @@ import { revealTheme } from '#lib/theme/reveal';
 export type ThemeMode = 'light' | 'dark';
 
 const STORAGE_KEY = 'azahar-store-theme';
-const BACKGROUND: Record<ThemeMode, string> = {
+const FALLBACK: Record<ThemeMode, string> = {
 	light: '#f6f0eb',
 	dark: '#171311'
+};
+const TOKEN: Record<ThemeMode, string> = {
+	light: '--theme-light-bg',
+	dark: '--theme-dark-bg'
 };
 
 function readInitial(): ThemeMode {
@@ -25,6 +29,12 @@ function readInitial(): ThemeMode {
 	return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
+function background(mode: ThemeMode): string {
+	if (!browser) return FALLBACK[mode];
+	const token = getComputedStyle(document.documentElement).getPropertyValue(TOKEN[mode]).trim();
+	return token || FALLBACK[mode];
+}
+
 class StoreTheme {
 	current = $state<ThemeMode>('light');
 	busy = $state(false);
@@ -39,7 +49,7 @@ class StoreTheme {
 		document.documentElement.setAttribute('data-store-theme', theme);
 		document
 			.querySelector('meta[name="theme-color"]')
-			?.setAttribute('content', BACKGROUND[theme]);
+			?.setAttribute('content', background(theme));
 
 		if (persist) {
 			try {
@@ -61,7 +71,7 @@ class StoreTheme {
 		const next: ThemeMode = this.current === 'dark' ? 'light' : 'dark';
 		revealTheme(
 			button,
-			BACKGROUND[next],
+			background(next),
 			() => this.commit(next),
 			(busy) => (this.busy = busy)
 		);

@@ -7,11 +7,13 @@
 	import ErrorState from '#lib/components/admin/ErrorState.svelte';
 	import LoadingState from '#lib/components/admin/LoadingState.svelte';
 	import ProductDialog from '#lib/components/admin/ProductDialog.svelte';
+	import { auth } from '#lib/stores/auth.svelte';
 	import { money } from '#lib/format';
-	import type { AdminProduct, Category } from '#lib/types';
+	import type { AdminProduct, Category, PluginManifest } from '#lib/types';
 
 	let products = $state<AdminProduct[]>([]);
 	let categories = $state<Category[]>([]);
+	let plugins = $state<PluginManifest[]>([]);
 	let loading = $state(true);
 	let error = $state('');
 	let search = $state('');
@@ -43,6 +45,10 @@
 		products.filter((product) => product.active && product.stock <= 5).length
 	);
 
+	function productDetail(product: AdminProduct): string {
+		return product.attributes?.size?.[0] ?? product.size;
+	}
+
 	const countLabel = $derived.by(() => {
 		if (error) return 'Products unavailable';
 		if (loading) return 'Reading products…';
@@ -71,13 +77,15 @@
 		products = [];
 
 		try {
-			const [productData, categoryData] = await Promise.all([
+			const [productData, categoryData, pluginData] = await Promise.all([
 				adminApi.products(controller.signal),
-				adminApi.categories(controller.signal).catch(() => null)
+				adminApi.categories(controller.signal).catch(() => null),
+				adminApi.pluginManifests(controller.signal).catch(() => null)
 			]);
 			if (id !== requestId) return;
 			products = productData.products;
 			categories = mergeCategories(categoryData?.categories ?? [], productData.products);
+			plugins = pluginData?.plugins ?? [];
 		} catch (caught) {
 			if (id !== requestId || isAbortError(caught)) return;
 			error = errorMessage(caught);
@@ -93,7 +101,8 @@
 				merged.set(product.category.slug, {
 					slug: product.category.slug,
 					name: product.category.name,
-					description: ''
+					description: '',
+					plugin_id: product.category.plugin_id ?? product.plugin_id
 				});
 			}
 		}
@@ -123,12 +132,14 @@
 	}
 
 	function openCreate(event: MouseEvent) {
+		if (!auth.isAdmin) return;
 		rememberTrigger(event);
 		editProduct = null;
 		formOpen = true;
 	}
 
 	function openEdit(product: AdminProduct, event: MouseEvent) {
+		if (!auth.isAdmin) return;
 		rememberTrigger(event);
 		editProduct = product;
 		formOpen = true;
@@ -147,6 +158,7 @@
 	}
 
 	function openArchive(product: AdminProduct, event: MouseEvent) {
+		if (!auth.isAdmin) return;
 		rememberTrigger(event);
 		archiveError = '';
 		archiveTarget = product;
@@ -202,11 +214,13 @@
 			</p>
 		</div>
 
-		<div class="a-page-actions">
-			<button class="a-btn a-btn-primary" type="button" onclick={openCreate}>
-				New product
-			</button>
-		</div>
+		{#if auth.isAdmin}
+			<div class="a-page-actions">
+				<button class="a-btn a-btn-primary" type="button" onclick={openCreate}>
+					New product
+				</button>
+			</div>
+		{/if}
 	</header>
 
 	{#if notice}
@@ -253,10 +267,14 @@
 		<div class="a-panel">
 			<div class="a-empty">
 				<h2>No products yet.</h2>
-				<p>Add the first formula so the storefront has something to sell.</p>
-				<button class="a-btn a-btn-primary" type="button" onclick={openCreate}>
-					New product
-				</button>
+				{#if auth.isAdmin}
+					<p>Add the first formula so the storefront has something to sell.</p>
+					<button class="a-btn a-btn-primary" type="button" onclick={openCreate}>
+						New product
+					</button>
+				{:else}
+					<p>An administrator can add the first product. Your account can read the catalogue once it is live.</p>
+				{/if}
 			</div>
 		</div>
 	{:else if filtered.length === 0}
@@ -282,6 +300,7 @@
 					<thead>
 						<tr>
 							<th scope="col">Product</th>
+							<th scope="col">Type</th>
 							<th scope="col">Category</th>
 							<th scope="col" class="right">Price</th>
 							<th scope="col" class="right">Stock</th>
@@ -305,9 +324,15 @@
 										/>
 										<div class="product-info">
 											<strong>{product.name}</strong>
-											<span>{product.size}</span>
+											<span>{productDetail(product)}</span>
 										</div>
 									</div>
+								</td>
+								<td>
+									<span class="a-cell-label">Type</span>
+									<span class="a-state-label" data-state={product.plugin_id === 'core' ? undefined : 'active'}>
+										{product.plugin_name || 'Core'}
+									</span>
 								</td>
 								<td>
 									<span class="a-cell-label">Category</span>
@@ -315,7 +340,10 @@
 								</td>
 								<td class="right a-num">
 									<span class="a-cell-label">Price</span>
-									{money(product.price_cents, product.currency)}
+									{money(product.effective_price_cents ?? product.price_cents, product.currency)}
+									{#if product.on_sale}
+										<span class="sale-badge">Sale</span>
+									{/if}
 								</td>
 								<td class="right">
 									<span class="a-cell-label">Stock</span>
@@ -336,27 +364,31 @@
 								</td>
 								<td>
 									<span class="a-cell-label">Actions</span>
-									<div class="cell-actions">
-										<button
-											class="a-btn a-btn-secondary a-btn-table"
-											type="button"
-											data-edit-product={product.id}
-											aria-label={`Edit ${product.name}`}
-											onclick={(event) => openEdit(product, event)}
-										>
-											Edit
-										</button>
-										{#if product.active}
+									{#if auth.isAdmin}
+										<div class="cell-actions">
 											<button
-												class="a-btn a-btn-quiet a-btn-table"
+												class="a-btn a-btn-secondary a-btn-table"
 												type="button"
-												aria-label={`Archive ${product.name}`}
-												onclick={(event) => openArchive(product, event)}
+												data-edit-product={product.id}
+												aria-label={`Edit ${product.name}`}
+												onclick={(event) => openEdit(product, event)}
 											>
-												Archive
+												Edit
 											</button>
-										{/if}
-									</div>
+											{#if product.active}
+												<button
+													class="a-btn a-btn-quiet a-btn-table"
+													type="button"
+													aria-label={`Archive ${product.name}`}
+													onclick={(event) => openArchive(product, event)}
+												>
+													Archive
+												</button>
+											{/if}
+										</div>
+									{:else}
+										<span class="a-muted">Read only</span>
+									{/if}
 								</td>
 							</tr>
 						{/each}
@@ -371,6 +403,7 @@
 	<ProductDialog
 		product={editProduct}
 		{categories}
+		{plugins}
 		onclose={closeForm}
 		onsaved={saved}
 	/>

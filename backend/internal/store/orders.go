@@ -63,10 +63,11 @@ func (s *Store) CreateOrder(ctx context.Context, q querier, order Order, items [
 	for _, item := range items {
 		_, err := q.ExecContext(ctx,
 			`INSERT INTO order_items (id, order_id, product_id, slug, name, image,
-			 unit_price_cents, quantity, line_total_cents)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			 unit_price_cents, quantity, line_total_cents, options, options_label, plugin_id)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			item.ID, order.ID, item.ProductID, item.Slug, item.Name, item.Image,
 			item.UnitPriceCents, item.Quantity, item.LineTotalCents,
+			encodeStringMap(item.Options), item.OptionsLabel, NormalizePluginID(item.PluginID),
 		)
 		if err != nil {
 			return fmt.Errorf("create order item: %w", err)
@@ -82,7 +83,17 @@ func (s *Store) OrderByTokenHash(ctx context.Context, tokenHash string) (Order, 
 }
 
 func (s *Store) OrderByID(ctx context.Context, id string) (Order, error) {
-	return scanOrder(s.db.QueryRowContext(ctx,
+	return s.orderByID(ctx, s.db, id)
+}
+
+// OrderByIDTx reads an order inside a transaction, so callers that change
+// stock or status do not act on a row read outside the write boundary.
+func (s *Store) OrderByIDTx(ctx context.Context, q querier, id string) (Order, error) {
+	return s.orderByID(ctx, q, id)
+}
+
+func (s *Store) orderByID(ctx context.Context, q querier, id string) (Order, error) {
+	return scanOrder(q.QueryRowContext(ctx,
 		`SELECT `+orderColumns+` FROM orders o WHERE o.id = ?`, id,
 	))
 }
@@ -91,10 +102,47 @@ func (s *Store) OrderItems(ctx context.Context, orderID string) ([]OrderItem, er
 	return s.orderItems(ctx, s.db, orderID)
 }
 
+func (s *Store) OrderItemsTx(ctx context.Context, q querier, orderID string) ([]OrderItem, error) {
+	return s.orderItems(ctx, q, orderID)
+}
+
+// OrderItemsByOrderIDs reads the lines for a page of orders in one query.
+// The admin order list used to fetch items per row, which turned a 200-order
+// page into 200 extra round trips and starved the pool under load.
+func (s *Store) OrderItemsByOrderIDs(ctx context.Context, ids []string) (map[string][]OrderItem, error) {
+	result := make(map[string][]OrderItem, len(ids))
+	if len(ids) == 0 {
+		return result, nil
+	}
+	placeholders := strings.TrimSuffix(strings.Repeat("?,", len(ids)), ",")
+	args := make([]any, 0, len(ids))
+	for _, id := range ids {
+		args = append(args, id)
+	}
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT id, order_id, product_id, slug, name, image, unit_price_cents,
+		 quantity, line_total_cents, options, options_label, plugin_id
+		 FROM order_items WHERE order_id IN (`+placeholders+`) ORDER BY rowid`,
+		args...,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list order items: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		item, err := scanOrderItem(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan order item: %w", err)
+		}
+		result[item.OrderID] = append(result[item.OrderID], item)
+	}
+	return result, rows.Err()
+}
+
 func (s *Store) orderItems(ctx context.Context, q querier, orderID string) ([]OrderItem, error) {
 	rows, err := q.QueryContext(ctx,
 		`SELECT id, order_id, product_id, slug, name, image, unit_price_cents,
-		 quantity, line_total_cents
+		 quantity, line_total_cents, options, options_label, plugin_id
 		 FROM order_items WHERE order_id = ? ORDER BY rowid`, orderID,
 	)
 	if err != nil {
@@ -104,15 +152,25 @@ func (s *Store) orderItems(ctx context.Context, q querier, orderID string) ([]Or
 
 	items := make([]OrderItem, 0)
 	for rows.Next() {
-		var item OrderItem
-		if err := rows.Scan(&item.ID, &item.OrderID, &item.ProductID, &item.Slug,
-			&item.Name, &item.Image, &item.UnitPriceCents, &item.Quantity,
-			&item.LineTotalCents); err != nil {
-			return nil, fmt.Errorf("scan order item: %w", err)
+		item, err := scanOrderItem(rows)
+		if err != nil {
+			return nil, err
 		}
 		items = append(items, item)
 	}
 	return items, rows.Err()
+}
+
+func scanOrderItem(row scanner) (OrderItem, error) {
+	var item OrderItem
+	var options string
+	if err := row.Scan(&item.ID, &item.OrderID, &item.ProductID, &item.Slug,
+		&item.Name, &item.Image, &item.UnitPriceCents, &item.Quantity,
+		&item.LineTotalCents, &options, &item.OptionsLabel, &item.PluginID); err != nil {
+		return OrderItem{}, fmt.Errorf("scan order item: %w", err)
+	}
+	item.Options = decodeStringMap(options)
+	return item, nil
 }
 
 func (s *Store) OrdersByUser(ctx context.Context, userID string) ([]Order, error) {

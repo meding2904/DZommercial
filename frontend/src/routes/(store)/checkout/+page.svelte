@@ -12,7 +12,12 @@
 	import { money } from '#lib/format';
 	import { TERMS_VERSION } from '#lib/legal';
 	import { cart } from '#lib/stores/cart.svelte';
+	import type { StorefrontTheme } from '#lib/theme/storefront';
 	import type { Commune, Order, StopDesk, Wilaya } from '#lib/types';
+	import type { PageData } from './$types';
+
+	let { data }: { data: PageData & { theme: StorefrontTheme } } = $props();
+	const contactEmail = $derived(data.theme.contact_email);
 
 	const FIELD_ORDER = [
 		'name',
@@ -107,7 +112,7 @@
 		cart.items.some((line) => line.stock < 1 || line.quantity > line.stock)
 	);
 	const wilayaOptions = $derived.by(() => {
-		if (wilayaState === 'loading') return [{ value: '', label: 'Reading wilayas...' }];
+		if (wilayaState === 'loading') return [{ value: '', label: 'Reading wilayas…' }];
 		if (wilayaState === 'error') return [{ value: '', label: 'Wilayas unavailable' }];
 		return [
 			{ value: '', label: 'Choose a wilaya' },
@@ -116,7 +121,7 @@
 	});
 	const communeOptions = $derived.by(() => {
 		if (!form.wilayaCode) return [{ value: '', label: 'Choose a wilaya first' }];
-		if (communeState === 'loading') return [{ value: '', label: 'Reading communes...' }];
+		if (communeState === 'loading') return [{ value: '', label: 'Reading communes…' }];
 		if (communeState === 'error') return [{ value: '', label: 'Communes unavailable' }];
 		return [
 			{ value: '', label: 'Choose a commune' },
@@ -125,7 +130,7 @@
 	});
 	const deskOptions = $derived.by(() => {
 		if (!form.wilayaCode) return [{ value: '', label: 'Choose a wilaya first' }];
-		if (deskState === 'loading') return [{ value: '', label: 'Reading stop desks...' }];
+		if (deskState === 'loading') return [{ value: '', label: 'Reading stop desks…' }];
 		if (deskState === 'error') return [{ value: '', label: 'Stop desks unavailable' }];
 		if (desks.length === 0) return [{ value: '', label: 'No stop desks in this wilaya' }];
 		return [
@@ -448,7 +453,9 @@
 					notes: form.notes.trim(),
 					items: cart.items.map((line) => ({
 						product_id: line.product_id,
-						quantity: line.quantity
+						quantity: line.quantity,
+						options: line.options,
+						expected_price_cents: line.price_cents
 					})),
 					website,
 					captcha_token: captcha?.token ?? '',
@@ -461,7 +468,7 @@
 
 			if (!data.order.token) {
 				cart.clear();
-				formError = `The order ${data.order.number} was placed, but the confirmation link is missing. Write to hello@azahar.example with the order number.`;
+				formError = `The order ${data.order.number} was placed, but the confirmation link is missing. Write to ${contactEmail} with the order number.`;
 				await tick();
 				errorBox?.focus();
 				return;
@@ -472,7 +479,13 @@
 		} catch (err) {
 			let refreshCaptcha = false;
 			if (err instanceof ApiError) {
-				formError = err.message;
+				if (err.code === 'price_changed') {
+					await cart.refreshPrices();
+					formError =
+						'Prices changed while the bag was open. The bag has been updated; review the total and try again.';
+				} else {
+					formError = err.fields.items ?? err.message;
+				}
 				errors = Object.fromEntries(
 					Object.entries(err.fields).filter(([key]) =>
 						FIELD_ORDER.includes(key as FieldKey)
@@ -504,7 +517,7 @@
 </script>
 
 <svelte:head>
-	<title>Checkout | Azahar</title>
+	<title>Checkout | {data.theme.brand_name}</title>
 	<meta
 		name="description"
 		content="Enter the delivery details, review the order and pay the courier in cash."
@@ -519,7 +532,7 @@
 
 <div class="wrap">
 	{#if !mounted}
-		<p class="loading" aria-live="polite">Loading your bag.</p>
+		<p class="loading" aria-live="polite">Loading your bag…</p>
 	{:else if cart.items.length === 0}
 		<div class="empty-state">
 			<p class="meta">Empty bag</p>
@@ -779,7 +792,7 @@
 						</button>
 					</div>
 				{:else if wilayaState === 'loading'}
-					<p class="meta" aria-live="polite">Reading the delivery map.</p>
+					<p class="meta" aria-live="polite">Reading the delivery map…</p>
 				{/if}
 
 				<fieldset class="payment">
@@ -835,7 +848,7 @@
 						{:else}
 							<p class="meta" id="turnstile-status" role="status" aria-live="polite">
 								{#if turnstileState === 'loading'}
-									Loading the security check.
+									Loading the security check…
 								{:else if turnstileError}
 									{turnstileError}
 								{:else if turnstileToken}
@@ -846,12 +859,8 @@
 							</p>
 						{/if}
 
-						{#if errors.captcha}
-							<p class="field-error" id="captcha-error">{errors.captcha}</p>
-						{/if}
-
 						<p class="meta">
-							If the check keeps failing, write to hello@azahar.example.
+							If the check keeps failing, write to {contactEmail}.
 						</p>
 					</fieldset>
 				{:else}
@@ -869,7 +878,7 @@
 										height="64"
 									/>
 								{:else if captchaState === 'loading'}
-									<span class="loading">Loading code.</span>
+									<span class="loading">Loading code…</span>
 								{:else}
 									<span class="captcha-error" role="alert">{captchaError}</span>
 								{/if}
@@ -950,7 +959,7 @@
 					type="submit"
 					disabled={busy || hasStockIssue}
 				>
-					{busy ? 'Placing the order...' : 'Place the order'}
+					{busy ? 'Placing the order…' : 'Place the order'}
 				</button>
 				<p class="meta place-note">No card is taken on this site.</p>
 			</form>
@@ -959,11 +968,14 @@
 				<h2 id="checkout-summary-title">Your order</h2>
 
 				<div class="summary-lines">
-					{#each cart.items as line (line.product_id)}
+					{#each cart.items as line (line.key)}
 						<div class="summary-line">
 							<div>
 								<span>{line.name}</span>
 								<span class="meta">{line.quantity} × {line.size}</span>
+								{#if line.options_label}
+									<span class="meta">{line.options_label}</span>
+								{/if}
 							</div>
 							<span class="mono">{money(line.price_cents * line.quantity)}</span>
 						</div>

@@ -1,10 +1,12 @@
 import { INTERNAL_API_URL } from '$app/env/private';
 import { hasGate } from '#lib/server/gate';
+import { optionalClientAddress } from '#lib/server/address';
 import { isAdminApiPath, isPathWithin, normalizePathname } from '#lib/server/path';
 import type { RequestHandler } from './$types';
 
 const base = INTERNAL_API_URL;
 const MAX_BODY_BYTES = 1 << 20;
+const MAX_IMAGE_BYTES = 6 << 20;
 
 function errorResponse(status: number, code: string, message: string): Response {
 	return new Response(JSON.stringify({ error: { code, message } }), {
@@ -29,7 +31,7 @@ function payloadTooLarge(): Response {
  * but it must not be possible to make the web process buffer an unbounded body
  * first.
  */
-async function readLimitedBody(request: Request): Promise<ArrayBuffer | null> {
+async function readLimitedBody(request: Request, limit: number): Promise<ArrayBuffer | null> {
 	if (!request.body) return new ArrayBuffer(0);
 
 	const reader = request.body.getReader();
@@ -41,7 +43,7 @@ async function readLimitedBody(request: Request): Promise<ArrayBuffer | null> {
 		if (done) break;
 		if (!value) continue;
 		total += value.byteLength;
-		if (total > MAX_BODY_BYTES) {
+		if (total > limit) {
 			await reader.cancel();
 			return null;
 		}
@@ -87,8 +89,9 @@ const handler: RequestHandler = async ({
 		return notFound();
 	}
 
+	const bodyLimit = targetPath === '/api/admin/product-images' ? MAX_IMAGE_BYTES : MAX_BODY_BYTES;
 	const declaredLength = Number(request.headers.get('content-length') ?? '');
-	if (Number.isFinite(declaredLength) && declaredLength > MAX_BODY_BYTES) {
+	if (Number.isFinite(declaredLength) && declaredLength > bodyLimit) {
 		return payloadTooLarge();
 	}
 
@@ -99,8 +102,9 @@ const handler: RequestHandler = async ({
 	headers.delete('content-length');
 	headers.delete('accept-encoding');
 
-	const client = getClientAddress();
+	const client = optionalClientAddress(getClientAddress);
 	if (client) headers.set('x-forwarded-for', client);
+	else headers.delete('x-forwarded-for');
 	headers.set('x-forwarded-proto', url.protocol.replace(':', ''));
 
 	const init: RequestInit = {
@@ -111,7 +115,7 @@ const handler: RequestHandler = async ({
 	};
 
 	if (request.method !== 'GET' && request.method !== 'HEAD') {
-		const body = await readLimitedBody(request);
+		const body = await readLimitedBody(request, bodyLimit);
 		if (body === null) return payloadTooLarge();
 		init.body = body;
 	}
@@ -139,7 +143,11 @@ const handler: RequestHandler = async ({
 	const cookies = upstream.headers.getSetCookie?.() ?? [];
 	for (const cookie of cookies) responseHeaders.append('set-cookie', cookie);
 
-	responseHeaders.set('cache-control', 'no-store');
+	if (upstream.ok && targetPath.startsWith('/api/images/')) {
+		responseHeaders.set('cache-control', 'public, max-age=31536000, immutable');
+	} else {
+		responseHeaders.set('cache-control', 'no-store');
+	}
 
 	return new Response(upstream.body, {
 		status: upstream.status,

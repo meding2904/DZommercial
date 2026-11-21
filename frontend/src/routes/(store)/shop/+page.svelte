@@ -18,7 +18,7 @@
 	const activeCategory = $derived(filters.category);
 	const activeFilterCount = $derived(
 		[
-			filters.concern,
+			data.theme.concerns_enabled ? filters.concern : '',
 			filters.q,
 			filters.sort && filters.sort !== 'featured' ? filters.sort : ''
 		].filter(Boolean).length
@@ -55,7 +55,7 @@
 		sort = value;
 	}
 	const countLabel = $derived(
-		`${data.products.length} ${data.products.length === 1 ? 'formula' : 'formulas'}`
+		`${data.products.length} ${data.products.length === 1 ? 'product' : 'products'}`
 	);
 
 	type FilterKey = 'category' | 'concern' | 'q' | 'sort';
@@ -64,7 +64,7 @@
 		const merged = { ...filters, q: query, concern, sort, ...next };
 		const params = new URLSearchParams();
 		if (merged.category) params.set('category', merged.category);
-		if (merged.concern) params.set('concern', merged.concern);
+		if (data.theme.concerns_enabled && merged.concern) params.set('concern', merged.concern);
 		if (merged.q) params.set('q', merged.q);
 		if (merged.sort && merged.sort !== 'featured') params.set('sort', merged.sort);
 		const search = params.toString();
@@ -93,22 +93,26 @@
 </script>
 
 <svelte:head>
-	<title>The shelf | Azahar</title>
+	<title>{data.theme.shop_title} | {data.theme.brand_name}</title>
 	<meta
 		name="description"
-		content="Browse eight botanical formulas for the face, the body and the bath. Filter by category, concern and price."
+		content={data.theme.concerns_enabled
+			? `Browse the ${data.theme.brand_name} shelf. Filter by category, concern and price.`
+			: `Browse the ${data.theme.brand_name} shelf. Filter by category and price.`}
 	/>
-	<meta property="og:title" content="The shelf | Azahar" />
+	<meta property="og:title" content={`${data.theme.shop_title} | ${data.theme.brand_name}`} />
 	<meta
 		property="og:description"
-		content="Eight formulas for the face, the body and the bath. Filter the shelf by category, concern and price."
+		content={data.theme.concerns_enabled
+			? `Browse the ${data.theme.brand_name} shelf. Filter by category, concern and price.`
+			: `Browse the ${data.theme.brand_name} shelf. Filter by category and price.`}
 	/>
 	<meta property="og:type" content="website" />
 </svelte:head>
 
 <div class="wrap page-head">
-	<h1>The shelf</h1>
-	<p class="lead">Eight formulas for the face, the body and the bath.</p>
+	<h1>{data.theme.shop_title}</h1>
+	<p class="lead">{data.theme.shelf_heading}</p>
 	{#if !data.apiDown}
 		<p class="shelf-meta">
 			<span class="shelf-count meta">{countLabel}</span>
@@ -173,7 +177,9 @@
 				{#if filters.category}
 					<input type="hidden" name="category" value={filters.category} />
 				{/if}
-				<input type="hidden" name="concern" value={concern} />
+				{#if data.theme.concerns_enabled}
+					<input type="hidden" name="concern" value={concern} />
+				{/if}
 				<input type="hidden" name="sort" value={sort} />
 				<div class="filter-field filter-search">
 					<label for="q">Search</label>
@@ -188,17 +194,19 @@
 					/>
 				</div>
 
-				<div class="filter-field">
-					<span class="filter-label" id="concern-label">Concern</span>
-					<Dropdown
-						id="concern"
-						label="Concern"
-						labelId="concern-label"
-						value={concern}
-						options={concernOptions}
-						onchange={changeConcern}
-					/>
-				</div>
+				{#if data.theme.concerns_enabled}
+					<div class="filter-field">
+						<span class="filter-label" id="concern-label">Concern</span>
+						<Dropdown
+							id="concern"
+							label="Concern"
+							labelId="concern-label"
+							value={concern}
+							options={concernOptions}
+							onchange={changeConcern}
+						/>
+					</div>
+				{/if}
 
 				<div class="filter-field">
 					<span class="filter-label" id="sort-label">Sort</span>
@@ -229,12 +237,12 @@
 	{:else if data.products.length === 0}
 		<div class="empty-state shop-state">
 			<p class="meta">No match</p>
-			<h2>No formulas match this shelf.</h2>
+			<h2>No products match this shelf.</h2>
 			<p class="muted">Clear the filters to see everything on the shelf.</p>
 			<a class="btn btn-secondary" href="/shop">Show the whole shelf</a>
 		</div>
 	{:else}
-		<h2 class="sr-only">Formulas</h2>
+		<h2 class="sr-only">Products</h2>
 		<div class="product-grid shop-grid">
 			{#each data.products as product (product.id)}
 				<ProductCard {product} />
@@ -327,10 +335,11 @@
 		font-size: 13px;
 	}
 
-	.filter-input:focus {
-		outline: none;
+	.filter-input:focus-visible {
 		border-color: var(--accent);
 		box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 22%, transparent);
+		outline: 2px solid var(--accent);
+		outline-offset: 1px;
 	}
 
 	.filter-submit {

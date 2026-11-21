@@ -3,6 +3,7 @@ package config
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 func setProductionEnv(t *testing.T) {
@@ -22,6 +23,9 @@ func setProductionEnv(t *testing.T) {
 	t.Setenv("COURIER_FROM_WILAYA", "16")
 	t.Setenv("COURIER_TIMEOUT_SECONDS", "12")
 	t.Setenv("TURNSTILE_SECRET_KEY", "test-turnstile-secret")
+	t.Setenv("PLUGIN_SECRET_KEY", "a-long-production-plugin-key")
+	t.Setenv("AI_BASE_URL", "https://api.openai.com/v1")
+	t.Setenv("AI_TIMEOUT_SECONDS", "25")
 }
 
 func TestProductionRequiresAdminPassword(t *testing.T) {
@@ -94,6 +98,20 @@ func TestProductionAcceptsStrongConfiguration(t *testing.T) {
 	}
 }
 
+func TestAppEnvMustBeExplicit(t *testing.T) {
+	t.Setenv("APP_ENV", "")
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "APP_ENV must be set") {
+		t.Fatalf("expected an explicit APP_ENV error, got %v", err)
+	}
+}
+
+func TestUnknownAppEnvFailsClosed(t *testing.T) {
+	t.Setenv("APP_ENV", "staging")
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "APP_ENV") {
+		t.Fatalf("expected an APP_ENV error, got %v", err)
+	}
+}
+
 func TestDevelopmentDefaultsStillLoad(t *testing.T) {
 	t.Setenv("APP_ENV", "development")
 	t.Setenv("COOKIE_SECURE", "false")
@@ -124,5 +142,73 @@ func TestCourierFromWilayaMustBeValid(t *testing.T) {
 
 	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "COURIER_FROM_WILAYA") {
 		t.Fatalf("expected an invalid origin wilaya error, got %v", err)
+	}
+}
+
+func TestProductionRequiresPluginSecret(t *testing.T) {
+	setProductionEnv(t)
+	t.Setenv("PLUGIN_SECRET_KEY", "short")
+
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "PLUGIN_SECRET_KEY") {
+		t.Fatalf("expected a PLUGIN_SECRET_KEY error, got %v", err)
+	}
+}
+
+func TestProductionRequiresHTTPSForAI(t *testing.T) {
+	setProductionEnv(t)
+	t.Setenv("AI_BASE_URL", "http://ai.example.test/v1")
+
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "AI_BASE_URL must use https") {
+		t.Fatalf("expected the AI URL to require https, got %v", err)
+	}
+}
+
+func TestAITimeoutBounds(t *testing.T) {
+	setProductionEnv(t)
+	t.Setenv("AI_TIMEOUT_SECONDS", "3")
+
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "AI_TIMEOUT_SECONDS") {
+		t.Fatalf("expected an AI timeout error, got %v", err)
+	}
+}
+
+func TestAIURLRejectsCredentials(t *testing.T) {
+	setProductionEnv(t)
+	t.Setenv("AI_BASE_URL", "https://user:secret@ai.example.test/v1")
+
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "must not contain credentials") {
+		t.Fatalf("expected an AI URL credentials error, got %v", err)
+	}
+}
+
+func TestAuditBatchIntervalClamping(t *testing.T) {
+	t.Setenv("APP_ENV", "development")
+	t.Setenv("SEED_DEMO", "false")
+
+	cases := []struct {
+		name  string
+		value string
+		want  time.Duration
+	}{
+		{name: "default", value: "", want: 2 * time.Second},
+		{name: "below minimum", value: "100", want: 500 * time.Millisecond},
+		{name: "at minimum", value: "500", want: 500 * time.Millisecond},
+		{name: "custom", value: "2500", want: 2500 * time.Millisecond},
+		{name: "at maximum", value: "60000", want: time.Minute},
+		{name: "above maximum", value: "90000", want: time.Minute},
+		{name: "invalid falls back", value: "not-a-number", want: 2 * time.Second},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("AUDIT_BATCH_INTERVAL_MS", tc.value)
+
+			cfg, err := Load()
+			if err != nil {
+				t.Fatalf("load configuration: %v", err)
+			}
+			if cfg.AuditBatchInterval != tc.want {
+				t.Fatalf("AUDIT_BATCH_INTERVAL_MS=%q loaded as %v, want %v", tc.value, cfg.AuditBatchInterval, tc.want)
+			}
+		})
 	}
 }

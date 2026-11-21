@@ -10,7 +10,7 @@ func (s *Store) InsertAudit(ctx context.Context, q querier, entry AuditEntry) er
 		entry.Detail = "{}"
 	}
 	_, err := q.ExecContext(ctx,
-		`INSERT INTO audit_log (id, actor_user_id, action, entity_type, entity_id, detail, created_at)
+		`INSERT INTO audit_outbox (id, actor_user_id, action, entity_type, entity_id, detail, created_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		entry.ID, entry.ActorUserID, entry.Action, entry.EntityType,
 		entry.EntityID, entry.Detail, FormatTime(entry.CreatedAt),

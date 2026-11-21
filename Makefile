@@ -3,8 +3,9 @@ ROOT := $(CURDIR)
 API_URL ?= http://127.0.0.1:8080
 WEB_URL ?= http://127.0.0.1:5173
 TURSO_URL ?= http://127.0.0.1:8880
+LOADTEST_ARGS ?= -c 20 -n 100
 
-.PHONY: help dev-db dev-api dev-web check build smoke kiri-up kiri-local kiri-down
+.PHONY: help dev-db dev-api dev-web check desktop-check build smoke kiri-up kiri-local kiri-down desktop desktop-build loadtest
 
 help:
 	@echo "Azahar demo store"
@@ -14,6 +15,9 @@ help:
 	@echo "  make check     type-check the frontend and test the backend"
 	@echo "  make build     build both apps"
 	@echo "  make smoke     call the public API endpoints"
+	@echo "  make desktop   run the Electron admin against the local API"
+	@echo "  make desktop-build  build the Linux AppImage"
+	@echo "  make loadtest  run a short read probe against the API"
 	@echo "  make kiri-up   build and run the three containers with Kiri"
 	@echo "  make kiri-local run host-built artifacts in Kiri containers (builder fallback)"
 	@echo "  make kiri-down stop the containers, keep the database volume"
@@ -41,14 +45,21 @@ dev-api:
 	go run ./cmd/api
 
 dev-web:
-	cd frontend && INTERNAL_API_URL=$(API_URL) pnpm dev --port 5173
+	cd frontend && APP_ENV=development INTERNAL_API_URL=$(API_URL) pnpm dev --port 5173
 
 check:
-	cd frontend && pnpm check && pnpm test:security
-	cd backend && go vet ./... && go test ./...
+	cd frontend && APP_ENV=development pnpm check && pnpm test:security && pnpm test:framework
+	cd backend && APP_ENV=development go vet ./... && APP_ENV=development go test ./...
+	$(MAKE) desktop-check
+
+desktop-check:
+	node --check desktop/main.js
+	node --check desktop/preload.js
+	node --check desktop/renderer/app.js
+	node --check desktop/scripts/prepare-assets.mjs
 
 build:
-	cd frontend && pnpm build
+	cd frontend && APP_ENV=development pnpm build
 	cd backend && go build ./...
 
 smoke:
@@ -63,3 +74,12 @@ kiri-local:
 
 kiri-down:
 	./deploy/kiri-down.sh
+
+desktop:
+	cd desktop && pnpm install --frozen-lockfile && pnpm start
+
+desktop-build:
+	cd desktop && pnpm install --frozen-lockfile && pnpm dist
+
+loadtest:
+	cd scripts/loadtest && go run . -base $(API_URL) -paths /api/products,/api/categories,/api/plugins $(LOADTEST_ARGS)

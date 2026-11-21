@@ -3,8 +3,14 @@ import { defineEnvVars } from '@sveltejs/kit/env';
 export const variables = defineEnvVars({
 	APP_ENV: {
 		public: false,
-		description: 'development, test or production',
-		schema: (value) => value ?? 'development'
+		description: 'development or production',
+		schema: (value) => {
+			const env = (value ?? '').trim().toLowerCase();
+			if (env !== 'development' && env !== 'production') {
+				throw new Error('APP_ENV must be set to development or production.');
+			}
+			return env;
+		}
 	},
 	INTERNAL_API_URL: {
 		public: false,

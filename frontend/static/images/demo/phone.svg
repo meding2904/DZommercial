@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000" role="img" aria-label="Phone sample product">
+  <rect width="800" height="1000" fill="#f6f0eb"/>
+  <rect x="72" y="72" width="656" height="856" fill="none" stroke="#2c2325" stroke-width="2"/>
+  <line x1="72" y1="160" x2="728" y2="160" stroke="#2c2325" stroke-width="2"/>
+  <circle cx="112" cy="116" r="8" fill="#9a3c4c"/>
+  <text x="148" y="126" font-family="monospace" font-size="22" letter-spacing="2" fill="#6a5d5e">BUILD SAMPLE</text>
+  <rect x="300" y="250" width="200" height="400" rx="26" fill="none" stroke="#2c2325" stroke-width="3"/>
+  <rect x="318" y="282" width="164" height="336" rx="8" fill="#ebe0d9"/>
+  <line x1="360" y1="632" x2="440" y2="632" stroke="#2c2325" stroke-width="3"/>
+  <text x="400" y="740" text-anchor="middle" font-family="Georgia, serif" font-size="44" fill="#2c2325">Aster 5</text>
+  <text x="400" y="790" text-anchor="middle" font-family="monospace" font-size="18" fill="#6a5d5e">REPLACE WITH A REAL PHOTOGRAPH</text>
+</svg>

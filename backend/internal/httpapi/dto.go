@@ -1,8 +1,10 @@
 package httpapi
 
 import (
+	"context"
 	"time"
 
+	"azahar/internal/plugins"
 	"azahar/internal/store"
 )
 
@@ -10,37 +12,51 @@ type categoryDTO struct {
 	Slug        string `json:"slug"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
+	PluginID    string `json:"plugin_id"`
 }
 
 type categoryRefDTO struct {
-	Slug string `json:"slug"`
-	Name string `json:"name"`
+	Slug     string `json:"slug"`
+	Name     string `json:"name"`
+	PluginID string `json:"plugin_id"`
 }
 
 type productDTO struct {
-	ID             string         `json:"id"`
-	Slug           string         `json:"slug"`
-	Name           string         `json:"name"`
-	Subtitle       string         `json:"subtitle"`
-	Description    string         `json:"description"`
-	PriceCents     int64          `json:"price_cents"`
-	CompareAtCents *int64         `json:"compare_at_cents"`
-	Currency       string         `json:"currency"`
-	Size           string         `json:"size"`
-	Category       categoryRefDTO `json:"category"`
-	Concerns       []string       `json:"concerns"`
-	Ingredients    []string       `json:"ingredients"`
-	HowTo          string         `json:"how_to"`
-	Image          string         `json:"image"`
-	Gallery        []string       `json:"gallery"`
-	Stock          int            `json:"stock"`
-	Featured       bool           `json:"featured"`
-	Active         bool           `json:"active"`
-	CreatedAt      string         `json:"created_at,omitempty"`
-	UpdatedAt      string         `json:"updated_at,omitempty"`
+	ID             string                `json:"id"`
+	Slug           string                `json:"slug"`
+	Name           string                `json:"name"`
+	Subtitle       string                `json:"subtitle"`
+	Description    string                `json:"description"`
+	PriceCents     int64                 `json:"price_cents"`
+	CompareAtCents *int64                `json:"compare_at_cents"`
+	SalePriceCents *int64                `json:"sale_price_cents"`
+	SaleStartsAt   string                `json:"sale_starts_at"`
+	SaleEndsAt     string                `json:"sale_ends_at"`
+	EffectivePrice int64                 `json:"effective_price_cents"`
+	OnSale         bool                  `json:"on_sale"`
+	Currency       string                `json:"currency"`
+	Size           string                `json:"size"`
+	Category       categoryRefDTO        `json:"category"`
+	Concerns       []string              `json:"concerns"`
+	Ingredients    []string              `json:"ingredients"`
+	HowTo          string                `json:"how_to"`
+	Image          string                `json:"image"`
+	Gallery        []string              `json:"gallery"`
+	Stock          int                   `json:"stock"`
+	Featured       bool                  `json:"featured"`
+	Active         bool                  `json:"active"`
+	PluginID       string                `json:"plugin_id"`
+	PluginName     string                `json:"plugin_name"`
+	PluginSummary  string                `json:"plugin_summary"`
+	OptionSchema   []plugins.OptionField `json:"option_schema"`
+	Attributes     map[string][]string   `json:"attributes"`
+	PluginData     map[string]any        `json:"plugin_data,omitempty"`
+	CreatedAt      string                `json:"created_at,omitempty"`
+	UpdatedAt      string                `json:"updated_at,omitempty"`
 }
 
-func toProduct(product store.Product, withTimestamps bool) productDTO {
+func productDTOFromStore(product store.Product, withTimestamps bool) productDTO {
+	now := time.Now().UTC()
 	dto := productDTO{
 		ID:             product.ID,
 		Slug:           product.Slug,
@@ -49,9 +65,14 @@ func toProduct(product store.Product, withTimestamps bool) productDTO {
 		Description:    product.Description,
 		PriceCents:     product.PriceCents,
 		CompareAtCents: product.CompareAtCents,
+		SalePriceCents: product.SalePriceCents,
+		SaleStartsAt:   store.FormatOptionalTime(product.SaleStartsAt),
+		SaleEndsAt:     store.FormatOptionalTime(product.SaleEndsAt),
+		EffectivePrice: product.EffectivePriceCents(now),
+		OnSale:         product.SaleActive(now),
 		Currency:       product.Currency,
 		Size:           product.Size,
-		Category:       categoryRefDTO{Slug: product.Category.Slug, Name: product.Category.Name},
+		Category:       categoryRefDTO{Slug: product.Category.Slug, Name: product.Category.Name, PluginID: product.Category.PluginID},
 		Concerns:       nonNil(product.Concerns),
 		Ingredients:    nonNil(product.Ingredients),
 		HowTo:          product.HowTo,
@@ -60,6 +81,9 @@ func toProduct(product store.Product, withTimestamps bool) productDTO {
 		Stock:          product.Stock,
 		Featured:       product.Featured,
 		Active:         product.Active,
+		PluginID:       store.NormalizePluginID(product.PluginID),
+		OptionSchema:   []plugins.OptionField{},
+		Attributes:     nonNilStringListMap(product.Attributes),
 	}
 	if withTimestamps {
 		dto.CreatedAt = store.FormatTime(product.CreatedAt)
@@ -68,12 +92,41 @@ func toProduct(product store.Product, withTimestamps bool) productDTO {
 	return dto
 }
 
-func toProducts(products []store.Product, withTimestamps bool) []productDTO {
+func (s *Server) toProduct(ctx context.Context, product store.Product, withTimestamps bool) productDTO {
+	dto := s.decorateProduct(product, productDTOFromStore(product, withTimestamps))
+	if dto.PluginID != store.CorePluginID {
+		dto.PluginData = s.plugins.EnrichProduct(ctx, product)
+	}
+	return dto
+}
+
+func (s *Server) toProducts(ctx context.Context, products []store.Product, withTimestamps bool) []productDTO {
 	result := make([]productDTO, 0, len(products))
 	for _, product := range products {
-		result = append(result, toProduct(product, withTimestamps))
+		// List views do not need per-product plugin counts; the detail view does.
+		result = append(result, s.decorateProduct(product, productDTOFromStore(product, withTimestamps)))
 	}
 	return result
+}
+
+func (s *Server) decorateProduct(product store.Product, dto productDTO) productDTO {
+	dto.OptionSchema = s.optionSchema(product)
+	dto.PluginName = "Core"
+	if plugin, ok := s.plugins.Get(dto.PluginID); ok {
+		manifest := plugin.Manifest()
+		dto.PluginName = manifest.Name
+		if manifest.ProductType != nil {
+			dto.PluginSummary = manifest.ProductType.Summary
+		}
+	}
+	return dto
+}
+
+func nonNilStringListMap(values map[string][]string) map[string][]string {
+	if values == nil {
+		return map[string][]string{}
+	}
+	return values
 }
 
 type userDTO struct {
@@ -88,14 +141,17 @@ func toUser(user store.User) userDTO {
 }
 
 type orderItemDTO struct {
-	ID             string `json:"id"`
-	ProductID      string `json:"product_id"`
-	Slug           string `json:"slug"`
-	Name           string `json:"name"`
-	Image          string `json:"image"`
-	UnitPriceCents int64  `json:"unit_price_cents"`
-	Quantity       int    `json:"quantity"`
-	LineTotalCents int64  `json:"line_total_cents"`
+	ID             string            `json:"id"`
+	ProductID      string            `json:"product_id"`
+	Slug           string            `json:"slug"`
+	Name           string            `json:"name"`
+	Image          string            `json:"image"`
+	UnitPriceCents int64             `json:"unit_price_cents"`
+	Quantity       int               `json:"quantity"`
+	LineTotalCents int64             `json:"line_total_cents"`
+	Options        map[string]string `json:"options"`
+	OptionsLabel   string            `json:"options_label"`
+	PluginID       string            `json:"plugin_id"`
 }
 
 type orderCustomerDTO struct {
@@ -193,6 +249,9 @@ func toOrderItems(items []store.OrderItem) []orderItemDTO {
 			UnitPriceCents: item.UnitPriceCents,
 			Quantity:       item.Quantity,
 			LineTotalCents: item.LineTotalCents,
+			Options:        nonNilStringMap(item.Options),
+			OptionsLabel:   item.OptionsLabel,
+			PluginID:       store.NormalizePluginID(item.PluginID),
 		})
 	}
 	return result
@@ -201,6 +260,13 @@ func toOrderItems(items []store.OrderItem) []orderItemDTO {
 func nonNil(values []string) []string {
 	if values == nil {
 		return []string{}
+	}
+	return values
+}
+
+func nonNilStringMap(values map[string]string) map[string]string {
+	if values == nil {
+		return map[string]string{}
 	}
 	return values
 }

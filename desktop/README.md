@@ -5,7 +5,8 @@ main process, with no SvelteKit server in front.
 
 - Ledger with takings, work queue, ranked products and order mix.
 - Counter sale for walk-in cash sales, including phone options and a printable receipt.
-- Orders with status transitions, courier parcel creation and tracking refresh.
+- Orders with status transitions, courier parcel creation, tracking refresh and a receipt
+  print for any order.
 - Products and stock, with the stock stepper writing through the API.
 - Customers and staff roles.
 

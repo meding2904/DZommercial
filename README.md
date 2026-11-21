@@ -42,8 +42,9 @@ No card payment is taken and the default courier setting does not create a real 
 - Check out with a name, email, phone, wilaya and commune.
 - Choose home delivery or a stop desk. A stop desk is a courier office where the customer
   collects the parcel.
-- Place a cash-on-delivery order and get a private confirmation page. The checkout asks you to
-  accept the terms and pass a short security check before the order is written.
+- Place a cash-on-delivery order and get a private confirmation page. Open the receipt from
+  that page and print it. The checkout asks you to accept the terms and pass a short security
+  check before the order is written.
 - Create an account and see your own orders.
 - Switch between the light and dark theme. The choice is saved in the browser.
 - Open **Build your PC** from the shop navigation, choose compatible parts for each slot and
@@ -179,7 +180,8 @@ read it from the API health check.
   one, record the sale, print the receipt. Stock drops and the order is written as a delivered
   `pickup` sale in one transaction.
 - **Orders**: filter and search, open an order, move it through the allowed status steps,
-  create the courier parcel and refresh tracking.
+  create the courier parcel and refresh tracking. Print a receipt for any online or counter
+  order.
 - **Products and stock**: price, stock, sale window and active state. The stock stepper writes
   through the API, so the web shop sees the same number.
 - **Customers and staff**: the customer ledger, and role changes for administrators.
@@ -247,6 +249,7 @@ when the parcel arrives.
 3. **Orders** lists every order. Search by order number, name, email, phone or tracking
    number.
 4. Open an order to see the customer, delivery details, items, totals and courier state.
+   Use **Print receipt** for a clean paper copy.
 5. Use **Next status** to move the order through `pending`, `confirmed`, `packed`, `shipped`
    and `delivered`, or cancel it.
 6. **Courier** shows the tracking number and status. Use **Create shipment** after the order

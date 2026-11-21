@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import type { Component } from 'svelte';
-	import { ApiError } from '#lib/api';
+	import { ApiError, apiFetch } from '#lib/api';
+import { printReceiptHtml, receiptHtml } from '#lib/admin/receipt';
 	import { errorMessage, adminApi } from '#lib/admin/api';
 	import { orderPanelFor } from '#lib/plugins/admin/order-registry';
 	import { auth } from '#lib/stores/auth.svelte';
@@ -38,6 +39,7 @@
 	let shipError = $state('');
 	let shipSuccess = $state('');
 	let dialogEl = $state<HTMLDialogElement | null>(null);
+	let brandName = $state('Azahar');
 
 	const allowed = $derived(
 		STATUS_TRANSITIONS[current.status].filter(
@@ -93,6 +95,24 @@
 	$effect(() => {
 		if (dialogEl && !dialogEl.open) dialogEl.showModal();
 	});
+
+	$effect(() => {
+		let live = true;
+		apiFetch<{ theme: { brand_name: string } }>('/storefront/theme')
+			.then((data) => {
+				if (live && data.theme?.brand_name) brandName = data.theme.brand_name;
+			})
+			.catch(() => {
+				// The receipt keeps the default wordmark when the theme cannot be read.
+			});
+		return () => {
+			live = false;
+		};
+	});
+
+	function printReceipt(): void {
+		printReceiptHtml(receiptHtml(brandName, current));
+	}
 
 	function close() {
 		dialogEl?.close();
@@ -408,6 +428,9 @@
 		</div>
 
 		<footer class="a-dialog-foot">
+			<button class="a-btn a-btn-secondary" type="button" onclick={printReceipt} disabled={busy || shipBusy}>
+				Print receipt
+			</button>
 			<button class="a-btn a-btn-secondary" type="button" onclick={close} disabled={busy || shipBusy}>
 				Close
 			</button>

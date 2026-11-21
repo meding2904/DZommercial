@@ -134,7 +134,8 @@
 			<p class="muted cash-note">Pay the courier when the order arrives.</p>
 		{/if}
 
-		<div>
+		<div class="order-actions">
+			<a class="btn btn-primary" href={data.receiptPath}>Open the receipt</a>
 			<a class="btn btn-secondary" href="/shop">Back to the shelf</a>
 		</div>
 	</section>
@@ -173,5 +174,11 @@
 
 	.cash-note {
 		font-size: 14px;
+	}
+
+	.order-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 10px;
 	}
 </style>

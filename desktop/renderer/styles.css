@@ -1501,6 +1501,48 @@ th.numeric {
 	gap: 8px;
 }
 
+.receipt-served {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: space-between;
+	gap: 8px 16px;
+	padding-top: 10px;
+	border-top: 1px dashed var(--a-line-strong);
+	color: var(--a-muted);
+	font-size: 11px;
+}
+
+.receipt-fine {
+	color: var(--a-muted);
+	font-size: 11px;
+}
+
+@media print {
+	.rail,
+	.page-head,
+	.app-header,
+	.app-footer,
+	.receipt-actions {
+		display: none !important;
+	}
+
+	.admin-shell {
+		display: block;
+	}
+
+	main {
+		padding: 0;
+	}
+
+	.receipt {
+		max-width: none;
+		padding: 0;
+		border: 0;
+		background: #fff;
+		color: #000;
+	}
+}
+
 /* Products */
 
 .product-editor {

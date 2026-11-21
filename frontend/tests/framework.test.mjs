@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { receiptHtml } from '../src/lib/admin/receipt.ts';
 import {
 	DEFAULT_THEME,
 	clampNumber,
@@ -66,4 +67,44 @@ test('a colour that is not hex falls back instead of reaching the style element'
 	const css = themeCss(theme);
 	assert.match(css, /--p-accent: #9a3c4c/);
 	assert.doesNotMatch(css, /display:none/);
+});
+
+
+test('a receipt carries the order, totals and escaped customer text', () => {
+	const order = {
+		number: 'AZ-2026-0100',
+		created_at: '2026-11-21T12:00:00Z',
+		name: '<script>alert(1)</script>',
+		email: 'buyer@example.com',
+		phone: '0550123456',
+		address: '12 rue des Oliviers',
+		city: 'Bab Ezzouar',
+		wilaya_name: 'Alger',
+		commune_name: 'Bab Ezzouar',
+		status: 'pending',
+		delivery_type: 'home',
+		currency: 'DZD',
+		items: [
+			{
+				id: 'itm_1',
+				name: 'Green fig body oil',
+				quantity: 2,
+				unit_price_cents: 540000,
+				line_total_cents: 1080000,
+				options_label: ''
+			}
+		],
+		subtotal_cents: 1080000,
+		shipping_cents: 0,
+		total_cents: 1080000
+	};
+	const html = receiptHtml('Azahar', order);
+	assert.match(html, /AZ-2026-0100/);
+	assert.match(html, /10,800\u00a0DZD/);
+	assert.match(html, /Cash on delivery/);
+	assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
+	assert.doesNotMatch(html, /<script>alert\(1\)<\/script>/);
+
+	const paid = receiptHtml('Azahar', { ...order, delivery_type: 'pickup', status: 'delivered' });
+	assert.match(paid, /Paid in cash/);
 });

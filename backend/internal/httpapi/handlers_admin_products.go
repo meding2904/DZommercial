@@ -282,6 +282,13 @@ func (s *Server) handleUpdateProduct(w http.ResponseWriter, r *http.Request) {
 			p.Size = strings.TrimSpace(*patch.Size)
 		}
 	}
+	if _, ok := raw["plugin_id"]; ok {
+		if patch.PluginID == nil {
+			nullField("plugin_id")
+		} else {
+			p.PluginID = store.NormalizePluginID(strings.TrimSpace(*patch.PluginID))
+		}
+	}
 	if _, ok := raw["category_slug"]; ok {
 		if patch.CategorySlug == nil {
 			nullField("category_slug")
@@ -358,13 +365,6 @@ func (s *Server) handleUpdateProduct(w http.ResponseWriter, r *http.Request) {
 			nullField("active")
 		} else {
 			p.Active = *patch.Active
-		}
-	}
-	if _, ok := raw["plugin_id"]; ok {
-		if patch.PluginID == nil {
-			nullField("plugin_id")
-		} else {
-			p.PluginID = store.NormalizePluginID(strings.TrimSpace(*patch.PluginID))
 		}
 	}
 	if _, ok := raw["attributes"]; ok {

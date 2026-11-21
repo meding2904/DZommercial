@@ -34,6 +34,11 @@ if [[ "$APP_ENV" == "production" ]]; then
 			echo "error: CUSTOMER_PASSWORD must not be the development default." >&2
 			exit 1
 		fi
+		: "${EMPLOYEE_PASSWORD:?set EMPLOYEE_PASSWORD when SEED_DEMO=true}"
+		if [[ "$EMPLOYEE_PASSWORD" == "azahar-dev-staff-2026" ]]; then
+			echo "error: EMPLOYEE_PASSWORD must not be the development default." >&2
+			exit 1
+		fi
 	fi
 	if [[ "${COOKIE_SECURE:-}" == "false" ]]; then
 		echo "warning: COOKIE_SECURE=false is ignored in production." >&2

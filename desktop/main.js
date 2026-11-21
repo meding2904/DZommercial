@@ -268,8 +268,17 @@ function requestHeaders({ json = false, origin = true, csrf = true } = {}) {
 }
 
 async function requestRaw(method, apiPath, options = {}) {
-	const url = new URL(apiPath, settings.apiUrl);
-	if (!url.pathname.startsWith('/api/')) {
+	if (
+		typeof apiPath !== 'string' ||
+		!apiPath.startsWith('/') ||
+		apiPath.startsWith('//') ||
+		apiPath.includes('\\')
+	) {
+		throw new ApiError(0, 'invalid_path', 'The desktop client only calls the API namespace.');
+	}
+	const base = new URL(settings.apiUrl);
+	const url = new URL(apiPath, base);
+	if (url.origin !== base.origin || !url.pathname.startsWith('/api/')) {
 		throw new ApiError(0, 'invalid_path', 'The desktop client only calls the API namespace.');
 	}
 	const init = {

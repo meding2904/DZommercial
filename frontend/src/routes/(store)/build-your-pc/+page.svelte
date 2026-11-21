@@ -246,7 +246,7 @@
 		if (gpu && gpuLength === null) {
 			reasons.push(`The ${gpu.name} does not list its length, so the case fit cannot be checked.`);
 		}
-		if (pcCase && maxGpuLength === null) {
+		if (gpu && pcCase && maxGpuLength === null) {
 			reasons.push(`The ${pcCase.name} does not list maximum graphics card length.`);
 		}
 		if (

@@ -233,7 +233,7 @@
 		if (!Number.isFinite(price) || price <= 0) errors.price = 'Enter a price above 0.';
 		else if (Math.round(price * 100) >= 100000000) errors.price = 'Enter a price below 1,000,000 DZD.';
 
-		const saleValue = String(form.salePrice).trim();
+		const saleValue = form.salePrice == null ? '' : String(form.salePrice).trim();
 		const salePrice = Number(form.salePrice);
 		const saleCents = Math.round(salePrice * 100);
 		if (saleValue !== '') {
@@ -300,7 +300,7 @@
 						: []
 					: parseList(raw);
 		}
-		const saleValue = String(form.salePrice).trim();
+		const saleValue = form.salePrice == null ? '' : String(form.salePrice).trim();
 		const hasSale = saleValue !== '' && Number(form.salePrice) > 0;
 		return {
 			name: form.name.trim(),

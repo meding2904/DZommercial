@@ -104,6 +104,7 @@ const handler: RequestHandler = async ({
 
 	const client = optionalClientAddress(getClientAddress);
 	if (client) headers.set('x-forwarded-for', client);
+	else headers.delete('x-forwarded-for');
 	headers.set('x-forwarded-proto', url.protocol.replace(':', ''));
 
 	const init: RequestInit = {

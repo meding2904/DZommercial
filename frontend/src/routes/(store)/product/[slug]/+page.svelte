@@ -104,7 +104,9 @@
 				<p class="plugin-note">{product.plugin_summary}</p>
 			{/if}
 
-			<AddToBag {product} />
+			{#key product.id}
+				<AddToBag {product} />
+			{/key}
 
 			{#each pluginDetails as entry (entry.field.key)}
 				{#if entry.field.type === 'textarea'}

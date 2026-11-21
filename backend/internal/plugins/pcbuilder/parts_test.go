@@ -158,6 +158,30 @@ func TestPartsResponseStopsAtFiveHundred(t *testing.T) {
 	}
 }
 
+func TestPartsResponseCapsEachCategory(t *testing.T) {
+	categories := []store.Category{
+		{Slug: "cpus", Name: "CPU", SortOrder: 1, PluginID: pcparts.PluginID},
+		{Slug: "memory", Name: "Memory", SortOrder: 2, PluginID: pcparts.PluginID},
+	}
+	products := make([]store.Product, 0, 502)
+	for index := 0; index < 501; index++ {
+		products = append(products, testPart(
+			fmt.Sprintf("cpu_%03d", index),
+			fmt.Sprintf("CPU %03d", index),
+			"cpus", "CPU",
+		))
+	}
+	products = append(products, testPart("memory_ddr5", "DDR5 kit", "memory", "Memory"))
+
+	response := buildPartsResponse(categories, products)
+	if got := len(response.Categories[0].Products); got != 500 {
+		t.Fatalf("cpus = %d, want 500", got)
+	}
+	if got := len(response.Categories[1].Products); got != 1 {
+		t.Fatalf("memory = %d, want 1", got)
+	}
+}
+
 func testPart(id, name, categorySlug, categoryName string) store.Product {
 	return store.Product{
 		ID:       id,

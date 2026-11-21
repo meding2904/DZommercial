@@ -138,6 +138,21 @@ func (s *Server) handleCounterSale(w http.ResponseWriter, r *http.Request) {
 					map[string]string{"items": message})
 				return problem
 			}
+			itemID := ids.New("itm")
+			pluginLine := plugins.CheckoutLine{
+				Product:  product,
+				Options:  line.options,
+				Quantity: line.quantity,
+				OrderID:  order.ID,
+				ItemID:   itemID,
+			}
+			if hook := s.plugins.CheckoutHook(product.PluginID); hook != nil {
+				if hookProblem := hook.ValidateCheckoutLine(r.Context(), tx, pluginLine); hookProblem != nil {
+					problem = problemFields(hookProblem.Status, hookProblem.Code,
+						hookProblem.Message, hookProblem.Fields)
+					return problem
+				}
+			}
 			if product.Stock < line.quantity {
 				problem = problemFields(409, "conflict", "Some products do not have enough stock.",
 					map[string]string{"items": "Reduce the quantity for " + product.Name + "."})
@@ -146,7 +161,6 @@ func (s *Server) handleCounterSale(w http.ResponseWriter, r *http.Request) {
 			unitPrice := product.EffectivePriceCents(now)
 			lineTotal := unitPrice * int64(line.quantity)
 			subtotal += lineTotal
-			itemID := ids.New("itm")
 			items = append(items, store.OrderItem{
 				ID:             itemID,
 				ProductID:      product.ID,
@@ -161,13 +175,7 @@ func (s *Server) handleCounterSale(w http.ResponseWriter, r *http.Request) {
 				PluginID:       store.NormalizePluginID(product.PluginID),
 			})
 			if store.NormalizePluginID(product.PluginID) != store.CorePluginID {
-				pluginLines[product.PluginID] = append(pluginLines[product.PluginID], plugins.CheckoutLine{
-					Product:  product,
-					Options:  line.options,
-					Quantity: line.quantity,
-					OrderID:  order.ID,
-					ItemID:   itemID,
-				})
+				pluginLines[product.PluginID] = append(pluginLines[product.PluginID], pluginLine)
 			}
 		}
 

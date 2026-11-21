@@ -118,7 +118,6 @@ func buildPartsResponse(categories []store.Category, products []store.Product) p
 	}
 
 	response := partsResponse{Categories: make([]partsCategory, 0, len(owned))}
-	left := maxParts
 	for _, category := range owned {
 		items := grouped[category.Slug]
 		sort.SliceStable(items, func(i, j int) bool {
@@ -130,6 +129,7 @@ func buildPartsResponse(categories []store.Category, products []store.Product) p
 			return items[i].Slug < items[j].Slug
 		})
 
+		left := maxParts
 		listed := make([]partsProduct, 0, len(items))
 		for _, product := range items {
 			if left == 0 {

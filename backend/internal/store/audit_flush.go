@@ -13,6 +13,9 @@ const (
 // FlushAuditBatch copies one batch of queued audit rows into audit_log and
 // removes them from audit_outbox in the same transaction.
 func (s *Store) FlushAuditBatch(ctx context.Context, limit int) (int, error) {
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+
 	if limit <= 0 {
 		limit = defaultAuditFlushLimit
 	}

@@ -1,15 +1,20 @@
 # Azahar
 
-Azahar is a modular storefront framework with a demo shop on top. The core handles the
-catalogue, bag, cash-on-delivery checkout, accounts, orders, courier parcels and the admin
-ledger. A plugin adds the parts a particular trade needs, and the brand layer (copy, fonts,
-palette, imagery) belongs to the admin.
+**A modular storefront framework.** The skincare shop in this repository is a demo built on
+it, not the product itself.
 
-The demo on top is a fictional skincare house: a customer can browse the catalogue and place
-an order, and the owner can see the takings, pack orders, create courier parcels, edit
-products, change the shop's design and configure plugins.
+The framework provides the commerce core: catalogue, bag, cash-on-delivery checkout, accounts,
+orders, courier parcels and the admin ledger. A plugin adds the parts a particular trade needs,
+and the brand layer (copy, fonts, palette, imagery) belongs to the admin.
 
-Six plugins ship with it:
+The demo is one configuration of those pieces: a fictional skincare house. A customer can
+browse the catalogue and place an order; the owner can see the takings, pack orders, create
+courier parcels, edit products, change the shop's design and configure plugins.
+
+The framework code lives in `backend/`, `frontend/` and `desktop/`. The catalogue, accounts,
+orders and photographs here are demo data.
+
+Six plugins ship with the framework:
 
 - **Oil shelf**: the skincare product type. Size, concerns, materials and instructions are
   plugin fields, not core columns.
@@ -25,14 +30,14 @@ Six plugins ship with it:
   plan, then applies it through validated actions with an audit trail.
 
 The framework also ships with limited-time sale prices, five storefront style presets, an
-employee role with a read-only catalogue and order-fulfilment access, and a durable audit
-outbox that flushes batched writes every two seconds. See `docs/PERMISSIONS.md` and
+employee role with a read-only catalogue, counter sales and order fulfilment, and a durable
+audit outbox that flushes batched writes every two seconds. See `docs/PERMISSIONS.md` and
 `docs/API.md`.
 
-This is a demonstration. The products, prices, story, orders and photographs are sample data.
-No card payment is taken and the default courier setting does not create a real parcel.
+This is a demonstration. No card payment is taken and the default courier setting does not
+create a real parcel.
 
-## What you can do
+## What you can do in the demo
 
 ### In the shop
 
@@ -66,7 +71,8 @@ No card payment is taken and the default courier setting does not create a real 
 - See the customer list with orders and lifetime spend.
 - Open **Team** to promote a customer to employee or administrator, or demote a staff
   account. The last administrator and your own admin role are protected. Employees can read
-  the catalogue and fulfil orders, but cannot edit products, storefront, team or plugins.
+  the catalogue, take counter sales in the desktop app and fulfil orders, but cannot edit
+  products, storefront, team or plugins.
 - Open **Storefront** to change the brand name, copy, hero and story images, fonts, text
   scale, corner radius and the light and dark palettes. The editor refuses colours that
   fail the contrast minimums. Only an admin can change this.
@@ -86,8 +92,9 @@ when the demo starts.
 
 ## Start the demo
 
-You need this project folder, a terminal and Kiri. Kiri is the small container runtime already
-installed on this machine. A terminal is the text window where you type commands.
+You need this project folder, a terminal and Kiri. Kiri is the small container runtime the
+demo runs in; install it from https://kiri.dev if it is missing. A terminal is the text
+window where you type commands.
 
 1. Open a terminal in the project folder.
 2. Run:
@@ -114,7 +121,7 @@ Only the web app is published on port 3000. In development the API is also publi
 `127.0.0.1:8080` so the desktop admin can reach it directly; the database stays on the private
 network. A production start does not publish the API port.
 
-## Sign in
+## Sign in to the demo
 
 | Role | Where | Email | Password |
 |---|---|---|---|
@@ -144,8 +151,9 @@ for anything real.
 
 ## Desktop admin app
 
-The repository also ships an Electron app for the owner's counter. It is the admin panel only,
-not a second storefront: the ledger, a counter sale, orders, products and stock, customers and
+The repository also ships an Electron app for the owner's counter. It is framework code, not
+part of the demo catalogue, and works with any deployment. It is the admin panel only, not a
+second storefront: the ledger, a counter sale, orders, products and stock, customers and
 staff. It talks to the Go API directly from the Electron main process. The SvelteKit web app is
 not in the path.
 
@@ -224,7 +232,7 @@ kiri volume rm azahar-db
 That removes the database volume. Products, accounts and orders return to the sample data
 when the shop starts again. This cannot be undone.
 
-## A tour of the shop
+## A tour of the demo shop
 
 Start at `http://localhost:3000`.
 
@@ -242,7 +250,7 @@ Start at `http://localhost:3000`.
 Shipping is 600 DZD. Orders over 8,000 DZD ship free. The courier collects the total in cash
 when the parcel arrives.
 
-## A tour of the admin
+## A tour of the demo admin
 
 1. Open the gate link from the terminal, then sign in with the admin email and password.
 2. **Overview** shows the last 30 days. Use the 7, 30 and 90 day buttons.
@@ -334,7 +342,7 @@ ADMIN_PASSWORD='a-long-private-password' ./deploy/kiri-up.sh
 
 | Setting | Default | What it does |
 |---|---|---|
-| `APP_ENV` | none, set it | Required. Use `development` for local work, `production` for a public HTTPS deployment |
+| `APP_ENV` | `development` with Kiri | Use `production` for a public HTTPS deployment. The API refuses to start without it |
 | `APP_ORIGIN` | `http://localhost:3000` | The public address of the shop |
 | `ADMIN_EMAIL` | `admin@azahar.example` | Admin sign-in email |
 | `ADMIN_PASSWORD` | demo password | Admin sign-in password |
@@ -343,6 +351,7 @@ ADMIN_PASSWORD='a-long-private-password' ./deploy/kiri-up.sh
 | `EMPLOYEE_EMAIL` | `staff@azahar.example` | Demo employee email |
 | `EMPLOYEE_PASSWORD` | demo password | Demo employee password |
 | `AUDIT_BATCH_INTERVAL_MS` | `2000` | How often queued audit rows are flushed, 500–60000 |
+| `SESSION_TTL_HOURS` | `168` | Session lifetime in hours, up to 720. Admin and employee sessions are capped at 12 hours |
 | `ADMIN_ACCESS_TOKEN` | generated at start | The secret in the admin gate link |
 | `COURIER_KEY` | `sandbox` | Courier name used for parcels |
 | `COURIER_CREDENTIALS` | empty | JSON credentials for that courier |
@@ -382,6 +391,10 @@ number.
 
 **Move an order forward.** Open the order, choose the next status, then save. The allowed
 steps are shown; delivered and cancelled are final.
+
+**Print a receipt.** Open the order in the admin, then **Print receipt**. The customer can
+open the same receipt from the private confirmation page. The desktop app prints receipts
+for counter sales too.
 
 **Create the courier parcel.** Open the order, check the delivery details, then **Create
 shipment**. The tracking number and status appear in the same panel.
@@ -469,10 +482,11 @@ The detailed threat model is in `docs/SECURITY.md`. The last penetration test re
 
 ## For developers
 
-The shop is a Go API, a SvelteKit frontend and a Turso/libSQL database, run in Kiri containers.
+The framework is a Go API, a SvelteKit 3 frontend and a Turso/libSQL database, run in Kiri
+containers. The demo shop is one deployment of it.
 
 ```bash
-make check       # type-check the frontend, run the security tests, vet and test the Go code
+make check       # frontend type-check and tests, Go vet and tests, desktop syntax checks
 make build       # build the frontend and the Go API
 make smoke       # call the public API endpoints
 make dev-db      # local database on :8880
@@ -480,7 +494,7 @@ make dev-api     # Go API on :8080
 make dev-web     # SvelteKit development server on :5173
 make desktop     # Electron admin app, pointed at the local API
 make desktop-build  # Linux AppImage in desktop/dist/
-make loadtest    # 5,000 read requests at the API
+make loadtest    # short read probe (100 requests; LOADTEST_ARGS="-c 50 -n 5000" for more)
 ```
 
 In local development without Kiri, the admin gate defaults to
@@ -490,7 +504,8 @@ The API contract is in `docs/API.md`. The plugin and theme guide is in `docs/PLU
 The load probe and the last local results are in `scripts/loadtest/README.md`. The Go API
 notes are in `backend/README.md`. Database migrations are in
 `backend/migrations/` and run at startup; plugin migrations run after them. The demo seeder
-is idempotent and runs only when `SEED_DEMO=true` and the tables are empty.
+is idempotent and runs only when `SEED_DEMO=true` and the tables are empty, so demo data
+never mixes with an existing database.
 
 The core never imports a plugin package. `backend/internal/plugins` defines the extension
 surface, `backend/internal/storefront` defines and validates the brand layer, and the shipped
@@ -502,18 +517,18 @@ Project layout:
 
 ```text
 backend/        Go API, migrations, seed, tests, plugin SDK and first-party plugins
-frontend/       SvelteKit shop and admin, generic plugin option UI, plugin admin registry
+frontend/       SvelteKit storefront, admin and plugin UI
 desktop/        Electron admin app, direct API client, AppImage build
 deploy/         Dockerfiles and Kiri scripts
-docs/           API contract, plugin and theme guide, security notes, penetration test
+docs/           API contract, permissions, plugin and theme guide, security notes, penetration test
 DESIGN.md       brand direction, palette, motion, admin styles
 CREDITS.md      photo sources, font sources and demo disclosure
-scripts/        health check, admin-gate proof of concept and load probe
+scripts/        health check, admin-gate proof of concept, load probe and screenshot helper
 .opencode/      third-party antislop tooling used during the build
 ```
 
-The shop is cash on delivery only. No card details are collected. Creating an account,
-checking out, and using the admin are all local to this demo.
+The framework ships with cash on delivery only. No card details are collected. The demo
+shop, accounts and admin all run locally.
 
 ## Upcoming
 

@@ -4,7 +4,7 @@
 		<meta charset="utf-8" />
 		<meta
 			http-equiv="Content-Security-Policy"
-			content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: azahar-asset:; font-src azahar-asset:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
+			content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'"
 		/>
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<title>Azahar admin</title>
@@ -39,21 +39,21 @@
 				</form>
 				<div class="login-status" id="login-status" role="status">
 					<span class="status-dot" aria-hidden="true"></span>
-					<span id="login-status-text">Reading the API…</span>
+					<span id="login-status-text">Reading the server…</span>
+					<button class="link-button login-retry" id="login-retry" type="button" hidden>Retry</button>
 				</div>
-				<details class="connection-details">
-					<summary>Connection</summary>
+				<p class="login-hint" id="login-network-hint" hidden>
+					If the server runs on another machine, open Server connection below and enter its address. Tick the network
+					permission, then allow the app when your firewall asks.
+				</p>
+				<details class="connection-details" id="connection-details">
+					<summary>Server connection</summary>
 					<form id="connection-form" class="connection-form" novalidate>
-						<div class="field">
-							<label for="connection-api">API address</label>
-							<input class="input" id="connection-api" autocomplete="url" />
-						</div>
-						<div class="field">
-							<label for="connection-origin">Request origin, optional</label>
-							<input class="input" id="connection-origin" autocomplete="url" placeholder="Auto, read from the API" />
-						</div>
+						<div id="login-connection-fields"></div>
 						<div class="form-error" id="connection-error" role="alert" hidden></div>
-						<button class="button button-secondary" type="submit">Save and reconnect</button>
+						<div class="connection-actions">
+							<button class="button button-secondary" type="submit">Save and reconnect</button>
+						</div>
 					</form>
 				</details>
 			</div>

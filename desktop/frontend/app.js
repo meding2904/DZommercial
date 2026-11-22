@@ -1,4 +1,44 @@
-const api = window.azahar;
+// Wails binds main.App methods here. A Go error rejects the promise, so every call
+// is normalized back to an Error with the Go message.
+const api = {
+	info: () => callBridge('Info'),
+	health: () => callBridge('Health'),
+	request: (method, path, body) =>
+		callBridge('Request', method, path, body == null ? {} : body),
+	image: (path) => callBridge('Image', path),
+	updateSettings: (payload) => {
+		const settings = payload || {};
+		return callBridge(
+			'UpdateSettings',
+			settings.apiUrl,
+			settings.origin,
+			Boolean(settings.allowNetwork)
+		);
+	},
+	clearSession: () => callBridge('ClearSession'),
+	firewallGuide: () => callBridge('FirewallGuide'),
+	openExternal: (url) => callBridge('OpenExternal', url)
+};
+
+function callBridge(method, ...args) {
+	const app = window.go && window.go.main && window.go.main.App;
+	if (!app || typeof app[method] !== 'function') {
+		return Promise.reject(new Error('The app bridge is not ready. Restart the app.'));
+	}
+	try {
+		return Promise.resolve(app[method](...args)).catch((error) => {
+			throw new Error(bridgeMessage(error));
+		});
+	} catch (error) {
+		return Promise.reject(new Error(bridgeMessage(error)));
+	}
+}
+
+function bridgeMessage(error) {
+	if (typeof error === 'string' && error) return error;
+	if (error && typeof error.message === 'string' && error.message) return error.message;
+	return 'The app bridge did not answer.';
+}
 
 const PRESET_TOKENS = {
 	plaster: {
@@ -101,7 +141,6 @@ const state = {
 	orders: [],
 	orderFilter: '',
 	orderQuery: '',
-	orderLoading: false,
 	orderTimer: null,
 	products: [],
 	productQuery: '',
@@ -227,7 +266,7 @@ function receiptHtml(order) {
 		.map(
 			(item) => `<tr>
 				<td>${escapeHtml(item.name)}${item.options_label ? `<span class="muted">${escapeHtml(item.options_label)}</span>` : ''}</td>
-				<td class="right">${item.quantity}</td>
+				<td class="right">${escapeHtml(String(item.quantity))}</td>
 				<td class="right mono">${escapeHtml(money(item.unit_price_cents ?? item.price_cents ?? 0))}</td>
 				<td class="right mono">${escapeHtml(money(item.line_total_cents ?? (item.unit_price_cents ?? item.price_cents ?? 0) * item.quantity))}</td>
 			</tr>`
@@ -286,8 +325,9 @@ function printHtml(html) {
 	frame.srcdoc = html;
 	frame.onload = () => {
 		const target = frame.contentWindow;
-		if (!target) {
+		if (!target || typeof target.print !== 'function') {
 			frame.remove();
+			toast('The receipt could not be sent to the printer.', 'error');
 			return;
 		}
 		target.focus();
@@ -392,8 +432,215 @@ function setLoginStatus(health) {
 	const ok = Boolean(health && health.ok);
 	node.dataset.state = ok ? 'online' : 'offline';
 	text.textContent = ok
-		? `API connected${health.env ? ` (${health.env})` : ''}`
-		: health?.message || 'The API is not answering.';
+		? `Server connected${health.env ? ` (${health.env})` : ''}`
+		: health?.message || 'The server is not answering.';
+	const hint = document.getElementById('login-network-hint');
+	if (hint) hint.hidden = ok;
+	const retry = document.getElementById('login-retry');
+	if (retry) retry.hidden = ok;
+	const details = document.getElementById('connection-details');
+	if (details && !ok) details.open = true;
+}
+
+const IPV6_LOOPBACK_HOSTS = new Set(['::1', '0:0:0:0:0:0:0:1']);
+
+function parseServerAddress(value) {
+	try {
+		const url = new URL(String(value || '').trim());
+		return url.protocol === 'http:' || url.protocol === 'https:' ? url : null;
+	} catch {
+		return null;
+	}
+}
+
+function isLoopbackHost(hostname) {
+	let host = String(hostname || '').toLowerCase();
+	if (host.startsWith('[') && host.endsWith(']')) host = host.slice(1, -1);
+	host = host.replace(/\.$/, '');
+	if (host === 'localhost' || host.endsWith('.localhost')) return true;
+	if (IPV6_LOOPBACK_HOSTS.has(host)) return true;
+	return /^127(?:\.\d{1,3}){3}$/.test(host);
+}
+
+function needsNetworkConsent(value) {
+	const url = parseServerAddress(value);
+	return Boolean(url) && !isLoopbackHost(url.hostname);
+}
+
+function serverWarning(value) {
+	const url = parseServerAddress(value);
+	if (!url || url.protocol !== 'http:' || isLoopbackHost(url.hostname)) return '';
+	return 'Plain HTTP is not encrypted. Use HTTPS unless this is a trusted local network.';
+}
+
+function connectionFieldsHtml(prefix) {
+	return `<div class="connection-fields">
+		<div class="field">
+			<label for="${prefix}-api">Server address</label>
+			<input class="input" id="${prefix}-api" autocomplete="url" placeholder="http://127.0.0.1:8080" />
+			<p class="field-hint">The local demo runs at http://127.0.0.1:8080.</p>
+		</div>
+		<div class="field">
+			<label for="${prefix}-origin">Request origin, optional</label>
+			<input class="input" id="${prefix}-origin" autocomplete="url" placeholder="Auto, read from the server" />
+			<p class="field-hint">Sent with writes so the server can check it against its own origin. Empty reads it from the server.</p>
+		</div>
+		<label class="checkbox-row" for="${prefix}-network">
+			<input type="checkbox" id="${prefix}-network" aria-describedby="${prefix}-network-hint" />
+			<span>Allow this app to contact a server on the network</span>
+		</label>
+		<p class="field-hint" id="${prefix}-network-hint">Required for any address other than loopback. The app sends requests from Go, not from this page, so your operating system firewall may ask whether to allow it.</p>
+		<p class="form-warning" id="${prefix}-warning" aria-live="polite" hidden></p>
+		<div class="connection-help">
+			<button class="button button-secondary" type="button" id="${prefix}-firewall" aria-expanded="false" aria-controls="${prefix}-firewall-guide">Firewall help</button>
+			<div class="firewall-guide" id="${prefix}-firewall-guide" role="region" aria-label="Firewall help" aria-live="polite" hidden></div>
+		</div>
+	</div>`;
+}
+
+function applyConnectionValues(prefix, info) {
+	const address = document.getElementById(`${prefix}-api`);
+	if (address) {
+		address.value = info?.apiUrl || '';
+		address.dataset.saved = info?.apiUrl || '';
+	}
+	const origin = document.getElementById(`${prefix}-origin`);
+	if (origin) origin.value = info?.origin || '';
+	const network = document.getElementById(`${prefix}-network`);
+	if (network) {
+		network.checked = needsNetworkConsent(info?.apiUrl) && Boolean(info?.networkAllowed);
+	}
+	updateConnectionWarning(prefix);
+	syncNetworkControl(prefix);
+}
+
+function syncNetworkControl(prefix) {
+	const address = document.getElementById(`${prefix}-api`);
+	const network = document.getElementById(`${prefix}-network`);
+	if (!address || !network) return;
+	const remote = needsNetworkConsent(address.value);
+	network.disabled = !remote;
+	if (!remote) network.checked = false;
+}
+
+function updateConnectionWarning(prefix) {
+	const address = document.getElementById(`${prefix}-api`);
+	const warning = document.getElementById(`${prefix}-warning`);
+	if (!address || !warning) return;
+	const text = serverWarning(address.value);
+	warning.textContent = text;
+	warning.hidden = !text;
+}
+
+function bindConnectionFields(prefix) {
+	const address = document.getElementById(`${prefix}-api`);
+	if (!address) return;
+	address.addEventListener('input', () => {
+		const network = document.getElementById(`${prefix}-network`);
+		syncNetworkControl(prefix);
+		if (network && address.value.trim() !== address.dataset.saved && needsNetworkConsent(address.value)) {
+			network.checked = false;
+		}
+		updateConnectionWarning(prefix);
+	});
+	updateConnectionWarning(prefix);
+	const help = document.getElementById(`${prefix}-firewall`);
+	const guide = document.getElementById(`${prefix}-firewall-guide`);
+	if (help && guide) bindFirewallHelp(help, guide);
+}
+
+function bindFirewallHelp(button, guide) {
+	let busy = false;
+	button.addEventListener('click', async () => {
+		if (busy) return;
+		if (!guide.hidden) {
+			guide.hidden = true;
+			button.setAttribute('aria-expanded', 'false');
+			return;
+		}
+		busy = true;
+		button.setAttribute('aria-busy', 'true');
+		try {
+			const data = await api.firewallGuide();
+			renderFirewallGuide(guide, data);
+		} catch (error) {
+			renderFirewallGuide(guide, {
+				title: 'Firewall help is not available.',
+				note: error.message || 'The app could not read the firewall guide.'
+			});
+		} finally {
+			busy = false;
+			button.removeAttribute('aria-busy');
+		}
+		guide.hidden = false;
+		button.setAttribute('aria-expanded', 'true');
+	});
+}
+
+function renderFirewallGuide(guide, data) {
+	guide.replaceChildren();
+	const append = (tag, text, className = '') => {
+		const node = document.createElement(tag);
+		if (className) node.className = className;
+		node.textContent = text;
+		guide.append(node);
+	};
+	const title =
+		typeof data?.title === 'string' && data.title
+			? data.title
+			: 'Allow the app through your firewall';
+	append('p', title, 'firewall-title');
+	if (typeof data?.intro === 'string' && data.intro) append('p', data.intro);
+	const steps = Array.isArray(data?.steps)
+		? data.steps.filter((step) => typeof step === 'string' && step)
+		: [];
+	if (steps.length) {
+		const list = document.createElement('ol');
+		list.className = 'firewall-steps';
+		for (const step of steps) {
+			const item = document.createElement('li');
+			item.textContent = step;
+			list.append(item);
+		}
+		guide.append(list);
+	}
+	if (typeof data?.note === 'string' && data.note) append('p', data.note, 'field-hint');
+}
+
+async function saveConnection(prefix, errorBox) {
+	const payload = {
+		apiUrl: document.getElementById(`${prefix}-api`).value.trim(),
+		origin: document.getElementById(`${prefix}-origin`).value.trim(),
+		allowNetwork: Boolean(document.getElementById(`${prefix}-network`).checked)
+	};
+	errorBox.hidden = true;
+	const previous = parseServerAddress(state.info?.apiUrl);
+	const next = parseServerAddress(payload.apiUrl);
+	const sameHost = Boolean(previous && next && previous.origin === next.origin);
+	if (needsNetworkConsent(payload.apiUrl) && !payload.allowNetwork && !sameHost) {
+		errorBox.textContent =
+			'Tick the network permission before saving an address that is not loopback.';
+		errorBox.hidden = false;
+		document.getElementById(`${prefix}-network`).focus();
+		return false;
+	}
+	try {
+		const result = await api.updateSettings(payload);
+		if (result?.warning) toast(result.warning, 'error');
+		return true;
+	} catch (error) {
+		errorBox.textContent = error.message || 'The server address could not be saved.';
+		errorBox.hidden = false;
+		return false;
+	}
+}
+
+async function readHealth() {
+	try {
+		return await api.health();
+	} catch (error) {
+		return { ok: false, status: 0, message: error.message || 'The server is not answering.' };
+	}
 }
 
 function showLogin(message = '') {
@@ -419,6 +666,29 @@ function showApp() {
 		state.user.role === 'admin' ? 'Administrator' : 'Employee';
 }
 
+function resetTransientState() {
+	clearTimeout(state.orderTimer);
+	state.orderTimer = null;
+	state.render += 1;
+	state.metrics = null;
+	state.orders = [];
+	state.products = [];
+	state.customers = [];
+	state.team = [];
+	state.counterLines = [];
+	state.counterQuery = '';
+	state.counterCustomer = '';
+	state.counterPhone = '';
+	state.counterNote = '';
+	state.counterReceipt = null;
+	state.orderFilter = '';
+	state.orderQuery = '';
+	state.productQuery = '';
+	state.productLowOnly = false;
+	state.pendingProduct = '';
+	state.customerQuery = '';
+}
+
 function setView(html) {
 	state.render += 1;
 	view.innerHTML = html;
@@ -439,7 +709,7 @@ function hydrateImages(root) {
 		delete image.dataset.image;
 		if (!src) continue;
 		if (src.startsWith('/images/')) {
-			image.src = `azahar-asset://assets${src}`;
+			image.src = src;
 			continue;
 		}
 		if (src.startsWith('/api/images/')) {
@@ -478,12 +748,20 @@ function markRoute(route) {
 }
 
 async function bootstrap() {
-	state.info = await api.info();
-	const apiField = document.getElementById('connection-api');
-	if (apiField) apiField.value = state.info.apiUrl || '';
-	const originField = document.getElementById('connection-origin');
-	if (originField) originField.value = state.info.origin || '';
-	const health = await api.health();
+	let info = null;
+	try {
+		info = await api.info();
+	} catch (error) {
+		state.info = null;
+		state.health = { ok: false, status: 0, message: error.message };
+		applyConnectionValues('connection', null);
+		setLoginStatus(state.health);
+		showLogin('The app could not read its connection settings. Enter a server address below.');
+		return;
+	}
+	state.info = info;
+	applyConnectionValues('connection', info);
+	const health = await readHealth();
 	state.health = health;
 	setLoginStatus(health);
 
@@ -505,7 +783,9 @@ async function bootstrap() {
 	try {
 		me = await optionalCall('/api/auth/me');
 	} catch {
-		showLogin('The API answered the health check but not the session request.');
+		showLogin(
+			health.ok ? 'The server answered the health check but not the session request.' : ''
+		);
 		return;
 	}
 	if (me && me.user) {
@@ -515,7 +795,7 @@ async function bootstrap() {
 			return;
 		}
 		await call('POST', '/api/auth/logout').catch(() => {});
-		await api.clearSession();
+		await api.clearSession().catch(() => {});
 		showLogin('That account is not part of the shop team.');
 		return;
 	}
@@ -704,7 +984,7 @@ function drawLedger(metrics) {
 			<section class="band" aria-labelledby="mix-title">
 				<div class="band-head"><div><h2 id="mix-title">Order mix</h2><p>The pipeline at a glance.</p></div></div>
 				<div class="mix"><div class="mix-rule" role="img" aria-label="Order status mix">${mix}</div><div class="mix-legend">${legend}</div></div>
-				<p class="mix-foot">${metrics.status_split.reduce((sum, item) => sum + (['delivered', 'cancelled'].includes(item.status) ? 0 : item.count), 0)} orders still open.</p>
+				<p class="mix-foot">${(metrics.status_split || []).reduce((sum, item) => sum + (['delivered', 'cancelled'].includes(item.status) ? 0 : item.count), 0)} orders still open.</p>
 			</section>
 			<section class="band" aria-labelledby="low-title">
 				<div class="band-head"><div><h2 id="low-title">Low stock</h2><p>Lines the shelf cannot cover for long.</p></div></div>
@@ -1075,12 +1355,12 @@ async function renderOrders() {
 	const tabs = ['', ...ORDER_STATUSES]
 		.map(
 			(status) =>
-				`<button type="button" data-order-filter="${status}" aria-selected="${state.orderFilter === status}">${status ? titleCase(status) : 'All'}</button>`
+				`<button type="button" data-order-filter="${status}" aria-pressed="${state.orderFilter === status}">${status ? titleCase(status) : 'All'}</button>`
 		)
 		.join('');
 	setView(`<div>
 		${pageHead('Orders', 'Every sale, online and at the counter. Open one to move it.')}
-		<div class="tabs" role="tablist" aria-label="Order status">${tabs}</div>
+		<div class="tabs" role="group" aria-label="Order status">${tabs}</div>
 		<div class="toolbar">
 			<div class="field field-grow"><label for="order-search">Search</label><input class="input" id="order-search" type="search" placeholder="Number, name, phone or tracking" value="${escapeHtml(state.orderQuery)}" /></div>
 			<button class="button button-secondary" type="button" id="refresh-orders">Refresh</button>
@@ -1092,7 +1372,7 @@ async function renderOrders() {
 		tab.addEventListener('click', () => {
 			state.orderFilter = tab.dataset.orderFilter;
 			for (const other of view.querySelectorAll('[data-order-filter]')) {
-				other.setAttribute('aria-selected', String(other === tab));
+				other.setAttribute('aria-pressed', String(other === tab));
 			}
 			void loadOrders();
 		});
@@ -1138,7 +1418,7 @@ function drawOrdersTable() {
 				(order) => `<tr data-order-id="${escapeHtml(order.id)}" data-clickable="true">
 					<td class="mono">${escapeHtml(order.number)}<span class="cell-sub">${escapeHtml(order.id)}</span></td>
 					<td><span class="cell-strong">${escapeHtml(order.name)}</span><span class="cell-sub">${escapeHtml(order.phone || order.email || '')}</span></td>
-					<td>${escapeHtml(order.delivery_type === 'pickup' ? 'Counter' : order.delivery_type === 'stopdesk' ? 'Stop desk' : 'Home')}</td>
+					<td>${escapeHtml(deliveryLabel(order.delivery_type))}</td>
 					<td class="numeric">${money(order.total_cents)}</td>
 					<td>${statusTag(order.status)}</td>
 					<td class="meta">${formatDate(order.created_at)}</td>
@@ -1205,7 +1485,7 @@ function drawOrderDialog(order, errorMessage = '') {
 					<dt>Customer</dt><dd>${escapeHtml(order.name)}</dd>
 					<dt>Phone</dt><dd>${escapeHtml(order.phone || 'Not given')}</dd>
 					<dt>Email</dt><dd>${escapeHtml(order.email || 'Not given')}</dd>
-					<dt>Delivery</dt><dd>${escapeHtml(order.delivery_type === 'pickup' ? 'Counter sale' : order.delivery_type === 'stopdesk' ? 'Stop desk' : 'Home delivery')}</dd>
+					<dt>Delivery</dt><dd>${escapeHtml(deliveryLabel(order.delivery_type))}</dd>
 					${order.wilaya_name ? `<dt>Wilaya</dt><dd>${escapeHtml(order.wilaya_name)}</dd>` : ''}
 					${order.commune_name ? `<dt>Commune</dt><dd>${escapeHtml(order.commune_name)}</dd>` : ''}
 					${order.address ? `<dt>Address</dt><dd>${escapeHtml(order.address)}</dd>` : ''}
@@ -1219,10 +1499,6 @@ function drawOrderDialog(order, errorMessage = '') {
 		</div>
 	</div>`;
 	attachDialogClose();
-	const reload = async () => {
-		await loadOrders();
-		await openOrder(order.id, order);
-	};
 	for (const button of orderDialog.querySelectorAll('[data-order-status]')) {
 		button.addEventListener('click', async () => {
 			button.disabled = true;
@@ -1619,50 +1895,57 @@ function drawStaff() {
 function renderConnection() {
 	markRoute('connection');
 	setView(`<div>
-		${pageHead('Connection', 'The desktop app calls the Go API directly. No web server sits in the middle.')}
+		${pageHead('Connection', 'The app calls your server from Go, not from this page. No web server sits in the middle.')}
 		<form class="product-editor" id="app-connection-form" novalidate style="max-width:620px">
-			<div class="field"><label for="app-api">API address</label><input class="input" id="app-api" autocomplete="url" value="${escapeHtml(state.info?.apiUrl || '')}" /></div>
-			<div class="field"><label for="app-origin">Request origin, optional</label><input class="input" id="app-origin" autocomplete="url" placeholder="Auto, read from the API" value="${escapeHtml(state.info?.origin || '')}" /><p class="field-hint">The API checks this against APP_ORIGIN for writes. Empty means auto.</p></div>
+			${connectionFieldsHtml('app')}
 			<div class="form-error" id="app-connection-error" role="alert" hidden></div>
-			<div class="dialog-actions">
+			<div class="connection-actions">
 				<button class="button button-primary" type="submit">Save and reconnect</button>
 				<button class="button button-secondary" type="button" id="app-test">Test connection</button>
 				<button class="button button-secondary" type="button" id="app-clear-session">Clear session</button>
 			</div>
 			<dl class="detail-list">
-				<dt>Version</dt><dd class="mono">${escapeHtml(state.info?.version || '1.0.0')}</dd>
-				<dt>Platform</dt><dd>${escapeHtml(state.info?.platform || 'linux')}</dd>
-				<dt>Resolved origin</dt><dd class="mono">${escapeHtml(state.info?.resolvedOrigin || state.health?.origin || 'Not resolved')}</dd>
-				<dt>API state</dt><dd>${state.health?.ok ? 'Connected' : 'Offline'}</dd>
+				<dt>Version</dt><dd class="mono">${escapeHtml(state.info?.version || 'Unknown')}</dd>
+				<dt>Platform</dt><dd>${escapeHtml(state.info?.platform || 'Unknown')}</dd>
+				<dt>Resolved origin</dt><dd class="mono" id="app-resolved-origin">${escapeHtml(state.info?.resolvedOrigin || state.health?.origin || 'Not resolved')}</dd>
+				<dt>Server state</dt><dd id="app-server-state">${state.health?.ok ? 'Connected' : 'Offline'}</dd>
 			</dl>
 		</form>
 	</div>`);
+	applyConnectionValues('app', state.info);
+	bindConnectionFields('app');
 	const errorBox = document.getElementById('app-connection-error');
 	document.getElementById('app-connection-form')?.addEventListener('submit', async (event) => {
 		event.preventDefault();
-		errorBox.hidden = true;
-		try {
-			await api.updateSettings({
-				apiUrl: document.getElementById('app-api').value,
-				origin: document.getElementById('app-origin').value
-			});
-			toast('Connection saved.');
-			await bootstrap();
-			location.hash = '#/connection';
-		} catch (error) {
-			errorBox.textContent = error.message;
-			errorBox.hidden = false;
-		}
+		if (!(await saveConnection('app', errorBox))) return;
+		toast('Server address saved.');
+		await bootstrap();
+		location.hash = '#/connection';
 	});
 	document.getElementById('app-test')?.addEventListener('click', async () => {
-		const health = await api.health();
+		const health = await readHealth();
 		state.health = health;
-		toast(health.ok ? 'The API answered.' : health.message || 'The API did not answer.', health.ok ? 'info' : 'error');
-		renderConnection();
+		const serverState = document.getElementById('app-server-state');
+		if (serverState) serverState.textContent = health.ok ? 'Connected' : 'Offline';
+		const resolvedOrigin = document.getElementById('app-resolved-origin');
+		if (resolvedOrigin) {
+			resolvedOrigin.textContent =
+				state.info?.resolvedOrigin || state.health?.origin || 'Not resolved';
+		}
+		toast(
+			health.ok ? 'The server answered.' : health.message || 'The server did not answer.',
+			health.ok ? 'info' : 'error'
+		);
 	});
 	document.getElementById('app-clear-session')?.addEventListener('click', async () => {
-		await api.clearSession();
+		try {
+			await api.clearSession();
+		} catch (error) {
+			toast(error.message || 'The local session could not be cleared.', 'error');
+			return;
+		}
 		state.user = null;
+		resetTransientState();
 		showLogin('The local session is cleared.');
 	});
 }
@@ -1681,7 +1964,7 @@ document.getElementById('login-form').addEventListener('submit', async (event) =
 		const data = await call('POST', '/api/auth/login', { email, password });
 		if (data.user.role !== 'admin' && data.user.role !== 'employee') {
 			await call('POST', '/api/auth/logout').catch(() => {});
-			await api.clearSession();
+			await api.clearSession().catch(() => {});
 			throw new RequestError({
 				status: 403,
 				code: 'not_staff',
@@ -1701,34 +1984,40 @@ document.getElementById('login-form').addEventListener('submit', async (event) =
 document.getElementById('connection-form').addEventListener('submit', async (event) => {
 	event.preventDefault();
 	const error = document.getElementById('connection-error');
-	error.hidden = true;
-	try {
-		await api.updateSettings({
-			apiUrl: document.getElementById('connection-api').value,
-			origin: document.getElementById('connection-origin').value
-		});
-		await bootstrap();
-	} catch (problem) {
-		error.textContent = problem.message;
-		error.hidden = false;
-	}
+	if (!(await saveConnection('connection', error))) return;
+	await bootstrap();
+});
+
+document.getElementById('login-retry')?.addEventListener('click', () => {
+	void bootstrap();
 });
 
 document.getElementById('sign-out').addEventListener('click', async () => {
+	let serverConfirmed = true;
 	try {
 		await call('POST', '/api/auth/logout');
 	} catch {
-		/* a lost session is still signed out locally */
+		serverConfirmed = false;
 	}
-	await api.clearSession();
+	let localCleared = true;
+	try {
+		await api.clearSession();
+	} catch (error) {
+		localCleared = false;
+		toast(error.message || 'The local session could not be cleared.', 'error');
+	}
 	state.user = null;
-	state.metrics = null;
-	state.orders = [];
-	state.products = [];
-	state.customers = [];
-	state.team = [];
-	state.counterLines = [];
-	state.counterReceipt = null;
+	resetTransientState();
+	if (!localCleared) {
+		showLogin(
+			'Signed out here, but the saved session could not be removed. Sign in again and use Clear session.'
+		);
+		return;
+	}
+	if (!serverConfirmed) {
+		showLogin('Signed out on this device. The server did not confirm the logout.');
+		return;
+	}
 	showLogin();
 });
 
@@ -1750,6 +2039,33 @@ window.addEventListener('hashchange', () => void route());
 window.addEventListener('keydown', (event) => {
 	if (event.key === 'Escape' && orderDialog.open) orderDialog.close();
 });
+
+document.getElementById('login-connection-fields').innerHTML = connectionFieldsHtml('connection');
+applyConnectionValues('connection', null);
+bindConnectionFields('connection');
+
+document.addEventListener('click', (event) => {
+	const target = event.target instanceof Element ? event.target.closest('a[href]') : null;
+	if (!target || event.defaultPrevented) return;
+	const href = target.getAttribute('href') || '';
+	if (href.startsWith('#')) return;
+	event.preventDefault();
+	if (!/^https?:\/\//i.test(href)) {
+		toast('That link is not available in the desktop app.', 'error');
+		return;
+	}
+	api.openExternal(href).catch((error) => {
+		toast(error.message || 'The link could not be opened.', 'error');
+	});
+});
+
+window.addEventListener('dragover', (event) => event.preventDefault());
+window.addEventListener('drop', (event) => event.preventDefault());
+
+window.open = () => {
+	toast('External windows are disabled. Use a link in the page.', 'error');
+	return null;
+};
 
 applyTheme();
 void bootstrap();

@@ -78,16 +78,28 @@ hard requirement, not a suggestion.
   token. The desktop admin stores it in memory and sends it as `X-CSRF-Token`. Unsafe calls
   still need `X-Requested-With: azahar-web` and an `Origin` equal to `APP_ORIGIN`; the
   desktop reads the expected origin from `GET /api/health` when the user leaves it on auto.
-- The desktop session cookie is stored in the app profile, encrypted with Electron
-  `safeStorage` when the platform provides it, with a `0600` fallback. Signing out removes the
-  file and the in-memory cookie.
+- The desktop session cookie is stored in the OS keyring under a per-profile, per-server
+  account, with a `0600` fallback when the keyring is unavailable or does not answer within
+  a short timeout. Signing out removes the current server's entry. Changing the server
+  switches the store and cannot replay the old server's session.
 - Every unsafe request must also send `X-CSRF-Token` with exactly the cookie value. The API
   compares the two in constant time. A request without a matching pair returns `403`.
 - The API does not enable CORS. Cross-origin reads are blocked by the browser.
-- The desktop admin does not load the API in a browser frame. Its Electron main process makes
-  the requests, keeps the cookie, and exposes only a narrow `api:request` bridge to a
-  sandboxed renderer with `contextIsolation`, no Node integration and a `connect-src 'none'`
-  policy.
+- The desktop admin does not load the API in a webview. Its Go process makes the requests,
+  keeps the cookie, and exposes only typed bindings to a renderer with `connect-src 'none'`.
+- The Wails asset server adds a CSP header with `frame-ancestors 'none'`, `nosniff`, a
+  no-referrer policy and cross-origin isolation headers. The renderer blocks non-http(s)
+  navigation and drag-and-drop, and opens validated links in the system browser.
+- The desktop client calls only `/api/` paths on the configured server. Methods are
+  allowlisted, request bodies are capped at 2 MiB, response bodies at 16 MiB, and redirects
+  are not followed. Images are fetched by Go and returned as bounded data URLs.
+- Unsafe desktop requests require an origin. The client reads it from `GET /api/health` when
+  the user leaves it on auto, falls back to the local origin only for a loopback API, and
+  fails closed with a clear error for a remote server without a known origin.
+- A non-loopback server needs explicit network consent tied to that host. Changing to a
+  different host requires a fresh consent. A public host must use HTTPS. The app asks the
+  user to allow it through the operating-system firewall and never changes firewall rules
+  or requests administrator rights itself.
 
 ## Captcha, bot detection and terms
 

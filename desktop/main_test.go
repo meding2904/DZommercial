@@ -159,3 +159,58 @@ func TestWindowHardeningIsConfigured(t *testing.T) {
 		t.Error("WindowBounds must not be bound to the renderer")
 	}
 }
+
+func TestMediumBugFixesArePresent(t *testing.T) {
+	script, err := os.ReadFile("frontend/app.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(script)
+	for _, want := range []string{
+		"const sameHost = Boolean(previous && next && previous.origin === next.origin)",
+		"id=\"app-server-state\"",
+		"id=\"app-resolved-origin\"",
+		"function resetTransientState()",
+	} {
+		if !strings.Contains(source, want) {
+			t.Errorf("app.js is missing medium-bug fix %q", want)
+		}
+	}
+	helperStart := strings.Index(source, "function resetTransientState()")
+	helperEnd := strings.Index(source[helperStart:], "function setView")
+	helper := source[helperStart : helperStart+helperEnd]
+	for _, want := range []string{
+		"state.counterQuery = ''",
+		"state.render += 1",
+		"clearTimeout(state.orderTimer)",
+	} {
+		if !strings.Contains(helper, want) {
+			t.Errorf("resetTransientState is missing %q", want)
+		}
+	}
+	if got := strings.Count(source, "\tresetTransientState();\n"); got != 2 {
+		t.Errorf("resetTransientState calls = %d, want 2", got)
+	}
+	start := strings.Index(source, "document.getElementById('app-test')")
+	endMarker := "document.getElementById('app-clear-session')"
+	if start >= 0 {
+		rest := source[start:]
+		if end := strings.Index(rest, endMarker); end >= 0 {
+			if strings.Contains(rest[:end], "renderConnection();") {
+				t.Error("app-test must not re-render the connection form")
+			}
+		}
+	}
+
+	client, err := os.ReadFile("internal/api/client.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	clientSource := string(client)
+	if !strings.Contains(clientSource, "if err := c.saveSettings(next); err != nil {") {
+		t.Error("UpdateSettings must save before mutating live state")
+	}
+	if strings.Contains(clientSource, "c.settings = previous") {
+		t.Error("UpdateSettings still contains the rollback path that dropped session state")
+	}
+}

@@ -276,10 +276,17 @@ func (c *Client) UpdateSettings(apiURL, origin string, allowNetwork bool) (Setti
 		}
 	}
 
-	c.settings.APIURL = normalizedURL
-	c.settings.Origin = normalizedOrigin
-	c.settings.NetworkAllowed = allowNetwork
-	c.settings.NetworkAllowedHost = desiredHost
+	next := previous
+	next.APIURL = normalizedURL
+	next.Origin = normalizedOrigin
+	next.NetworkAllowed = allowNetwork
+	next.NetworkAllowedHost = desiredHost
+	if err := c.saveSettings(next); err != nil {
+		c.mu.Unlock()
+		return SettingsResult{}, errors.New("The settings could not be saved. Check that the profile folder is writable.")
+	}
+
+	c.settings = next
 	if urlChanged {
 		c.resolvedOrigin = ""
 		c.session = storedCookie{}
@@ -290,18 +297,8 @@ func (c *Client) UpdateSettings(apiURL, origin string, allowNetwork bool) (Setti
 	if urlChanged || originChanged {
 		c.generation++
 	}
-	next := c.settings
-	err := c.saveSettings(next)
-	if err != nil {
-		c.settings = previous
-		c.generation++
-		c.secrets = oldSecrets
-	}
 	c.mu.Unlock()
 
-	if err != nil {
-		return SettingsResult{}, errors.New("The settings could not be saved. Check that the profile folder is writable.")
-	}
 	if urlChanged {
 		_ = c.deleteStoredSession(oldSecrets)
 	}

@@ -324,6 +324,87 @@ func TestUpdateSettingsSaveFailureIsFriendly(t *testing.T) {
 	}
 }
 
+func TestUpdateSettingsSaveFailureKeepsSession(t *testing.T) {
+	unsetEnv(t, "AZAHAR_API_URL")
+	unsetEnv(t, "AZAHAR_ORIGIN")
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	profile := filepath.Join(t.TempDir(), "profile")
+	secrets := &memorySecrets{}
+	c, err := newClientWithSecrets("2.0.0-test", profile, secrets)
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+
+	expires := time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC)
+	wantSession := storedCookie{value: "session-token", expires: expires}
+	wantCSRF := storedCookie{value: "csrf-token", expires: expires}
+	wantOrigin := "http://localhost:3000"
+	wantGeneration := uint64(7)
+	wantImageBytes := int64(31)
+
+	c.mu.Lock()
+	c.resolvedOrigin = wantOrigin
+	c.session = wantSession
+	c.csrf = wantCSRF
+	c.generation = wantGeneration
+	c.imageCache["/api/images/one"] = "data:image/png;base64,AAAA"
+	c.imageOrder = []string{"/api/images/one"}
+	c.imageCacheBytes = wantImageBytes
+	original := c.settings
+	c.mu.Unlock()
+
+	if err := os.MkdirAll(c.settingsPath, 0o700); err != nil {
+		t.Fatalf("prepare failing settings path: %v", err)
+	}
+
+	_, err = c.UpdateSettings("http://127.0.0.1:9090", "http://admin.example", true)
+	if err == nil || err.Error() != "The settings could not be saved. Check that the profile folder is writable." {
+		t.Fatalf("error = %v, want the friendly save error", err)
+	}
+
+	c.mu.RLock()
+	gotSettings := c.settings
+	gotOrigin := c.resolvedOrigin
+	gotSession := c.session
+	gotCSRF := c.csrf
+	gotGeneration := c.generation
+	gotOrder := append([]string(nil), c.imageOrder...)
+	gotImageBytes := c.imageCacheBytes
+	gotImage, gotImageOK := c.imageCache["/api/images/one"]
+	gotImageCount := len(c.imageCache)
+	gotSecrets := c.secrets
+	c.mu.RUnlock()
+
+	if gotSettings != original {
+		t.Fatalf("settings = %#v, want %#v", gotSettings, original)
+	}
+	if gotOrigin != wantOrigin {
+		t.Fatalf("resolved origin = %q, want %q", gotOrigin, wantOrigin)
+	}
+	if gotSession != wantSession {
+		t.Fatalf("session = %#v, want %#v", gotSession, wantSession)
+	}
+	if gotCSRF != wantCSRF {
+		t.Fatalf("csrf = %#v, want %#v", gotCSRF, wantCSRF)
+	}
+	if gotGeneration != wantGeneration {
+		t.Fatalf("generation = %d, want %d", gotGeneration, wantGeneration)
+	}
+	if gotImageCount != 1 || !gotImageOK || gotImage != "data:image/png;base64,AAAA" {
+		t.Fatalf("image cache = %v (present %v, %d entries)", gotImage, gotImageOK, gotImageCount)
+	}
+	if len(gotOrder) != 1 || gotOrder[0] != "/api/images/one" {
+		t.Fatalf("image order = %v", gotOrder)
+	}
+	if gotImageBytes != wantImageBytes {
+		t.Fatalf("image cache bytes = %d, want %d", gotImageBytes, wantImageBytes)
+	}
+	if gotSecrets != secretStore(secrets) {
+		t.Fatalf("secret store = %T, want the original store", gotSecrets)
+	}
+}
+
 func TestUpdateSettingsSkipsIdenticalValues(t *testing.T) {
 	var healthHits atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

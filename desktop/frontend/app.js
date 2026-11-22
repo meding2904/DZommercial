@@ -615,7 +615,10 @@ async function saveConnection(prefix, errorBox) {
 		allowNetwork: Boolean(document.getElementById(`${prefix}-network`).checked)
 	};
 	errorBox.hidden = true;
-	if (needsNetworkConsent(payload.apiUrl) && !payload.allowNetwork) {
+	const previous = parseServerAddress(state.info?.apiUrl);
+	const next = parseServerAddress(payload.apiUrl);
+	const sameHost = Boolean(previous && next && previous.origin === next.origin);
+	if (needsNetworkConsent(payload.apiUrl) && !payload.allowNetwork && !sameHost) {
 		errorBox.textContent =
 			'Tick the network permission before saving an address that is not loopback.';
 		errorBox.hidden = false;
@@ -661,6 +664,29 @@ function showApp() {
 	document.getElementById('rail-user-name').textContent = state.user.name;
 	document.getElementById('rail-user-role').textContent =
 		state.user.role === 'admin' ? 'Administrator' : 'Employee';
+}
+
+function resetTransientState() {
+	clearTimeout(state.orderTimer);
+	state.orderTimer = null;
+	state.render += 1;
+	state.metrics = null;
+	state.orders = [];
+	state.products = [];
+	state.customers = [];
+	state.team = [];
+	state.counterLines = [];
+	state.counterQuery = '';
+	state.counterCustomer = '';
+	state.counterPhone = '';
+	state.counterNote = '';
+	state.counterReceipt = null;
+	state.orderFilter = '';
+	state.orderQuery = '';
+	state.productQuery = '';
+	state.productLowOnly = false;
+	state.pendingProduct = '';
+	state.customerQuery = '';
 }
 
 function setView(html) {
@@ -1885,8 +1911,8 @@ function renderConnection() {
 			<dl class="detail-list">
 				<dt>Version</dt><dd class="mono">${escapeHtml(state.info?.version || 'Unknown')}</dd>
 				<dt>Platform</dt><dd>${escapeHtml(state.info?.platform || 'Unknown')}</dd>
-				<dt>Resolved origin</dt><dd class="mono">${escapeHtml(state.info?.resolvedOrigin || state.health?.origin || 'Not resolved')}</dd>
-				<dt>Server state</dt><dd>${state.health?.ok ? 'Connected' : 'Offline'}</dd>
+				<dt>Resolved origin</dt><dd class="mono" id="app-resolved-origin">${escapeHtml(state.info?.resolvedOrigin || state.health?.origin || 'Not resolved')}</dd>
+				<dt>Server state</dt><dd id="app-server-state">${state.health?.ok ? 'Connected' : 'Offline'}</dd>
 			</dl>
 		</form>
 	</div>`);
@@ -1903,11 +1929,17 @@ function renderConnection() {
 	document.getElementById('app-test')?.addEventListener('click', async () => {
 		const health = await readHealth();
 		state.health = health;
+		const serverState = document.getElementById('app-server-state');
+		if (serverState) serverState.textContent = health.ok ? 'Connected' : 'Offline';
+		const resolvedOrigin = document.getElementById('app-resolved-origin');
+		if (resolvedOrigin) {
+			resolvedOrigin.textContent =
+				state.info?.resolvedOrigin || state.health?.origin || 'Not resolved';
+		}
 		toast(
 			health.ok ? 'The server answered.' : health.message || 'The server did not answer.',
 			health.ok ? 'info' : 'error'
 		);
-		renderConnection();
 	});
 	document.getElementById('app-clear-session')?.addEventListener('click', async () => {
 		try {
@@ -1917,6 +1949,7 @@ function renderConnection() {
 			return;
 		}
 		state.user = null;
+		resetTransientState();
 		showLogin('The local session is cleared.');
 	});
 }
@@ -1978,13 +2011,7 @@ document.getElementById('sign-out').addEventListener('click', async () => {
 		toast(error.message || 'The local session could not be cleared.', 'error');
 	}
 	state.user = null;
-	state.metrics = null;
-	state.orders = [];
-	state.products = [];
-	state.customers = [];
-	state.team = [];
-	state.counterLines = [];
-	state.counterReceipt = null;
+	resetTransientState();
 	if (!localCleared) {
 		showLogin(
 			'Signed out here, but the saved session could not be removed. Sign in again and use Clear session.'

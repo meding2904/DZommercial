@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Azahar Admin
+Comment=Counter, orders and stock for the Azahar storefront framework
+Exec=azahar-admin
+Icon=azahar-admin
+Terminal=false
+Categories=Office;Finance;
+StartupWMClass=azahar-admin

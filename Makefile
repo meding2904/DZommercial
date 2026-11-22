@@ -4,19 +4,25 @@ API_URL ?= http://127.0.0.1:8080
 WEB_URL ?= http://127.0.0.1:5173
 TURSO_URL ?= http://127.0.0.1:8880
 LOADTEST_ARGS ?= -c 20 -n 100
+WAILS ?= $(shell command -v wails 2>/dev/null || echo "$$(go env GOPATH)/bin/wails")
+WAILS_TAGS ?= $(shell pkg-config --exists webkit2gtk-4.1 2>/dev/null && echo webkit2_41)
+WAILS_TAG_FLAGS = $(if $(strip $(WAILS_TAGS)),-tags "$(WAILS_TAGS)")
+VERSION ?= 2.0.0
 
-.PHONY: help dev-db dev-api dev-web check desktop-check build smoke kiri-up kiri-local kiri-down desktop desktop-build loadtest
+.PHONY: help dev-db dev-api dev-web check desktop-check desktop-deps build smoke kiri-up kiri-local kiri-down desktop desktop-build desktop-package loadtest
 
 help:
 	@echo "Azahar demo store"
 	@echo "  make dev-db    start the local Turso/libSQL container"
 	@echo "  make dev-api   run the Go API on :8080"
 	@echo "  make dev-web   run the SvelteKit app on :5173"
-	@echo "  make check     type-check the frontend and test the backend"
+	@echo "  make check     type-check the frontend, test the Go code and the Wails app"
 	@echo "  make build     build both apps"
 	@echo "  make smoke     call the public API endpoints"
-	@echo "  make desktop   run the Electron admin against the local API"
-	@echo "  make desktop-build  build the Linux AppImage"
+	@echo "  make desktop-deps  install the Wails CLI"
+	@echo "  make desktop   run the Wails admin app against the local API"
+	@echo "  make desktop-build  build the Wails admin binary"
+	@echo "  make desktop-package  build a Linux tarball with binary, desktop file and icon"
 	@echo "  make loadtest  run a short read probe against the API"
 	@echo "  make kiri-up   build and run the three containers with Kiri"
 	@echo "  make kiri-local run host-built artifacts in Kiri containers (builder fallback)"
@@ -53,10 +59,11 @@ check:
 	$(MAKE) desktop-check
 
 desktop-check:
-	node --check desktop/main.js
-	node --check desktop/preload.js
-	node --check desktop/renderer/app.js
-	node --check desktop/scripts/prepare-assets.mjs
+	node --check desktop/frontend/app.js
+	cd desktop && go vet $(WAILS_TAG_FLAGS) ./... && go test $(WAILS_TAG_FLAGS) ./...
+
+desktop-deps:
+	go install github.com/wailsapp/wails/v2/cmd/wails@v2.17.1
 
 build:
 	cd frontend && APP_ENV=development pnpm build
@@ -76,10 +83,21 @@ kiri-down:
 	./deploy/kiri-down.sh
 
 desktop:
-	cd desktop && pnpm install --frozen-lockfile && pnpm start
+	cd desktop && $(WAILS) dev $(WAILS_TAG_FLAGS) -s
 
 desktop-build:
-	cd desktop && pnpm install --frozen-lockfile && pnpm dist
+	cd desktop && $(WAILS) build $(WAILS_TAG_FLAGS) -s -clean -trimpath -ldflags "-X main.version=$(VERSION)"
+
+desktop-package: desktop-build
+	rm -rf desktop/build/package
+	mkdir -p desktop/build/package/bin
+	mkdir -p desktop/build/package/share/applications
+	mkdir -p desktop/build/package/share/icons/hicolor/512x512/apps
+	cp desktop/build/bin/azahar-admin desktop/build/package/bin/
+	cp desktop/build/azahar-admin.desktop desktop/build/package/share/applications/
+	cp desktop/build/appicon.png desktop/build/package/share/icons/hicolor/512x512/apps/azahar-admin.png
+	cp LICENSE NOTICE desktop/build/package/
+	tar -C desktop/build/package -czf desktop/build/azahar-admin-linux-amd64.tar.gz .
 
 loadtest:
 	cd scripts/loadtest && go run . -base $(API_URL) -paths /api/products,/api/categories,/api/plugins $(LOADTEST_ARGS)

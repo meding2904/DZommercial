@@ -151,15 +151,14 @@ for anything real.
 
 ## Desktop admin app
 
-The repository also ships an Electron app for the owner's counter. It is framework code, not
-part of the demo catalogue, and works with any deployment. It is the admin panel only, not a
-second storefront: the ledger, a counter sale, orders, products and stock, customers and
-staff. It talks to the Go API directly from the Electron main process. The SvelteKit web app is
-not in the path.
+The repository also ships a Wails app for the owner's counter. It is framework code, not part
+of the demo catalogue, and works with any deployment. It is the admin panel only, not a second
+storefront: the ledger, a counter sale, orders, products and stock, customers and staff. A Go
+backend talks to the API directly, and the static renderer has no network access of its own.
+The SvelteKit web app is not in the path.
 
-`desktop/` holds the app. It uses the same API, roles and audit trail as the web admin. It is
-the operational panel: the counter, orders, stock, customers and staff. The storefront editor,
-plugin settings and the AI screens remain in the web admin.
+`desktop/` holds the Wails project. It uses the same API, roles and audit trail as the web
+admin. The storefront editor, plugin settings and the AI screens remain in the web admin.
 
 ### Run it
 
@@ -172,13 +171,35 @@ Start the API and the web app first, from the repository root:
 The development start publishes the API on `http://127.0.0.1:8080`. Then open a second terminal:
 
 ```bash
+make desktop-deps   # first time only, installs the Wails CLI
 make desktop
 ```
 
-The first run installs the Electron dependencies and copies the bundled fonts and product
-images into the app. Sign in with the admin account. If the API is on another machine, open
-**Connection** on the sign-in screen and enter its `http(s)` address. Leave the origin empty to
-read it from the API health check.
+On Linux, install GTK 3 and WebKit2GTK 4.1 development packages first. The Makefile detects
+WebKitGTK 4.1 and adds the `webkit2_41` build tag.
+
+Sign in with the admin account. The app opens the local API by default. If the API is on
+another machine, open **Connection** on the sign-in screen.
+
+### Connect to your own server
+
+1. Enter the server root, for example `https://admin.example.com` or
+   `http://192.168.1.20:8080`. Use the root, without a path.
+2. Leave **Request origin** empty to read it from `GET /api/health`, or enter the exact
+   `APP_ORIGIN` the API was started with.
+3. For any address that is not loopback, tick **Allow this app to contact the server on the
+   network**.
+4. Save and retry. Use **Firewall help** if the operating system is blocking the connection.
+
+A public host must use HTTPS. Plain HTTP is accepted only for loopback and private or local
+hosts, because the admin password and the session cookie cross this connection. The app never
+turns off TLS verification.
+
+The app makes outbound requests from Go, not from the webview. Windows and macOS may ask
+whether the app may use the network. On Linux, allow outbound traffic for the `azahar-admin`
+binary in your firewall. If the API runs on another machine, its incoming port is usually the
+one that needs a rule. The app does not change firewall rules and never asks for administrator
+rights.
 
 ### What the owner can do
 
@@ -197,15 +218,18 @@ read it from the API health check.
 An employee can use the counter and fulfil orders. The API refuses catalogue and stock edits
 for an employee, and the desktop app disables those controls rather than only hiding them.
 
-### Build the bundle
+### Build the binary
 
 ```bash
 make desktop-build
+make desktop-package
 ```
 
-The Linux AppImage is written to `desktop/dist/`. `pnpm --dir desktop dist` does the same. The
-app uses `safeStorage` for the session cookie, keeps the renderer sandboxed and only exposes a
-narrow API bridge.
+The native binary is written to `desktop/build/bin/azahar-admin`. Wails does not produce an
+AppImage; the binary and the system GTK/WebKit runtime are the package. `make desktop-package`
+writes a Linux tarball with the binary, desktop entry, icon and licence files. The Go client
+keeps the session in the OS keyring when available, with a per-profile, per-server `0600`
+fallback, and the webview only sees typed Wails calls.
 
 The desktop app does not use the web admin gate. The gate protects the browser surface; the API
 still enforces the session and the admin or employee role on every request. In production, do
@@ -486,14 +510,16 @@ The framework is a Go API, a SvelteKit 3 frontend and a Turso/libSQL database, r
 containers. The demo shop is one deployment of it.
 
 ```bash
-make check       # frontend type-check and tests, Go vet and tests, desktop syntax checks
+make check       # frontend type-check and tests, Go vet and tests, Wails app tests
 make build       # build the frontend and the Go API
 make smoke       # call the public API endpoints
 make dev-db      # local database on :8880
 make dev-api     # Go API on :8080
 make dev-web     # SvelteKit development server on :5173
-make desktop     # Electron admin app, pointed at the local API
-make desktop-build  # Linux AppImage in desktop/dist/
+make desktop-deps   # install the Wails CLI
+make desktop     # run the Wails admin app against the local API
+make desktop-build  # native Wails binary in desktop/build/bin/
+make desktop-package  # Linux tarball with binary, desktop entry and icon
 make loadtest    # short read probe (100 requests; LOADTEST_ARGS="-c 50 -n 5000" for more)
 ```
 
@@ -518,7 +544,7 @@ Project layout:
 ```text
 backend/        Go API, migrations, seed, tests, plugin SDK and first-party plugins
 frontend/       SvelteKit storefront, admin and plugin UI
-desktop/        Electron admin app, direct API client, AppImage build
+desktop/        Wails admin app, Go API client, session and network settings
 deploy/         Dockerfiles and Kiri scripts
 docs/           API contract, permissions, plugin and theme guide, security notes, penetration test
 DESIGN.md       brand direction, palette, motion, admin styles

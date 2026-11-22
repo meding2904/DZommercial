@@ -1,0 +1,16 @@
+{
+	"$schema": "https://wails.io/schemas/config.v2.json",
+	"name": "azahar-admin",
+	"outputfilename": "azahar-admin",
+	"author": {
+		"name": "Azahar",
+		"email": "hello@azahar.example"
+	},
+	"info": {
+		"companyName": "Azahar",
+		"productName": "Azahar Admin",
+		"productVersion": "2.0.0",
+		"copyright": "Copyright 2026 Azahar",
+		"comments": "Counter, orders, stock and staff for the Azahar storefront framework."
+	}
+}

@@ -184,6 +184,33 @@ func TestSettingsPersistenceAndModes(t *testing.T) {
 	}
 }
 
+// deleteFailSecrets fails only on Delete so the client can still load and save.
+type deleteFailSecrets struct {
+	memorySecrets
+}
+
+func (s *deleteFailSecrets) Delete() error { return errFakeKeyring }
+
+func TestUpdateSettingsReportsOldSessionDeleteFailure(t *testing.T) {
+	unsetEnv(t, "AZAHAR_API_URL")
+	unsetEnv(t, "AZAHAR_ORIGIN")
+	c, err := newClientWithSecrets("2.0.0-test", filepath.Join(t.TempDir(), "profile"), &deleteFailSecrets{})
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+
+	result, err := c.UpdateSettings("http://127.0.0.1:9090", "", false)
+	if err != nil {
+		t.Fatalf("update settings: %v", err)
+	}
+	if result.APIURL != "http://127.0.0.1:9090" {
+		t.Fatalf("result = %#v, want the new server", result)
+	}
+	if result.Warning == "" {
+		t.Fatal("a failed old-session delete was not reported")
+	}
+}
+
 func TestUpdateSettingsFallsBackWhenHealthFails(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		writeProblem(t, w, http.StatusServiceUnavailable, "unavailable", "Try later.")

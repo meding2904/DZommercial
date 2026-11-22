@@ -138,10 +138,43 @@ func (a *App) context() context.Context {
 
 func (a *App) domReady(ctx context.Context) {
 	bounds := a.client.WindowBounds()
-	if bounds.X != 0 || bounds.Y != 0 {
+	if (bounds.X != 0 || bounds.Y != 0) && screenPositionAllowed(ctx, bounds) {
 		wailsRuntime.WindowSetPosition(ctx, bounds.X, bounds.Y)
 	}
 	clampWindowSize(ctx)
+}
+
+// screenPositionAllowed keeps a saved window position from landing off-screen after
+// the monitor layout changed. Wails reports screen sizes but not origins, so this is
+// deliberately coarse: on a multi-monitor layout a saved position to the right of or
+// below the primary screen is indistinguishable from an off-screen one and is dropped.
+func screenPositionAllowed(ctx context.Context, bounds api.WindowBounds) bool {
+	if bounds.X < 0 || bounds.Y < 0 {
+		return false
+	}
+	screens, err := wailsRuntime.ScreenGetAll(ctx)
+	if err != nil {
+		return true
+	}
+	var target *wailsRuntime.Screen
+	for i := range screens {
+		if screens[i].IsCurrent {
+			target = &screens[i]
+			break
+		}
+	}
+	if target == nil {
+		for i := range screens {
+			if screens[i].IsPrimary {
+				target = &screens[i]
+				break
+			}
+		}
+	}
+	if target == nil || target.Size.Width <= 0 || target.Size.Height <= 0 {
+		return true
+	}
+	return bounds.X <= target.Size.Width && bounds.Y <= target.Size.Height
 }
 
 func (a *App) beforeClose(ctx context.Context) bool {

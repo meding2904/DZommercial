@@ -2,6 +2,10 @@
 	"$schema": "https://wails.io/schemas/config.v2.json",
 	"name": "azahar-admin",
 	"outputfilename": "azahar-admin",
+	"frontend:dir": "frontend",
+	"frontend:install": "",
+	"frontend:build": "",
+	"frontend:dev:watcher": "",
 	"author": {
 		"name": "Azahar",
 		"email": "hello@azahar.example"

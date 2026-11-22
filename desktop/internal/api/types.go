@@ -58,6 +58,7 @@ type SettingsResult struct {
 	Origin         string `json:"origin"`
 	ResolvedOrigin string `json:"resolvedOrigin"`
 	NetworkAllowed bool   `json:"networkAllowed"`
+	Warning        string `json:"warning,omitempty"`
 }
 
 type FirewallGuide struct {

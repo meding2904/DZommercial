@@ -54,9 +54,9 @@ make desktop-package
 
 `desktop-build` writes the native binary to `desktop/build/bin/azahar-admin`. Wails does not
 produce an AppImage; the binary and the system GTK/WebKit runtime are the package.
-`desktop-package` writes `desktop/build/azahar-admin-linux-amd64.tar.gz` with the binary, the
-desktop entry, the icon and the licence files. Install it into a prefix such as `/usr` or
-`~/.local`.
+`desktop-package` writes `desktop/build/azahar-admin-linux-<arch>.tar.gz` with the binary, the
+desktop entry, the icon and the licence files. `<arch>` is `go env GOARCH` (`amd64`, `arm64`),
+overridable with `DESKTOP_GOARCH`. Install it into a prefix such as `/usr` or `~/.local`.
 
 ## Connect to your own server
 

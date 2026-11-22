@@ -8,6 +8,7 @@ WAILS ?= $(shell command -v wails 2>/dev/null || echo "$$(go env GOPATH)/bin/wai
 WAILS_TAGS ?= $(shell pkg-config --exists webkit2gtk-4.1 2>/dev/null && echo webkit2_41)
 WAILS_TAG_FLAGS = $(if $(strip $(WAILS_TAGS)),-tags "$(WAILS_TAGS)")
 VERSION ?= 2.0.0
+DESKTOP_GOARCH ?= $(shell go env GOARCH)
 
 .PHONY: help dev-db dev-api dev-web check desktop-check desktop-deps build smoke kiri-up kiri-local kiri-down desktop desktop-build desktop-package loadtest
 
@@ -60,7 +61,12 @@ check:
 
 desktop-check:
 	node --check desktop/frontend/app.js
-	cd desktop && go vet $(WAILS_TAG_FLAGS) ./... && go test $(WAILS_TAG_FLAGS) ./...
+	cd desktop && CGO_ENABLED=0 go vet ./internal/api && CGO_ENABLED=0 go test ./internal/api
+	@if pkg-config --exists gtk+-3.0 && pkg-config --exists webkit2gtk-4.1; then \
+		cd desktop && go vet $(WAILS_TAG_FLAGS) ./... && go test $(WAILS_TAG_FLAGS) ./...; \
+	else \
+		echo "skipping Wails main package checks: install libgtk-3-dev and libwebkit2gtk-4.1-dev"; \
+	fi
 
 desktop-deps:
 	go install github.com/wailsapp/wails/v2/cmd/wails@v2.17.1
@@ -97,7 +103,7 @@ desktop-package: desktop-build
 	cp desktop/build/azahar-admin.desktop desktop/build/package/share/applications/
 	cp desktop/build/appicon.png desktop/build/package/share/icons/hicolor/512x512/apps/azahar-admin.png
 	cp LICENSE NOTICE desktop/build/package/
-	tar -C desktop/build/package -czf desktop/build/azahar-admin-linux-amd64.tar.gz .
+	tar -C desktop/build/package -czf desktop/build/azahar-admin-linux-$(DESKTOP_GOARCH).tar.gz .
 
 loadtest:
 	cd scripts/loadtest && go run . -base $(API_URL) -paths /api/products,/api/categories,/api/plugins $(LOADTEST_ARGS)

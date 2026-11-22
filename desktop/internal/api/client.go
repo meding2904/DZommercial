@@ -299,11 +299,16 @@ func (c *Client) UpdateSettings(apiURL, origin string, allowNetwork bool) (Setti
 	}
 	c.mu.Unlock()
 
+	warning := ""
 	if urlChanged {
-		_ = c.deleteStoredSession(oldSecrets)
+		if err := c.deleteStoredSession(oldSecrets); err != nil {
+			warning = "The old server's saved session could not be removed. It is scoped to the old server."
+		}
 	}
 
-	return c.settingsResult(c.resolveOrigin(true)), nil
+	result := c.settingsResult(c.resolveOrigin(true))
+	result.Warning = warning
+	return result, nil
 }
 
 func (c *Client) settingsResult(resolved string) SettingsResult {

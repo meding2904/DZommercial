@@ -8,15 +8,6 @@
 }
 
 @font-face {
-	font-family: 'Source Serif 4 Variable';
-	font-style: normal;
-	font-display: swap;
-	font-weight: 200 900;
-	src: url('/fonts/source-serif-4-latin-wght-normal.woff2')
-		format('woff2-variations');
-}
-
-@font-face {
 	font-family: 'JetBrains Mono Variable';
 	font-style: normal;
 	font-display: swap;
@@ -1287,7 +1278,7 @@ th.numeric {
 	color: var(--a-ink);
 }
 
-.tabs button[aria-selected='true'] {
+.tabs button[aria-pressed='true'] {
 	color: var(--a-ink);
 	border-bottom-color: var(--a-accent);
 }
@@ -1603,32 +1594,6 @@ th.numeric {
 	font-size: 11px;
 }
 
-@media print {
-	.rail,
-	.page-head,
-	.app-header,
-	.app-footer,
-	.receipt-actions {
-		display: none !important;
-	}
-
-	.admin-shell {
-		display: block;
-	}
-
-	main {
-		padding: 0;
-	}
-
-	.receipt {
-		max-width: none;
-		padding: 0;
-		border: 0;
-		background: #fff;
-		color: #000;
-	}
-}
-
 /* Products */
 
 .product-editor {
@@ -1857,28 +1822,6 @@ th.numeric {
 	.connection-actions {
 		flex-direction: column;
 		align-items: stretch;
-	}
-}
-
-@media print {
-	.rail,
-	.page-head .period,
-	.ticket-actions,
-	.receipt-actions {
-		display: none;
-	}
-
-	body {
-		background: #fff;
-		color: #000;
-	}
-
-	.admin-shell {
-		display: block;
-	}
-
-	main {
-		padding: 0;
 	}
 }
 

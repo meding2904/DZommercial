@@ -214,3 +214,87 @@ func TestMediumBugFixesArePresent(t *testing.T) {
 		t.Error("UpdateSettings still contains the rollback path that dropped session state")
 	}
 }
+
+func TestLowRiskFrontendFixesArePresent(t *testing.T) {
+	script, err := os.ReadFile("frontend/app.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(script)
+	for _, forbidden := range []string{
+		"orderLoading",
+		"const reload",
+		`role="tablist"`,
+		"aria-selected",
+		"order.delivery_type === 'pickup' ? 'Counter'",
+		"order.delivery_type === 'pickup' ? 'Counter sale'",
+	} {
+		if strings.Contains(source, forbidden) {
+			t.Errorf("app.js still contains %q", forbidden)
+		}
+	}
+	for _, want := range []string{
+		"(metrics.status_split || [])",
+		"deliveryLabel(order.delivery_type)",
+		`role="group" aria-label="Order status"`,
+		"aria-pressed",
+	} {
+		if !strings.Contains(source, want) {
+			t.Errorf("app.js is missing %q", want)
+		}
+	}
+	if got := strings.Count(source, "deliveryLabel(order.delivery_type)"); got != 4 {
+		t.Errorf("deliveryLabel(order.delivery_type) uses = %d, want 4", got)
+	}
+
+	start := strings.Index(source, "async function saveConnection(")
+	end := strings.Index(source, "async function readHealth(")
+	if start < 0 || end < 0 || end <= start {
+		t.Fatal("saveConnection could not be located in app.js")
+	}
+	if !strings.Contains(source[start:end], "toast(result.warning, 'error')") {
+		t.Error("saveConnection must toast result.warning")
+	}
+
+	styles, err := os.ReadFile("frontend/styles.css")
+	if err != nil {
+		t.Fatal(err)
+	}
+	css := string(styles)
+	for _, forbidden := range []string{"'Source Serif 4 Variable'", "@media print"} {
+		if strings.Contains(css, forbidden) {
+			t.Errorf("styles.css still contains %q", forbidden)
+		}
+	}
+	for _, want := range []string{".receipt-total", ".receipt-actions", ".receipt-served"} {
+		if !strings.Contains(css, want) {
+			t.Errorf("styles.css lost on-screen rule %q", want)
+		}
+	}
+
+	for _, name := range []string{
+		"fraunces-latin-ext-wght-normal.woff2",
+		"fraunces-latin-wght-normal.woff2",
+		"inter-latin-ext-wght-normal.woff2",
+		"inter-latin-wght-normal.woff2",
+		"jetbrains-mono-latin-ext-wght-normal.woff2",
+		"schibsted-grotesk-latin-ext-wght-normal.woff2",
+		"source-serif-4-latin-ext-wght-normal.woff2",
+		"source-serif-4-latin-wght-normal.woff2",
+	} {
+		path := "frontend/fonts/" + name
+		if _, err := os.Stat(path); err == nil {
+			t.Errorf("unused font %s still exists", name)
+		} else if !os.IsNotExist(err) {
+			t.Errorf("os.Stat(%s): %v", name, err)
+		}
+	}
+	for _, name := range []string{
+		"schibsted-grotesk-latin-wght-normal.woff2",
+		"jetbrains-mono-latin-wght-normal.woff2",
+	} {
+		if _, err := os.Stat("frontend/fonts/" + name); err != nil {
+			t.Errorf("kept font %s is missing: %v", name, err)
+		}
+	}
+}

@@ -141,7 +141,6 @@ const state = {
 	orders: [],
 	orderFilter: '',
 	orderQuery: '',
-	orderLoading: false,
 	orderTimer: null,
 	products: [],
 	productQuery: '',
@@ -626,7 +625,8 @@ async function saveConnection(prefix, errorBox) {
 		return false;
 	}
 	try {
-		await api.updateSettings(payload);
+		const result = await api.updateSettings(payload);
+		if (result?.warning) toast(result.warning, 'error');
 		return true;
 	} catch (error) {
 		errorBox.textContent = error.message || 'The server address could not be saved.';
@@ -984,7 +984,7 @@ function drawLedger(metrics) {
 			<section class="band" aria-labelledby="mix-title">
 				<div class="band-head"><div><h2 id="mix-title">Order mix</h2><p>The pipeline at a glance.</p></div></div>
 				<div class="mix"><div class="mix-rule" role="img" aria-label="Order status mix">${mix}</div><div class="mix-legend">${legend}</div></div>
-				<p class="mix-foot">${metrics.status_split.reduce((sum, item) => sum + (['delivered', 'cancelled'].includes(item.status) ? 0 : item.count), 0)} orders still open.</p>
+				<p class="mix-foot">${(metrics.status_split || []).reduce((sum, item) => sum + (['delivered', 'cancelled'].includes(item.status) ? 0 : item.count), 0)} orders still open.</p>
 			</section>
 			<section class="band" aria-labelledby="low-title">
 				<div class="band-head"><div><h2 id="low-title">Low stock</h2><p>Lines the shelf cannot cover for long.</p></div></div>
@@ -1355,12 +1355,12 @@ async function renderOrders() {
 	const tabs = ['', ...ORDER_STATUSES]
 		.map(
 			(status) =>
-				`<button type="button" data-order-filter="${status}" aria-selected="${state.orderFilter === status}">${status ? titleCase(status) : 'All'}</button>`
+				`<button type="button" data-order-filter="${status}" aria-pressed="${state.orderFilter === status}">${status ? titleCase(status) : 'All'}</button>`
 		)
 		.join('');
 	setView(`<div>
 		${pageHead('Orders', 'Every sale, online and at the counter. Open one to move it.')}
-		<div class="tabs" role="tablist" aria-label="Order status">${tabs}</div>
+		<div class="tabs" role="group" aria-label="Order status">${tabs}</div>
 		<div class="toolbar">
 			<div class="field field-grow"><label for="order-search">Search</label><input class="input" id="order-search" type="search" placeholder="Number, name, phone or tracking" value="${escapeHtml(state.orderQuery)}" /></div>
 			<button class="button button-secondary" type="button" id="refresh-orders">Refresh</button>
@@ -1372,7 +1372,7 @@ async function renderOrders() {
 		tab.addEventListener('click', () => {
 			state.orderFilter = tab.dataset.orderFilter;
 			for (const other of view.querySelectorAll('[data-order-filter]')) {
-				other.setAttribute('aria-selected', String(other === tab));
+				other.setAttribute('aria-pressed', String(other === tab));
 			}
 			void loadOrders();
 		});
@@ -1418,7 +1418,7 @@ function drawOrdersTable() {
 				(order) => `<tr data-order-id="${escapeHtml(order.id)}" data-clickable="true">
 					<td class="mono">${escapeHtml(order.number)}<span class="cell-sub">${escapeHtml(order.id)}</span></td>
 					<td><span class="cell-strong">${escapeHtml(order.name)}</span><span class="cell-sub">${escapeHtml(order.phone || order.email || '')}</span></td>
-					<td>${escapeHtml(order.delivery_type === 'pickup' ? 'Counter' : order.delivery_type === 'stopdesk' ? 'Stop desk' : 'Home')}</td>
+					<td>${escapeHtml(deliveryLabel(order.delivery_type))}</td>
 					<td class="numeric">${money(order.total_cents)}</td>
 					<td>${statusTag(order.status)}</td>
 					<td class="meta">${formatDate(order.created_at)}</td>
@@ -1485,7 +1485,7 @@ function drawOrderDialog(order, errorMessage = '') {
 					<dt>Customer</dt><dd>${escapeHtml(order.name)}</dd>
 					<dt>Phone</dt><dd>${escapeHtml(order.phone || 'Not given')}</dd>
 					<dt>Email</dt><dd>${escapeHtml(order.email || 'Not given')}</dd>
-					<dt>Delivery</dt><dd>${escapeHtml(order.delivery_type === 'pickup' ? 'Counter sale' : order.delivery_type === 'stopdesk' ? 'Stop desk' : 'Home delivery')}</dd>
+					<dt>Delivery</dt><dd>${escapeHtml(deliveryLabel(order.delivery_type))}</dd>
 					${order.wilaya_name ? `<dt>Wilaya</dt><dd>${escapeHtml(order.wilaya_name)}</dd>` : ''}
 					${order.commune_name ? `<dt>Commune</dt><dd>${escapeHtml(order.commune_name)}</dd>` : ''}
 					${order.address ? `<dt>Address</dt><dd>${escapeHtml(order.address)}</dd>` : ''}
@@ -1499,10 +1499,6 @@ function drawOrderDialog(order, errorMessage = '') {
 		</div>
 	</div>`;
 	attachDialogClose();
-	const reload = async () => {
-		await loadOrders();
-		await openOrder(order.id, order);
-	};
 	for (const button of orderDialog.querySelectorAll('[data-order-status]')) {
 		button.addEventListener('click', async () => {
 			button.disabled = true;

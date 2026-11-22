@@ -18,12 +18,13 @@ shape as the old Electron bridge.
   "apiUrl": "http://127.0.0.1:8080",
   "origin": "",
   "resolvedOrigin": "http://localhost:3000",
-  "networkAllowed": false
+  "networkAllowed": true
 }
 ```
 
-`networkAllowed` is consent for a non-loopback server. It is true only for the host saved in
-the settings, and loopback is always allowed. Changing the host requires a fresh consent.
+`networkAllowed` is consent for a non-loopback server. Loopback needs no explicit consent, so
+the field is already `true` for a loopback `apiUrl`. For a non-loopback server it is true only
+for the host saved in the settings; changing the host requires a fresh consent.
 
 ### `Health()`
 
@@ -80,7 +81,22 @@ Validates the server address, saves it, clears the old session and resolves the 
 fragment. Remote plain HTTP is refused. A non-loopback server requires `allowNetwork: true`,
 and that consent is tied to the host: changing the host needs a new consent.
 
-Returns the same fields as `Info()`. Rejects with an error string the form can show.
+Returns the same fields as `Info()`, plus an optional `warning`. The call rejects with an
+error string the form can show.
+
+```json
+{
+  "apiUrl": "https://admin.example.com",
+  "origin": "",
+  "resolvedOrigin": "http://localhost:3000",
+  "networkAllowed": true,
+  "warning": "The old server's saved session could not be removed. It is scoped to the old server."
+}
+```
+
+`warning` is omitted when empty. It is set only when the address changed and the session saved
+for the previous server could not be deleted; the new settings are already live, so the form
+should show the message and continue rather than treat it as a failed save.
 
 ### `ClearSession()`
 

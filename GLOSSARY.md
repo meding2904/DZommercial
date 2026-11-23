@@ -74,3 +74,8 @@ authority; these modules mirror it once.
   receipt document, the status transitions and the courier and delivery labels
   shared by the web admin and the desktop renderer. The API contract stays the
   enforcement authority.
+- **WhatsApp outbox** (`backend/internal/plugins/whatsapp`): the message rows
+  written inside the order transaction and sent by the plugin dispatcher.
+  Delivery receipts, inbound replies and consent live beside the queue; the
+  webhook is the only public plugin route that bypasses the browser CSRF header,
+  because it verifies Meta's signature instead.

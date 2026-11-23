@@ -21,6 +21,7 @@ interface publishes.
 | PC builder plugin | `backend/internal/plugins/pcbuilder` | The public Build your PC page and its parts API |
 | Code mode plugin | `backend/internal/plugins/codemode` | Admin AI planning and audited storefront/catalogue actions |
 | AI plugin | `backend/internal/plugins/ai` | Admin-only store and product analysis through an OpenAI-compatible endpoint |
+| WhatsApp plugin | `backend/internal/plugins/whatsapp` | Order messages, replies, delivery receipts and consent through the WhatsApp Business Cloud API |
 | Theme model | `backend/internal/storefront` | Validated brand copy, fonts, palette and imagery |
 | Storefront theme UI | `frontend/src/routes/admin/(panel)/storefront` | The admin-only design editor |
 | Plugin console | `frontend/src/routes/admin/(panel)/plugins` | Installed modules, settings and plugin admin screens |
@@ -121,7 +122,7 @@ matching route; the page can call the plugin's public API.
 ```go
 registry := plugins.NewRegistry()
 for _, plugin := range []plugins.Plugin{
-    oils.New(), pcparts.New(), pcbuilder.New(), codemode.New(registry), phone.New(), ai.New(),
+    oils.New(), pcparts.New(), pcbuilder.New(), codemode.New(registry), phone.New(), ai.New(), whatsapp.New(),
 } {
     if err := registry.Register(plugin); err != nil {
         logger.Error("plugin registration failed", "error", err)
@@ -191,6 +192,24 @@ func (p *Plugin) handleCreate(c *plugins.Context) {
 
 `Problem` uses the same error envelope as the core. `DecodeBody` enforces JSON, unknown
 field rejection and one object per request.
+
+### Webhook routes
+
+A third-party callback cannot read the browser's CSRF cookie or set the `X-Requested-With`
+header. Mark the route `Webhook: true`:
+
+```go
+{Method: http.MethodPost, Pattern: "/webhook", Webhook: true, Handler: p.handleWebhook}
+```
+
+The core mounts it like any public route but skips the CSRF header check for that exact
+method and path. The handler must authenticate the caller itself; the WhatsApp plugin checks
+Meta's `X-Hub-Signature-256` HMAC on every POST and its verify token on the GET handshake.
+A webhook route cannot be an admin route, must use `GET` or `POST`, and must have a static
+pattern so the core can match it before routing.
+
+The HTTP server calls `Close()` on every plugin that implements `plugins.Closer` during
+shutdown. A plugin that starts a background dispatcher from `Init` stops it there.
 
 ### Migrations
 
@@ -428,6 +447,54 @@ logged. Responses are capped at 2 MiB and 8000 characters.
 A missing key, a disabled plugin, an unreachable provider and a malformed provider response
 each get their own plain error. The browser never sees the upstream body.
 
+## WhatsApp plugin
+
+The plugin connects the store to the WhatsApp Business Cloud API. Meta credentials live in
+the core plugin settings, encrypted with `PLUGIN_SECRET_KEY`:
+
+- `phone_number_id`, `access_token`, `app_secret` and `verify_token` are required.
+- `graph_version` defaults to `v23.0`.
+- `default_country_code` defaults to `213`; a local order number such as `0550 77 88 99` is
+  completed to `+213550778899`.
+- `order_template` and `status_template` name the approved templates. The order template
+  takes three body parameters (customer name, order number, total). The status template
+  takes four (customer name, order number, status, total).
+- The four notification switches decide which order events queue a message. Order
+  confirmation is on by default; shipped, delivered and cancelled are on by default too.
+
+Every outbound message is a row in `whatsapp_messages` with `queued`, `sending`, `sent`,
+`delivered`, `read`, `failed` or `cancelled`. The order hook writes the row inside the order
+transaction; a background dispatcher claims it, calls Meta and records the result. A
+permanent Meta error (400, 401, 403, 404) fails at once. Network errors, 429 and 5xx retry
+with backoff, up to five attempts. A contact who sends STOP or is paused also cancels a row
+that is still queued. Delivery receipts update the row by Meta's message id and never
+downgrade a later state (read cannot become delivered).
+
+Inbound messages and consent live in `whatsapp_contacts`. A text of `STOP`, `STOP ALL`,
+`UNSUBSCRIBE`, `ARRET`, `ARRÊT` or `إلغاء` pauses every send to that number; `START`,
+`UNSTOP`, `REPRENDRE` or `ابدأ` resumes it. The admin screen can also pause and resume a
+contact by hand. Free-form replies are only accepted inside the 24-hour window that opens
+with the customer's last message; outside it the API returns `409 reply_window_closed` and
+an approved template must be used.
+
+Endpoints:
+
+- `GET /api/plugins/whatsapp/webhook` answers Meta's verification handshake with
+  `hub.challenge` when `hub.mode=subscribe` and `hub.verify_token` match.
+- `POST /api/plugins/whatsapp/webhook` verifies `X-Hub-Signature-256` against the app secret
+  before it parses or stores the payload. It records inbound messages, delivery receipts and
+  consent changes. Duplicate message ids are ignored.
+- `GET /api/plugins/whatsapp/admin/status` returns the connection state, webhook URL,
+  queue counts, contact counts and the last webhook time.
+- `GET /api/plugins/whatsapp/admin/messages?limit=&status=&direction=` returns the log.
+- `POST /api/plugins/whatsapp/admin/messages` queues a `text` or `template` message.
+- `POST /api/plugins/whatsapp/admin/messages/{id}/retry` re-queues a failed message.
+- `GET /api/plugins/whatsapp/admin/contacts?limit=` lists consent and the reply window.
+- `PATCH /api/plugins/whatsapp/admin/contacts/{phone}` sets `{"opted_in": false}` or `true`.
+
+The webhook path is the one public exception to the CSRF header rule. Its signature check is
+mandatory; do not remove it when adapting the plugin.
+
 ## Test the framework
 
 ```bash
@@ -436,6 +503,9 @@ make check
 # Transactional phone lifecycle against a local libSQL server:
 cd backend
 AZAHAR_TEST_DATABASE_URL=http://127.0.0.1:8880 go test ./internal/plugins/phone/...
+
+# WhatsApp order, dispatcher, webhook and admin lifecycle:
+AZAHAR_TEST_DATABASE_URL=http://127.0.0.1:8880 go test ./internal/plugins/whatsapp/...
 ```
 
 The unit tests cover the registry, option validation, theme contrast, encryption, IMEI

@@ -22,6 +22,7 @@ import (
 	"azahar/internal/plugins/pcbuilder"
 	"azahar/internal/plugins/pcparts"
 	"azahar/internal/plugins/phone"
+	"azahar/internal/plugins/whatsapp"
 	"azahar/internal/seed"
 	"azahar/internal/store"
 )
@@ -53,7 +54,7 @@ func main() {
 
 	registry := plugins.NewRegistry()
 	for _, plugin := range []plugins.Plugin{
-		oils.New(), pcparts.New(), pcbuilder.New(), codemode.New(registry), phone.New(), ai.New(),
+		oils.New(), pcparts.New(), pcbuilder.New(), codemode.New(registry), phone.New(), ai.New(), whatsapp.New(),
 	} {
 		if err := registry.Register(plugin); err != nil {
 			logger.Error("plugin registration failed", "error", err)

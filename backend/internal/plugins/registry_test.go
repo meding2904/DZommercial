@@ -103,6 +103,42 @@ func TestRejectsDuplicateRoute(t *testing.T) {
 	}
 }
 
+func TestWebhookRouteRegistrationAndLookup(t *testing.T) {
+	plugin := validPlugin()
+	plugin.manifest.ID = "hooked"
+	plugin.routes = []plugins.Route{
+		{Method: "POST", Pattern: "/hook", Webhook: true, Handler: func(*plugins.Context) {}},
+	}
+	registry := plugins.NewRegistry()
+	if err := registry.Register(plugin); err != nil {
+		t.Fatalf("register webhook route: %v", err)
+	}
+	if !registry.IsWebhook("POST", "/api/plugins/hooked/hook") {
+		t.Fatal("the registered webhook path was not recognised")
+	}
+	if registry.IsWebhook("GET", "/api/plugins/hooked/hook") {
+		t.Fatal("the wrong method was recognised as a webhook")
+	}
+	if registry.IsWebhook("POST", "/api/plugins/hooked/other") {
+		t.Fatal("an unregistered path was recognised as a webhook")
+	}
+}
+
+func TestRejectsUnsafeWebhookRoutes(t *testing.T) {
+	tests := []plugins.Route{
+		{Method: "POST", Pattern: "/hook", Admin: true, Webhook: true, Handler: func(*plugins.Context) {}},
+		{Method: "POST", Pattern: "/hook/{id}", Webhook: true, Handler: func(*plugins.Context) {}},
+		{Method: "PUT", Pattern: "/hook", Webhook: true, Handler: func(*plugins.Context) {}},
+	}
+	for _, route := range tests {
+		plugin := validPlugin()
+		plugin.routes = []plugins.Route{route}
+		if err := plugins.NewRegistry().Register(plugin); err == nil {
+			t.Fatalf("unsafe webhook route %s %q must be rejected", route.Method, route.Pattern)
+		}
+	}
+}
+
 func pluginWith(id string, dependencies ...string) testPlugin {
 	plugin := validPlugin()
 	plugin.manifest.ID = id

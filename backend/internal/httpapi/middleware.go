@@ -173,6 +173,12 @@ func (s *Server) enforceCSRF(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
+		// A third-party webhook cannot read the CSRF cookie or set the browser
+		// header. Its plugin route verifies the caller's signature instead.
+		if s.plugins != nil && s.plugins.IsWebhook(r.Method, r.URL.Path) {
+			next.ServeHTTP(w, r)
+			return
+		}
 		if r.Header.Get("X-Requested-With") != "azahar-web" {
 			writeError(w, http.StatusForbidden, "csrf_failed", "The request could not be verified.")
 			return

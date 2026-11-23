@@ -14,7 +14,7 @@ courier parcels, edit products, change the shop's design and configure plugins.
 The framework code lives in `backend/`, `frontend/` and `desktop/`. The catalogue, accounts,
 orders and photographs here are demo data.
 
-Six plugins ship with the framework:
+Seven plugins ship with the framework:
 
 - **Oil shelf**: the skincare product type. Size, concerns, materials and instructions are
   plugin fields, not core columns.
@@ -28,6 +28,8 @@ Six plugins ship with the framework:
   OpenAI-compatible endpoint, configured with an encrypted API key.
 - **Code mode**: an admin AI console that plans storefront and catalogue changes, shows the
   plan, then applies it through validated actions with an audit trail.
+- **WhatsApp Business**: order confirmations and delivery updates through the WhatsApp
+  Business Cloud API, with a signed webhook for replies, delivery receipts and consent.
 
 The framework also ships with limited-time sale prices, five storefront style presets, an
 employee role with a read-only catalogue, counter sales and order fulfilment, and a durable
@@ -83,7 +85,9 @@ create a real parcel.
   storefront or catalogue change in plain language, review the proposed actions, then apply
   them with an audit trail. The AI plugin stores its API key encrypted and never sends
   customer data to the model. The phone plugin registers IMEIs for paired memory/storage
-  configurations and shows reserved and sold units.
+  configurations and shows reserved and sold units. The WhatsApp plugin stores the Meta
+  credentials encrypted, queues order messages, records replies and delivery receipts, and
+  lets an admin pause consent for a number.
 - Change the admin colour style and light or dark mode. The style is saved per admin user;
   the mode is stored on the device.
 
@@ -303,7 +307,9 @@ when the parcel arrives.
     Open the AI plugin to save its API key, model and language, then run a store or product
     analysis. Open the phone plugin to register IMEIs for a paired memory/storage
     configuration, see what is in stock, reserved or sold, and find the IMEI reserved for an
-    order. Open **Code mode** to describe a change, review the plan and apply it.
+    order. Open the WhatsApp plugin to add the Meta credentials, copy the webhook URL into
+    Meta's console, and read the message log. Open **Code mode** to describe a change, review
+    the plan and apply it.
 11. The colour styles at the bottom of the admin rail change the admin palette. Every style
     has its own light and dark mode; the sun and moon switch in the header changes the mode.
     The style is saved for that admin user; the mode is stored on the device.
@@ -558,11 +564,6 @@ scripts/        health check, admin-gate proof of concept, load probe and screen
 
 The framework ships with cash on delivery only. No card details are collected. The demo
 shop, accounts and admin all run locally.
-
-## Upcoming
-
-- WhatsApp Business API integration for order and delivery updates. Not implemented in this
-  demo.
 
 ## License
 

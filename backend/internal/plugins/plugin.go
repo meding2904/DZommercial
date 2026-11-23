@@ -90,6 +90,11 @@ type Route struct {
 	Method  string
 	Pattern string
 	Admin   bool
+	// Webhook marks a public callback called by a third party, not a browser.
+	// The core skips the CSRF header check for these routes, so the handler
+	// must authenticate the caller itself, normally with an HMAC signature.
+	// The pattern must be static (no path parameters).
+	Webhook bool
 	Handler func(*Context)
 }
 
@@ -109,6 +114,12 @@ type Migrator interface {
 
 type EnvAware interface {
 	Init(*Env)
+}
+
+// Closer releases work started by Init, such as a background dispatcher. The
+// HTTP server calls it once during shutdown, after the listener has stopped.
+type Closer interface {
+	Close()
 }
 
 type ProductEnricher interface {

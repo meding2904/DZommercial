@@ -15,6 +15,8 @@ RFC 3339 strings in UTC.
 - Every `POST`, `PATCH`, `PUT` and `DELETE` must carry `X-Requested-With: azahar-web`, an
   `Origin` header equal to `APP_ORIGIN`, and `X-CSRF-Token` with the same value as the
   `azahar_csrf` cookie. The proxy forwards all three.
+- The one exception is a plugin webhook route. A third party such as Meta cannot read the
+  CSRF cookie, so the route verifies its own signature instead. See the WhatsApp plugin.
 - Unauthenticated protected request: `401`.
 - Authenticated but not an admin: `403`.
 - Invalid input: `422`.
@@ -732,6 +734,142 @@ and never returned; plans are admin-only and audited.
 
 Errors: `409 plugin_not_configured`, `409 plugin_disabled`, `502 ai_upstream_error`.
 The provider API key never leaves the server and customer data is never sent to the model.
+
+### WhatsApp plugin
+
+The plugin settings are the four Meta credentials plus the template and notification choices
+documented in `docs/PLUGINS.md`. A missing credential returns `409 plugin_not_configured`;
+an unreadable settings row returns `409 plugin_settings_unreadable`.
+
+#### `GET /api/plugins/whatsapp/webhook`
+
+Meta's verification handshake. Public, no CSRF header.
+
+Query: `hub.mode=subscribe`, `hub.verify_token=<saved token>`, `hub.challenge=<random>`.
+Returns the challenge as `text/plain` with `200` when the mode and token match; `403`
+otherwise.
+
+#### `POST /api/plugins/whatsapp/webhook`
+
+Public, no CSRF header. Requires `X-Hub-Signature-256: sha256=<hmac>` over the exact request
+body, keyed with the saved app secret. A missing or wrong signature returns `403` before any
+database write. The body is Meta's standard webhook envelope. The endpoint records:
+
+- inbound messages in the log with direction `in` and state `received`;
+- consent changes from `STOP`/`START` keywords;
+- delivery receipts (`sent`, `delivered`, `read`, `failed`) against the outbound row.
+
+It returns `200 {"received":true}`. The same inbound message id is inserted once.
+
+#### `GET /api/plugins/whatsapp/admin/status`
+
+```json
+{
+  "enabled": true,
+  "configured": true,
+  "webhook_url": "https://shop.example/api/plugins/whatsapp/webhook",
+  "phone_number_id": "123456789012345",
+  "graph_version": "v23.0",
+  "order_template": "order_confirmation",
+  "order_template_language": "en",
+  "status_template": "order_update",
+  "status_template_language": "en",
+  "counts": { "queued": 2, "sent": 18, "delivered": 12, "read": 4, "failed": 1, "received": 6 },
+  "contacts": 11,
+  "opted_out": 1,
+  "last_webhook_at": "2026-11-23T18:02:11Z",
+  "last_failure": "",
+  "last_failure_at": "",
+  "reply_window_hours": 24
+}
+```
+
+#### `GET /api/plugins/whatsapp/admin/messages`
+
+Query: `limit` 1 to 100 (default 50), optional `status` (`queued`, `sending`, `sent`,
+`delivered`, `read`, `failed`, `cancelled`, `received`) and `direction` (`in` or `out`).
+
+```json
+{
+  "messages": [
+    {
+      "id": "wam_...",
+      "direction": "out",
+      "kind": "template",
+      "phone": "+213550778899",
+      "contact_name": "Amina Benali",
+      "body": "order_confirmation: Amina · AZ-2026-0001 · 6,000 DZD",
+      "template_name": "order_confirmation",
+      "template_language": "en",
+      "template_params": ["Amina", "AZ-2026-0001", "6,000 DZD"],
+      "status": "delivered",
+      "error": "",
+      "meta_message_id": "wamid...",
+      "order_id": "ord_...",
+      "order_number": "AZ-2026-0001",
+      "contact_opted_in": true,
+      "attempts": 0,
+      "created_at": "...",
+      "updated_at": "..."
+    }
+  ]
+}
+```
+
+#### `POST /api/plugins/whatsapp/admin/messages`
+
+```json
+{
+  "phone": "0550 77 88 99",
+  "kind": "text",
+  "text": "Your parcel leaves today.",
+  "template_name": "",
+  "template_language": "",
+  "template_params": [],
+  "order_id": ""
+}
+```
+
+`phone` is completed with the default country code. `kind` is `text` or `template`.
+A text reply is refused with `409 reply_window_closed` when the contact has not written in
+the last 24 hours. A template requires `template_name` and a language code; up to ten body
+parameters are accepted, one line each. Sending to a contact that opted out returns
+`409 contact_opted_out`. `order_id` is optional and must exist. Returns `201` with the
+queued `message`.
+
+#### `POST /api/plugins/whatsapp/admin/messages/{id}/retry`
+
+Re-queues a `failed` outgoing message and resets its attempts to zero. Returns `200` with
+the `message`. Any other state returns `409 not_retryable`.
+
+#### `GET /api/plugins/whatsapp/admin/contacts`
+
+```json
+{
+  "contacts": [
+    {
+      "phone": "+213550778899",
+      "name": "Amina Benali",
+      "opted_in": true,
+      "last_inbound_at": "2026-11-23T17:40:00Z",
+      "last_message_at": "2026-11-23T17:42:00Z",
+      "reply_open": true,
+      "created_at": "...",
+      "updated_at": "..."
+    }
+  ]
+}
+```
+
+#### `PATCH /api/plugins/whatsapp/admin/contacts/{phone}`
+
+`{ "opted_in": false }` pauses every send to that number; `true` resumes it. Returns
+`{ "contact": Contact }`. Unknown contacts return `404`.
+
+The dispatcher runs in the API process. Two replicas coordinate by claiming a row with a
+conditional status update, so one message is sent once per claim. A crash between Meta's
+acceptance and the local write can resend on the next claim; treat message ids as
+idempotency keys when reconciling.
 
 ## Seed data
 

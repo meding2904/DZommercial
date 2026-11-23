@@ -6,7 +6,50 @@ import (
 	"testing"
 
 	"azahar/internal/config"
+	"azahar/internal/plugins"
 )
+
+type webhookTestPlugin struct{}
+
+func (webhookTestPlugin) Manifest() plugins.Manifest {
+	return plugins.Manifest{ID: "hooked", Name: "Hooked", Version: "1.0.0"}
+}
+
+func (webhookTestPlugin) Routes() []plugins.Route {
+	return []plugins.Route{{
+		Method: http.MethodPost, Pattern: "/hook", Webhook: true,
+		Handler: func(*plugins.Context) {},
+	}}
+}
+
+func TestCSRFExemptsRegisteredWebhookRoutes(t *testing.T) {
+	registry := plugins.NewRegistry()
+	if err := registry.Register(webhookTestPlugin{}); err != nil {
+		t.Fatalf("register plugin: %v", err)
+	}
+	server := &Server{
+		cfg:     config.Config{AppEnv: "production", AppOrigin: "https://shop.example"},
+		plugins: registry,
+	}
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	})
+	handler := server.enforceCSRF(next)
+
+	webhook := httptest.NewRequest(http.MethodPost, "/api/plugins/hooked/hook", nil)
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, webhook)
+	if recorder.Code != http.StatusNoContent {
+		t.Fatalf("webhook status = %d, want 204", recorder.Code)
+	}
+
+	ordinary := httptest.NewRequest(http.MethodPost, "/api/checkout", nil)
+	recorder = httptest.NewRecorder()
+	handler.ServeHTTP(recorder, ordinary)
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("ordinary post status = %d, want 403", recorder.Code)
+	}
+}
 
 func TestCSRFAllowsLocalIngressInDevelopment(t *testing.T) {
 	const token = "csrf-token-0123456789abcdef"

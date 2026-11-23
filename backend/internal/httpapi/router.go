@@ -84,6 +84,13 @@ func (s *Server) Handler() http.Handler {
 }
 
 func (s *Server) Close() {
+	if s.plugins != nil {
+		for _, plugin := range s.plugins.All() {
+			if closer, ok := plugin.(plugins.Closer); ok {
+				closer.Close()
+			}
+		}
+	}
 	s.generalLimiter.close()
 	s.authLimiter.close()
 	s.checkoutLimiter.close()

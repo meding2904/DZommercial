@@ -225,6 +225,11 @@ hard requirement, not a suggestion.
   immutable public cache headers only for successful responses.
 - Plugin migrations are recorded per plugin and version. A plugin cannot edit another
   plugin's tables through the framework; it owns its own SQL.
+- A plugin webhook route is the only public route exempt from the browser CSRF header. The
+  route must be static, use GET or POST, and verify the caller's signature. The WhatsApp
+  plugin checks `X-Hub-Signature-256` with the encrypted app secret on every POST and the
+  verify token on the GET handshake; a missing or wrong signature returns `403` before any
+  database write.
 
 ## Code mode
 
@@ -347,6 +352,11 @@ SvelteKit document:
   plugin settings unreadable.
 - If the AI plugin is used, set a real provider key in Admin, Plugins, AI analyst and confirm
   `AI_BASE_URL` points at the provider you intend. Leave the plugin disabled otherwise.
+- If the WhatsApp plugin is used, save the Meta phone number ID, access token, app secret and
+  webhook verify token in Admin, Plugins, WhatsApp Business. Register the displayed webhook
+  URL over HTTPS in Meta, subscribe to the `messages` field, and keep the app secret out of
+  the browser. A wrong or missing signature is rejected before the payload is parsed or
+  written.
 - Set `COURIER_KEY` and `COURIER_CREDENTIALS` for a real courier. The `sandbox` key creates
   no parcels and must not be used for live orders.
 - Add email verification, password reset and a change-password flow.

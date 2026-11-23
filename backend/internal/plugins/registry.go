@@ -113,6 +113,17 @@ func (r *Registry) Register(plugin Plugin) error {
 			return fmt.Errorf("register plugin %q: duplicate route %s", manifest.ID, key)
 		}
 		seenRoutes[key] = true
+		if route.Webhook {
+			if route.Admin {
+				return fmt.Errorf("register plugin %q: webhook route %s %q cannot be an admin route", manifest.ID, method, pattern)
+			}
+			if method != "GET" && method != "POST" {
+				return fmt.Errorf("register plugin %q: webhook route %s %q must use GET or POST", manifest.ID, method, pattern)
+			}
+			if strings.ContainsAny(pattern, "{}*") {
+				return fmt.Errorf("register plugin %q: webhook route %q must be static", manifest.ID, pattern)
+			}
+		}
 	}
 
 	r.order = append(r.order, plugin)
@@ -130,6 +141,27 @@ func (r *Registry) All() []Plugin {
 func (r *Registry) Get(id string) (Plugin, bool) {
 	plugin, ok := r.byID[id]
 	return plugin, ok
+}
+
+// IsWebhook reports whether method and path address a registered route that a
+// third party calls. The path is the full request path, including /api/plugins.
+func (r *Registry) IsWebhook(method, path string) bool {
+	method = strings.ToUpper(strings.TrimSpace(method))
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, plugin := range r.order {
+		id := plugin.Manifest().ID
+		for _, route := range plugin.Routes() {
+			if !route.Webhook {
+				continue
+			}
+			if method == strings.ToUpper(route.Method) &&
+				path == "/api/plugins/"+id+route.Pattern {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // ValidateDependencies rejects unknown dependencies and cycles after every

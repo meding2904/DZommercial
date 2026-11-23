@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"time"
 
+	"azahar/internal/orderstatus"
 	"azahar/internal/store"
 )
 
@@ -116,7 +117,7 @@ func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 		NewCustomers:         metrics.NewCustomers,
 		LowStock:             make([]lowStockDTO, 0, len(metrics.LowStock)),
 		RevenueSeries:        make([]revenuePointDTO, 0, len(metrics.RevenueSeries)),
-		StatusSplit:          make([]statusCountDTO, 0, len(orderStatuses)),
+		StatusSplit:          make([]statusCountDTO, 0, len(orderstatus.Statuses)),
 		TopProducts:          make([]topProductDTO, 0, len(metrics.TopProducts)),
 		RecentOrders:         make([]recentOrderDTO, 0, len(metrics.RecentOrders)),
 	}
@@ -130,7 +131,7 @@ func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 			Date: point.Date, RevenueCents: point.RevenueCents, Orders: point.Orders,
 		})
 	}
-	for _, status := range orderStatuses {
+	for _, status := range orderstatus.Statuses {
 		response.StatusSplit = append(response.StatusSplit, statusCountDTO{
 			Status: status, Count: metrics.StatusSplit[status],
 		})

@@ -2,7 +2,8 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { adminApi, errorMessage, isAbortError } from '#lib/admin/api';
+	import { adminApi } from '#lib/admin/api';
+	import { createResource } from '#lib/admin/resource.svelte';
 	import { ORDER_STATUSES } from '#lib/admin/format';
 	import type { AdminOrder } from '#lib/admin/types';
 	import ErrorState from '#lib/components/admin/ErrorState.svelte';
@@ -20,13 +21,14 @@
 	let status = $state<'' | OrderStatus>('');
 	let search = $state('');
 	let searchInput = $state('');
-	let orders = $state<AdminOrder[]>([]);
-	let loading = $state(true);
-	let error = $state('');
 	let selected = $state<AdminOrder | null>(null);
 
-	let controller: AbortController | null = null;
-	let requestId = 0;
+	const orderList = createResource((signal) => adminApi.orders(status, search, signal));
+	const orders = $derived(orderList.data?.orders ?? []);
+	const loading = $derived(orderList.loading);
+	const error = $derived(orderList.error);
+	const load = orderList.load;
+
 	let searchTimer: ReturnType<typeof setTimeout> | undefined;
 	let trigger: HTMLElement | null = null;
 
@@ -52,30 +54,9 @@
 		void load();
 
 		return () => {
-			controller?.abort();
 			clearTimeout(searchTimer);
 		};
 	});
-
-	async function load() {
-		const id = ++requestId;
-		controller?.abort();
-		controller = new AbortController();
-		loading = true;
-		error = '';
-		orders = [];
-
-		try {
-			const data = await adminApi.orders(status, search, controller.signal);
-			if (id !== requestId) return;
-			orders = data.orders;
-		} catch (caught) {
-			if (id !== requestId || isAbortError(caught)) return;
-			error = errorMessage(caught);
-		} finally {
-			if (id === requestId) loading = false;
-		}
-	}
 
 	function syncUrl() {
 		const url = new URL(page.url.href);
@@ -136,7 +117,10 @@
 	}
 
 	function orderUpdated(updated: AdminOrder) {
-		orders = orders.map((order) => (order.id === updated.id ? updated : order));
+		orderList.update((current) => ({
+			...current,
+			orders: current.orders.map((order) => (order.id === updated.id ? updated : order))
+		}));
 		if (status && updated.status !== status) void load();
 	}
 

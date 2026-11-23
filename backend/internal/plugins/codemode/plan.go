@@ -9,46 +9,23 @@ import (
 	"fmt"
 	"io"
 	"regexp"
-	"slices"
 	"sort"
 	"strings"
 	"unicode/utf8"
 
 	"azahar/internal/ids"
+	"azahar/internal/orderstatus"
 	"azahar/internal/plugins"
+	"azahar/internal/productrules"
 	"azahar/internal/store"
 	"azahar/internal/storefront"
 )
 
-const (
-	maxActions      = 10
-	maxProductPrice = 99999999
-	maxProductStock = 100000
-)
-
-var orderStatuses = []string{"pending", "confirmed", "packed", "shipped", "delivered", "cancelled"}
-
-var orderTransitions = map[string][]string{
-	"pending":   {"confirmed", "cancelled"},
-	"confirmed": {"packed", "cancelled"},
-	"packed":    {"shipped", "cancelled"},
-	"shipped":   {"delivered"},
-	"delivered": {},
-	"cancelled": {},
-}
-
-func knownOrderStatus(status string) bool {
-	return slices.Contains(orderStatuses, status)
-}
-
-func canOrderTransition(from, to string) bool {
-	return slices.Contains(orderTransitions[from], to)
-}
+const maxActions = 10
 
 var (
 	slugPattern     = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
 	pluginIDPattern = regexp.MustCompile(`^[a-z][a-z0-9_-]{1,31}$`)
-	imageIDPattern  = regexp.MustCompile(`^img_[a-f0-9]{24}$`)
 
 	errAlreadyApplied = errors.New("codemode plan was already applied")
 
@@ -260,8 +237,8 @@ func parseAction(raw json.RawMessage) (Action, error) {
 			return Action{}, errors.New("order.status needs an order id")
 		}
 		var status string
-		if err := json.Unmarshal(fields["status"], &status); err != nil || !knownOrderStatus(strings.TrimSpace(status)) {
-			return Action{}, fmt.Errorf("order.status needs one of %s", strings.Join(orderStatuses, ", "))
+		if err := json.Unmarshal(fields["status"], &status); err != nil || !orderstatus.Known(strings.TrimSpace(status)) {
+			return Action{}, fmt.Errorf("order.status needs one of %s", strings.Join(orderstatus.Statuses, ", "))
 		}
 	}
 
@@ -295,7 +272,7 @@ func (p *Plugin) validatePlanShape(plan Plan, theme storefront.Theme) (storefron
 	if length := utf8.RuneCountInString(summary); length < 1 || length > 300 {
 		return theme, invalidPlan("the plan summary must be 1 to 300 characters")
 	}
-	if !plainText(summary) {
+	if !productrules.PlainText(summary) {
 		return theme, invalidPlan("the plan summary must be plain text")
 	}
 	if len(plan.Actions) == 0 {
@@ -345,7 +322,7 @@ func (p *Plugin) validatePlanShape(plan Plan, theme storefront.Theme) (storefron
 			if strings.TrimSpace(action.OrderID) == "" {
 				return theme, invalidPlan("%s: choose an order id", prefix)
 			}
-			if !knownOrderStatus(action.Status) {
+			if !orderstatus.Known(action.Status) {
 				return theme, invalidPlan("%s: choose a known order status", prefix)
 			}
 		default:
@@ -476,33 +453,33 @@ func parseProductPatch(raw json.RawMessage) (productPatch, error) {
 
 	if patch.Name != nil {
 		name := strings.TrimSpace(*patch.Name)
-		if utf8.RuneCountInString(name) < 2 || utf8.RuneCountInString(name) > 120 {
+		if !productrules.ValidName(name) {
 			return productPatch{}, errors.New("the product name must be 2 to 120 characters")
 		}
-		if !plainText(name) {
+		if !productrules.PlainText(name) {
 			return productPatch{}, errors.New("the product name must be plain text")
 		}
 		patch.Name = &name
 	}
 	if patch.Subtitle != nil {
 		subtitle := strings.TrimSpace(*patch.Subtitle)
-		if utf8.RuneCountInString(subtitle) > 160 {
+		if utf8.RuneCountInString(subtitle) > productrules.MaxSubtitleRunes {
 			return productPatch{}, errors.New("the subtitle must stay under 161 characters")
 		}
 		patch.Subtitle = &subtitle
 	}
 	if patch.Description != nil {
 		description := strings.TrimSpace(*patch.Description)
-		if utf8.RuneCountInString(description) > 4000 {
+		if utf8.RuneCountInString(description) > productrules.MaxDescriptionRunes {
 			return productPatch{}, errors.New("the description must stay under 4001 characters")
 		}
 		patch.Description = &description
 	}
-	if patch.PriceCents != nil && (*patch.PriceCents < 1 || *patch.PriceCents > maxProductPrice) {
-		return productPatch{}, fmt.Errorf("the price must be between 1 and %d cents", maxProductPrice)
+	if patch.PriceCents != nil && !productrules.ValidPrice(*patch.PriceCents) {
+		return productPatch{}, fmt.Errorf("the price must be between 1 and %d cents", productrules.MaxPriceCents)
 	}
-	if patch.Stock != nil && (*patch.Stock < 0 || *patch.Stock > maxProductStock) {
-		return productPatch{}, fmt.Errorf("the stock must be between 0 and %d", maxProductStock)
+	if patch.Stock != nil && !productrules.ValidStock(*patch.Stock) {
+		return productPatch{}, fmt.Errorf("the stock must be between 0 and %d", productrules.MaxStock)
 	}
 	return patch, nil
 }
@@ -513,10 +490,10 @@ func (p *Plugin) validateProductDraft(product *ProductDraft) error {
 	}
 
 	product.Name = strings.TrimSpace(product.Name)
-	if length := utf8.RuneCountInString(product.Name); length < 2 || length > 120 {
+	if !productrules.ValidName(product.Name) {
 		return errors.New("the product name must be 2 to 120 characters")
 	}
-	if !plainText(product.Name) {
+	if !productrules.PlainText(product.Name) {
 		return errors.New("the product name must be plain text")
 	}
 	product.Slug = strings.TrimSpace(product.Slug)
@@ -531,17 +508,17 @@ func (p *Plugin) validateProductDraft(product *ProductDraft) error {
 	if !pluginIDPattern.MatchString(product.PluginID) {
 		return errors.New("choose a valid plugin id")
 	}
-	if product.PriceCents < 1 || product.PriceCents > maxProductPrice {
-		return fmt.Errorf("the price must be between 1 and %d cents", maxProductPrice)
+	if !productrules.ValidPrice(product.PriceCents) {
+		return fmt.Errorf("the price must be between 1 and %d cents", productrules.MaxPriceCents)
 	}
-	if product.Stock < 0 || product.Stock > maxProductStock {
-		return fmt.Errorf("the stock must be between 0 and %d", maxProductStock)
+	if !productrules.ValidStock(product.Stock) {
+		return fmt.Errorf("the stock must be between 0 and %d", productrules.MaxStock)
 	}
-	if !validImagePath(product.Image) {
+	if !productrules.ValidImagePath(strings.TrimSpace(product.Image)) {
 		return errors.New("use an uploaded /api/images/ or /images/ path for the image")
 	}
 	product.Description = strings.TrimSpace(product.Description)
-	if utf8.RuneCountInString(product.Description) > 4000 {
+	if utf8.RuneCountInString(product.Description) > productrules.MaxDescriptionRunes {
 		return errors.New("the description must stay under 4001 characters")
 	}
 
@@ -574,65 +551,35 @@ func (p *Plugin) validateProductDraft(product *ProductDraft) error {
 }
 
 func normalizeAttributes(attributes map[string][]string) (map[string][]string, error) {
-	normalized := make(map[string][]string, len(attributes))
-	for key, values := range attributes {
-		key = strings.TrimSpace(key)
-		if key == "" {
+	normalized, problems := productrules.NormalizeAttributes(attributes)
+	for _, problem := range problems {
+		switch problem.Kind {
+		case productrules.KindDuplicateOptionName:
+			return nil, errors.New("option names must be unique")
+		case productrules.KindEmptyOptionName:
 			return nil, errors.New("option names cannot be empty")
 		}
-		if _, exists := normalized[key]; exists {
-			return nil, errors.New("option names must be unique")
-		}
-		trimmed := make([]string, 0, len(values))
-		for _, value := range values {
-			trimmed = append(trimmed, strings.TrimSpace(value))
-		}
-		normalized[key] = trimmed
 	}
 	return normalized, nil
 }
 
 func validateProductAttributes(productType *plugins.ProductType, attributes map[string][]string) error {
-	known := make(map[string]plugins.OptionField, len(productType.Fields))
-	for _, field := range productType.Fields {
-		known[field.Key] = field
-		values := attributes[field.Key]
-		if field.Required && len(values) == 0 {
-			return fmt.Errorf("add at least one %s value", strings.ToLower(field.Label))
-		}
-		switch field.Type {
-		case "text", "textarea":
-			maximum := 120
-			if field.Type == "textarea" {
-				maximum = 2000
-			}
-			if len(values) > 1 {
-				return fmt.Errorf("%s takes one value", strings.ToLower(field.Label))
-			}
-			if len(values) == 1 {
-				value := values[0]
-				if value == "" || utf8.RuneCountInString(value) > maximum || !plainText(value) {
-					return fmt.Errorf("%s must be plain text under %d characters", strings.ToLower(field.Label), maximum+1)
-				}
-			}
-		case "select", "list":
-			if len(values) > 12 {
-				return fmt.Errorf("%s takes at most 12 values", strings.ToLower(field.Label))
-			}
-			seen := make(map[string]bool, len(values))
-			for _, value := range values {
-				if value == "" || utf8.RuneCountInString(value) > 80 || !plainText(value) {
-					return fmt.Errorf("%s values must be plain text under 81 characters", strings.ToLower(field.Label))
-				}
-				if seen[value] {
-					return fmt.Errorf("%s values must be unique", strings.ToLower(field.Label))
-				}
-				seen[value] = true
-			}
-		}
-	}
-	for key := range attributes {
-		if _, ok := known[key]; !ok {
+	for _, problem := range productrules.ValidateAttributes(productType, attributes) {
+		label := strings.ToLower(problem.Label)
+		switch problem.Kind {
+		case productrules.KindMissingRequired:
+			return fmt.Errorf("add at least one %s value", label)
+		case productrules.KindSingleValue:
+			return fmt.Errorf("%s takes one value", label)
+		case productrules.KindInvalidText:
+			return fmt.Errorf("%s must be plain text under %d characters", label, problem.Limit+1)
+		case productrules.KindTooManyValues:
+			return fmt.Errorf("%s takes at most 12 values", label)
+		case productrules.KindInvalidValue:
+			return fmt.Errorf("%s values must be plain text under 81 characters", label)
+		case productrules.KindDuplicateValue:
+			return fmt.Errorf("%s values must be unique", label)
+		default:
 			return errors.New("remove options this product type does not define")
 		}
 	}
@@ -681,7 +628,7 @@ func (p *Plugin) validatePlanReferences(ctx context.Context, st *store.Store, pl
 				}
 				return err
 			}
-			if !canOrderTransition(order.Status, action.Status) {
+			if !orderstatus.CanTransition(order.Status, action.Status) {
 				return invalidPlan("%s: order %s cannot move from %s to %s",
 					prefix, order.Number, order.Status, action.Status)
 			}
@@ -770,32 +717,6 @@ func firstFieldMessage(fields map[string]string) string {
 	sort.Strings(keys)
 	key := keys[0]
 	return key + ": " + fields[key]
-}
-
-func plainText(value string) bool {
-	for _, r := range value {
-		if r == '\n' || r == '\t' {
-			continue
-		}
-		if r < 0x20 || r == 0x7f {
-			return false
-		}
-	}
-	return true
-}
-
-func validImagePath(value string) bool {
-	value = strings.TrimSpace(value)
-	if value == "" || len(value) > 500 {
-		return false
-	}
-	if strings.Contains(value, "..") || strings.ContainsAny(value, "\\%?#") {
-		return false
-	}
-	if strings.HasPrefix(value, "/api/images/") {
-		return imageIDPattern.MatchString(strings.TrimPrefix(value, "/api/images/"))
-	}
-	return strings.HasPrefix(value, "/images/")
 }
 
 func encodeResults(results []actionResult) (string, error) {

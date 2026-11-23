@@ -51,65 +51,6 @@ func TestRendererHasStrictNetworkPolicy(t *testing.T) {
 	}
 }
 
-func TestRendererCannotFetchDirectly(t *testing.T) {
-	script, err := os.ReadFile("frontend/app.js")
-	if err != nil {
-		t.Fatal(err)
-	}
-	source := string(script)
-	for _, forbidden := range []string{
-		"window.azahar",
-		"azahar-asset",
-		"fetch(",
-		"XMLHttpRequest",
-		"new WebSocket",
-	} {
-		if strings.Contains(source, forbidden) {
-			t.Errorf("app.js still contains %q", forbidden)
-		}
-	}
-}
-
-func TestWailsBridgeSurfaceIsPresent(t *testing.T) {
-	script, err := os.ReadFile("frontend/app.js")
-	if err != nil {
-		t.Fatal(err)
-	}
-	source := string(script)
-	for _, method := range []string{
-		"Info",
-		"Health",
-		"Request",
-		"Image",
-		"UpdateSettings",
-		"ClearSession",
-		"FirewallGuide",
-	} {
-		if !strings.Contains(source, "'"+method+"'") {
-			t.Errorf("app.js does not call the %s binding", method)
-		}
-	}
-}
-
-func TestRendererBlocksDirectNavigation(t *testing.T) {
-	script, err := os.ReadFile("frontend/app.js")
-	if err != nil {
-		t.Fatal(err)
-	}
-	source := string(script)
-	for _, want := range []string{
-		"api.openExternal(href)",
-		"event.preventDefault()",
-		"window.addEventListener('drop'",
-		"window.addEventListener('dragover'",
-		"window.open = () =>",
-	} {
-		if !strings.Contains(source, want) {
-			t.Errorf("app.js is missing navigation guard %q", want)
-		}
-	}
-}
-
 func TestOpenExternalRejectsUnsafeURLs(t *testing.T) {
 	app := &App{}
 	for _, raw := range []string{
@@ -161,47 +102,6 @@ func TestWindowHardeningIsConfigured(t *testing.T) {
 }
 
 func TestMediumBugFixesArePresent(t *testing.T) {
-	script, err := os.ReadFile("frontend/app.js")
-	if err != nil {
-		t.Fatal(err)
-	}
-	source := string(script)
-	for _, want := range []string{
-		"const sameHost = Boolean(previous && next && previous.origin === next.origin)",
-		"id=\"app-server-state\"",
-		"id=\"app-resolved-origin\"",
-		"function resetTransientState()",
-	} {
-		if !strings.Contains(source, want) {
-			t.Errorf("app.js is missing medium-bug fix %q", want)
-		}
-	}
-	helperStart := strings.Index(source, "function resetTransientState()")
-	helperEnd := strings.Index(source[helperStart:], "function setView")
-	helper := source[helperStart : helperStart+helperEnd]
-	for _, want := range []string{
-		"state.counterQuery = ''",
-		"state.render += 1",
-		"clearTimeout(state.orderTimer)",
-	} {
-		if !strings.Contains(helper, want) {
-			t.Errorf("resetTransientState is missing %q", want)
-		}
-	}
-	if got := strings.Count(source, "\tresetTransientState();\n"); got != 2 {
-		t.Errorf("resetTransientState calls = %d, want 2", got)
-	}
-	start := strings.Index(source, "document.getElementById('app-test')")
-	endMarker := "document.getElementById('app-clear-session')"
-	if start >= 0 {
-		rest := source[start:]
-		if end := strings.Index(rest, endMarker); end >= 0 {
-			if strings.Contains(rest[:end], "renderConnection();") {
-				t.Error("app-test must not re-render the connection form")
-			}
-		}
-	}
-
 	client, err := os.ReadFile("internal/api/client.go")
 	if err != nil {
 		t.Fatal(err)
@@ -216,46 +116,6 @@ func TestMediumBugFixesArePresent(t *testing.T) {
 }
 
 func TestLowRiskFrontendFixesArePresent(t *testing.T) {
-	script, err := os.ReadFile("frontend/app.js")
-	if err != nil {
-		t.Fatal(err)
-	}
-	source := string(script)
-	for _, forbidden := range []string{
-		"orderLoading",
-		"const reload",
-		`role="tablist"`,
-		"aria-selected",
-		"order.delivery_type === 'pickup' ? 'Counter'",
-		"order.delivery_type === 'pickup' ? 'Counter sale'",
-	} {
-		if strings.Contains(source, forbidden) {
-			t.Errorf("app.js still contains %q", forbidden)
-		}
-	}
-	for _, want := range []string{
-		"(metrics.status_split || [])",
-		"deliveryLabel(order.delivery_type)",
-		`role="group" aria-label="Order status"`,
-		"aria-pressed",
-	} {
-		if !strings.Contains(source, want) {
-			t.Errorf("app.js is missing %q", want)
-		}
-	}
-	if got := strings.Count(source, "deliveryLabel(order.delivery_type)"); got != 4 {
-		t.Errorf("deliveryLabel(order.delivery_type) uses = %d, want 4", got)
-	}
-
-	start := strings.Index(source, "async function saveConnection(")
-	end := strings.Index(source, "async function readHealth(")
-	if start < 0 || end < 0 || end <= start {
-		t.Fatal("saveConnection could not be located in app.js")
-	}
-	if !strings.Contains(source[start:end], "toast(result.warning, 'error')") {
-		t.Error("saveConnection must toast result.warning")
-	}
-
 	styles, err := os.ReadFile("frontend/styles.css")
 	if err != nil {
 		t.Fatal(err)

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import QtyStepper from '#lib/components/QtyStepper.svelte';
 	import ProductOptions from '#lib/components/store/ProductOptions.svelte';
+	import { effectiveStock, isValueAvailable, missingSelectFields } from '#lib/product-options';
 	import { cart, cartLineKey } from '#lib/stores/cart.svelte';
 	import { toast } from '#lib/stores/toast.svelte';
 	import type { Product } from '#lib/types';
@@ -10,54 +11,20 @@
 	let quantity = $state(1);
 	let selected = $state<Record<string, string>>({});
 
-	const missing = $derived(
-		product.option_schema.filter(
-			(field) => field.type === 'select' && field.required && !selected[field.key]
-		)
-	);
-	const variantStock = $derived.by(() => {
-		const raw = product.plugin_data?.variants;
-		if (!Array.isArray(raw)) return null;
-		return raw.filter(
-			(item): item is Record<string, string | number> & { in_stock: number } =>
-				typeof item === 'object' && item !== null && typeof item.in_stock === 'number'
-		);
-	});
-	const registered = $derived.by(() => {
-		const value = product.plugin_data?.devices_in_stock;
-		return typeof value === 'number' ? value : null;
-	});
-	const available = $derived.by(() => {
-		if (variantStock && missing.length === 0) {
-			const match = variantStock.find((variant) =>
-				Object.entries(selected).every(([key, value]) => !value || variant[key] === value)
-			);
-			return Math.min(match?.in_stock ?? 0, product.stock);
-		}
-		return registered === null ? product.stock : Math.min(product.stock, registered);
-	});
+	const missing = $derived(missingSelectFields(product, selected));
+	const available = $derived(effectiveStock(product, selected));
 	const max = $derived(Math.min(available, 10));
 	const outOfStock = $derived(available < 1);
 	const lowStock = $derived(available > 0 && available <= 5);
-	const blocked = $derived.by(() => {
-		if (!variantStock || missing.length === 0) return false;
-		return missing.some((field) => {
+	const blocked = $derived(
+		missing.some((field) => {
 			const values = product.attributes[field.key] ?? [];
 			return (
 				values.length > 0 &&
-				!values.some((value) =>
-					variantStock.some(
-						(variant) =>
-							variant.in_stock > 0 &&
-							variant[field.key] === value &&
-							Object.entries(selected).every(
-								([key, chosen]) => !chosen || variant[key] === chosen
-							)
-					)
-				)
+				!values.some((value) => isValueAvailable(product, field.key, value, selected))
 			);
-		});
-	});
+		})
+	);
 	const ready = $derived(missing.length === 0 && !blocked);
 
 	$effect(() => {

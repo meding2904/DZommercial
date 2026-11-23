@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -197,6 +198,21 @@ func (c Config) DSN() string {
 	}
 	u.RawQuery = q.Encode()
 	return u.String()
+}
+
+// CourierCredentialValues decodes COURIER_CREDENTIALS. A value that is not a
+// JSON object is ignored rather than failing startup; ok reports whether the
+// value parsed, so the caller can warn once.
+func (c Config) CourierCredentialValues() (map[string]string, bool) {
+	values := map[string]string{}
+	raw := strings.TrimSpace(c.CourierCredentials)
+	if raw == "" {
+		return values, true
+	}
+	if err := json.Unmarshal([]byte(raw), &values); err != nil {
+		return map[string]string{}, false
+	}
+	return values, true
 }
 
 func (c Config) IsProduction() bool {

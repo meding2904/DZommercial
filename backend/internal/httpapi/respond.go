@@ -8,6 +8,8 @@ import (
 	"mime"
 	"net/http"
 	"strings"
+
+	"azahar/internal/orderintake"
 )
 
 type apiProblem struct {
@@ -60,6 +62,17 @@ func writeProblem(w http.ResponseWriter, p *apiProblem) {
 
 func writeError(w http.ResponseWriter, status int, code, message string) {
 	writeProblem(w, problem(status, code, message))
+}
+
+// writeIntakeError renders an orderintake refusal as its HTTP problem and any
+// other error as the shared internal failure.
+func writeIntakeError(w http.ResponseWriter, err error) {
+	var refusal *orderintake.Problem
+	if errors.As(err, &refusal) {
+		writeProblem(w, problemFields(refusal.Status, refusal.Code, refusal.Message, refusal.Fields))
+		return
+	}
+	writeError(w, http.StatusInternalServerError, "internal_error", "Something went wrong.")
 }
 
 func decodeJSON[T any](w http.ResponseWriter, r *http.Request) (T, map[string]json.RawMessage, *apiProblem) {

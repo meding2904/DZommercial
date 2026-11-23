@@ -8,6 +8,7 @@ import (
 	"azahar/internal/auth"
 	"azahar/internal/config"
 	"azahar/internal/courier"
+	"azahar/internal/orderintake"
 	"azahar/internal/plugins"
 	"azahar/internal/store"
 
@@ -17,8 +18,9 @@ import (
 type Server struct {
 	cfg             config.Config
 	store           *store.Store
-	shipping        *courier.Client
+	shipping        courier.Courier
 	plugins         *plugins.Registry
+	intake          *orderintake.Intake
 	pluginEnv       *plugins.Env
 	logger          *slog.Logger
 	generalLimiter  *rateLimiter
@@ -31,7 +33,7 @@ type Server struct {
 	handler         http.Handler
 }
 
-func New(cfg config.Config, st *store.Store, logger *slog.Logger, shipping *courier.Client, registry *plugins.Registry) *Server {
+func New(cfg config.Config, st *store.Store, logger *slog.Logger, shipping courier.Courier, registry *plugins.Registry) *Server {
 	_ = auth.DummyHash()
 	if registry == nil {
 		registry = plugins.NewRegistry()
@@ -41,6 +43,7 @@ func New(cfg config.Config, st *store.Store, logger *slog.Logger, shipping *cour
 		store:           st,
 		shipping:        shipping,
 		plugins:         registry,
+		intake:          orderintake.New(st, registry),
 		logger:          logger,
 		generalLimiter:  newRateLimiter(120, time.Minute),
 		authLimiter:     newRateLimiter(10, 15*time.Minute),

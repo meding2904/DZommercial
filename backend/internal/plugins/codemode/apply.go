@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"azahar/internal/ids"
+	"azahar/internal/orderstatus"
 	"azahar/internal/plugins"
 	"azahar/internal/store"
 	"azahar/internal/storefront"
@@ -253,7 +254,7 @@ func (p *Plugin) applyOrderStatus(
 	if !ok || order.Status != want {
 		return "", errStalePlan
 	}
-	if !canOrderTransition(order.Status, action.Status) {
+	if !orderstatus.CanTransition(order.Status, action.Status) {
 		return "", fmt.Errorf("order %s cannot move from %s to %s",
 			order.Number, order.Status, action.Status)
 	}

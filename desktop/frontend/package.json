@@ -1,0 +1,5 @@
+{
+	"name": "azahar-desktop-renderer",
+	"private": true,
+	"type": "module"
+}

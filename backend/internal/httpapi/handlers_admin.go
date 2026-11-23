@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"azahar/internal/ids"
+	"azahar/internal/orderintake"
+	"azahar/internal/orderstatus"
 	"azahar/internal/store"
 
 	"github.com/go-chi/chi/v5"
@@ -17,7 +19,7 @@ import (
 func (s *Server) handleAdminOrders(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	status := strings.TrimSpace(query.Get("status"))
-	if status != "" && !knownStatus(status) {
+	if status != "" && !orderstatus.Known(status) {
 		writeProblem(w, problemFields(422, "validation_error", "Check the marked fields.",
 			map[string]string{"status": "Unknown order status."}))
 		return
@@ -62,90 +64,20 @@ func (s *Server) handleOrderStatus(w http.ResponseWriter, r *http.Request) {
 		writeProblem(w, bad)
 		return
 	}
-	status := strings.TrimSpace(payload.Status)
-	if !knownStatus(status) {
-		writeProblem(w, problemFields(422, "validation_error", "Check the marked fields.",
-			map[string]string{"status": "Unknown order status."}))
-		return
-	}
-
-	order, err := s.store.OrderByID(r.Context(), id)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			writeError(w, http.StatusNotFound, "not_found", "Order not found.")
-			return
-		}
-		writeError(w, http.StatusInternalServerError, "internal_error", "Something went wrong.")
-		return
-	}
-	if !canTransition(order.Status, status) {
-		writeProblem(w, problemFields(409, "invalid_transition", "That status change is not allowed.",
-			map[string]string{"status": "This order cannot move from " + order.Status + " to " + status + "."}))
-		return
-	}
-
-	now := time.Now().UTC()
-	detail, _ := json.Marshal(map[string]string{"from": order.Status, "to": status})
 	actor, _ := currentAuth(r)
-	if status == "cancelled" && actor.User.Role != "admin" {
-		writeError(w, http.StatusForbidden, "forbidden", "Only an administrator can cancel an order.")
-		return
-	}
-
-	var restock []store.OrderItem
-	if status == "cancelled" {
-		restock, err = s.store.OrderItems(r.Context(), order.ID)
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, "internal_error", "Something went wrong.")
-			return
-		}
-	}
-
-	err = s.store.InTx(r.Context(), func(tx *sql.Tx) error {
-		if err := s.store.UpdateOrderStatus(r.Context(), tx, order.ID, order.Status, status, now); err != nil {
-			return err
-		}
-		for _, item := range restock {
-			if err := s.store.IncrementStock(r.Context(), tx, item.ProductID, item.Quantity); err != nil {
-				return err
-			}
-		}
-		if err := s.store.InsertAudit(r.Context(), tx, store.AuditEntry{
-			ID:          ids.New("aud"),
-			ActorUserID: actor.User.ID,
-			Action:      "order.status",
-			EntityType:  "order",
-			EntityID:    order.ID,
-			Detail:      string(detail),
-			CreatedAt:   now,
-		}); err != nil {
-			return err
-		}
-		for _, hook := range s.plugins.OrderStatusHooks() {
-			if err := hook.OnOrderStatusChanged(r.Context(), tx, order.ID, order.Status, status); err != nil {
-				return err
-			}
-		}
-		return nil
+	changed, err := s.intake.ChangeStatus(r.Context(), orderintake.Change{
+		OrderID:     id,
+		To:          strings.TrimSpace(payload.Status),
+		ActorUserID: actor.User.ID,
+		ActorRole:   actor.User.Role,
 	})
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			writeProblem(w, problemFields(409, "conflict", "The order changed. Reload and try again.",
-				map[string]string{"status": "The status changed while this page was open."}))
-			return
-		}
-		writeError(w, http.StatusInternalServerError, "internal_error", "Something went wrong.")
+		writeIntakeError(w, err)
 		return
 	}
-	order.Status = status
-	order.UpdatedAt = now
-
-	items, err := s.store.OrderItems(r.Context(), order.ID)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal_error", "Something went wrong.")
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"order": toOrder(order, items, "", true)})
+	writeJSON(w, http.StatusOK, map[string]any{
+		"order": toOrder(changed.Order, changed.Items, "", true),
+	})
 }
 
 type customerDTO struct {

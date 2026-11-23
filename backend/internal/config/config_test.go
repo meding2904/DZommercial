@@ -181,6 +181,47 @@ func TestAIURLRejectsCredentials(t *testing.T) {
 	}
 }
 
+func TestCourierCredentialsParseLeniently(t *testing.T) {
+	cases := []struct {
+		name  string
+		raw   string
+		want  map[string]string
+		valid bool
+	}{
+		{name: "empty", raw: "", want: map[string]string{}, valid: true},
+		{name: "blank", raw: "   ", want: map[string]string{}, valid: true},
+		{name: "object", raw: `{"apiId":"id","apiToken":"token"}`, want: map[string]string{"apiId": "id", "apiToken": "token"}, valid: true},
+		{name: "null", raw: "null", want: nil, valid: true},
+		{name: "not json", raw: "{not json", want: map[string]string{}, valid: false},
+		{name: "array", raw: `["nope"]`, want: map[string]string{}, valid: false},
+		{name: "bare string", raw: `"nope"`, want: map[string]string{}, valid: false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := Config{CourierCredentials: tc.raw}
+
+			got, valid := cfg.CourierCredentialValues()
+			if valid != tc.valid {
+				t.Fatalf("CourierCredentialValues(%q) valid = %v, want %v", tc.raw, valid, tc.valid)
+			}
+			if (len(got) != len(tc.want)) {
+				t.Fatalf("values = %v, want %v", got, tc.want)
+			}
+			if (tc.want == nil && got != nil) {
+				t.Fatalf("values = %v, want nil", got)
+			}
+			if tc.want != nil && got == nil {
+				t.Fatalf("values = nil, want %v", tc.want)
+			}
+			for key, want := range tc.want {
+				if got[key] != want {
+					t.Fatalf("values[%q] = %q, want %q", key, got[key], want)
+				}
+			}
+		})
+	}
+}
+
 func TestAuditBatchIntervalClamping(t *testing.T) {
 	t.Setenv("APP_ENV", "development")
 	t.Setenv("SEED_DEMO", "false")

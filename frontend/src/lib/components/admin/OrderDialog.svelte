@@ -6,15 +6,16 @@ import { printReceiptHtml, receiptHtml } from '#lib/admin/receipt';
 	import { errorMessage, adminApi } from '#lib/admin/api';
 	import { orderPanelFor } from '#lib/plugins/admin/order-registry';
 	import { auth } from '#lib/stores/auth.svelte';
-	import { formatDateTime, STATUS_TRANSITIONS } from '#lib/admin/format';
-	import type { AdminOrder } from '#lib/admin/types';
 	import {
 		courierLabel,
 		courierStatusLabel,
 		deliveryTypeLabel,
-		money,
+		formatDateTime,
+		STATUS_TRANSITIONS,
 		titleCase
-	} from '#lib/format';
+	} from '#lib/admin/format';
+	import type { AdminOrder } from '#lib/admin/types';
+	import { money } from '#lib/format';
 	import type { OrderStatus } from '#lib/types';
 	import StatusPill from './StatusPill.svelte';
 	import Dropdown from '#lib/components/Dropdown.svelte';

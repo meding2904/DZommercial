@@ -1,6 +1,7 @@
 import { browser } from '$app/env';
 import { apiFetch } from '#lib/api';
-import type { OptionField, Product } from '#lib/types';
+import { effectiveStock, missingSelectFields, optionLabel } from '#lib/product-options';
+import type { Product } from '#lib/types';
 
 const STORAGE_KEY = 'azahar.cart.v1';
 const MAX_PER_LINE = 10;
@@ -29,19 +30,6 @@ export function canonicalOptions(options: Record<string, string>): string {
 export function cartLineKey(productId: string, options: Record<string, string>): string {
 	const suffix = canonicalOptions(options);
 	return suffix ? `${productId}::${suffix}` : productId;
-}
-
-export function optionLabel(
-	schema: OptionField[],
-	options: Record<string, string>
-): string {
-	return schema
-		.map((field) => {
-			const value = options[field.key];
-			return value ? `${field.label}: ${value}` : '';
-		})
-		.filter(Boolean)
-		.join(' · ');
 }
 
 function normalizeStoredLine(line: Partial<CartLine>): CartLine | null {
@@ -129,31 +117,10 @@ class Cart {
 	}
 
 	add(product: Product, quantity = 1, options: Record<string, string> = {}): boolean {
-		const registered =
-			typeof product.plugin_data?.devices_in_stock === 'number'
-				? product.plugin_data.devices_in_stock
-				: product.stock;
-		let available = Math.min(product.stock, registered);
-		const variants = product.plugin_data?.variants;
-		if (Array.isArray(variants) && Object.keys(options).length > 0) {
-			const match = variants.find(
-				(variant) =>
-					typeof variant === 'object' &&
-					variant !== null &&
-					Object.entries(options).every(
-						([key, value]) => (variant as Record<string, unknown>)[key] === value
-					)
-			) as { in_stock?: number } | undefined;
-			available =
-				typeof match?.in_stock === 'number'
-					? Math.min(match.in_stock, product.stock)
-					: 0;
-		}
-		if (available < 1) return false;
 		const chosen = { ...options };
-		for (const field of product.option_schema) {
-			if (field.type === 'select' && field.required && !chosen[field.key]) return false;
-		}
+		const available = effectiveStock(product, chosen);
+		if (available < 1) return false;
+		if (missingSelectFields(product, chosen).length > 0) return false;
 		const key = cartLineKey(product.id, chosen);
 		const limit = Math.min(available, MAX_PER_LINE);
 		const price = product.effective_price_cents ?? product.price_cents;

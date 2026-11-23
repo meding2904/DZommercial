@@ -5,20 +5,18 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"azahar/internal/ids"
+	"azahar/internal/productrules"
 	"azahar/internal/store"
 
 	"github.com/go-chi/chi/v5"
 )
 
 const maxProductImageBytes = 5 << 20
-
-var imageIDPattern = regexp.MustCompile(`^img_[a-f0-9]{24}$`)
 
 func (s *Server) handleAdminProductImage(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxProductImageBytes+(1<<20))
@@ -96,7 +94,7 @@ func (s *Server) handleAdminProductImage(w http.ResponseWriter, r *http.Request)
 
 func (s *Server) handleProductImage(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimSpace(chi.URLParam(r, "id"))
-	if !imageIDPattern.MatchString(id) {
+	if !productrules.ValidImageID(id) {
 		writeError(w, http.StatusNotFound, "not_found", "Image not found.")
 		return
 	}

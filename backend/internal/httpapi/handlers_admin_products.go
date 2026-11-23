@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"azahar/internal/ids"
+	"azahar/internal/productrules"
 	"azahar/internal/store"
 
 	"github.com/go-chi/chi/v5"
@@ -107,7 +108,7 @@ func (s *Server) handleCreateProduct(w http.ResponseWriter, r *http.Request) {
 		Featured:       payload.Featured,
 		Active:         true,
 		PluginID:       store.NormalizePluginID(strings.TrimSpace(payload.PluginID)),
-		Attributes:     normalizeAttributes(payload.Attributes),
+		Attributes:     normalizeProductAttributes(payload.Attributes),
 		CreatedAt:      now,
 		UpdatedAt:      now,
 	}
@@ -119,7 +120,7 @@ func (s *Server) handleCreateProduct(w http.ResponseWriter, r *http.Request) {
 	for key, message := range saleFields {
 		fields[key] = message
 	}
-	for key, message := range s.validateProductAttributes(product.PluginID, product.Attributes) {
+	for key, message := range s.validateProductAttributes(product.PluginID, payload.Attributes) {
 		fields[key] = message
 	}
 	category, err := s.store.CategoryBySlug(r.Context(), strings.TrimSpace(payload.CategorySlug))
@@ -367,11 +368,13 @@ func (s *Server) handleUpdateProduct(w http.ResponseWriter, r *http.Request) {
 			p.Active = *patch.Active
 		}
 	}
+	attributesForValidation := p.Attributes
 	if _, ok := raw["attributes"]; ok {
 		if patch.Attributes == nil {
 			nullField("attributes")
 		} else {
-			p.Attributes = normalizeAttributes(*patch.Attributes)
+			attributesForValidation = *patch.Attributes
+			p.Attributes = normalizeProductAttributes(*patch.Attributes)
 		}
 	}
 	if len(fields) > 0 {
@@ -387,7 +390,7 @@ func (s *Server) handleUpdateProduct(w http.ResponseWriter, r *http.Request) {
 		fields["category_slug"] = "Choose a category that belongs to this product type."
 	}
 	if hasAny(raw, "attributes", "plugin_id") {
-		for key, message := range s.validateProductAttributes(p.PluginID, p.Attributes) {
+		for key, message := range s.validateProductAttributes(p.PluginID, attributesForValidation) {
 			fields[key] = message
 		}
 	}
@@ -554,22 +557,22 @@ func hasAny(raw map[string]json.RawMessage, keys ...string) bool {
 
 func validateProduct(p store.Product) map[string]string {
 	fields := make(map[string]string)
-	if runeLen(p.Name) < 2 || runeLen(p.Name) > 120 {
+	if !productrules.ValidName(p.Name) {
 		fields["name"] = "Use between 2 and 120 characters."
 	}
 	if !validSlug(p.Slug) {
 		fields["slug"] = "Use lowercase letters, numbers and hyphens."
 	}
-	if runeLen(p.Subtitle) > 160 {
+	if runeLen(p.Subtitle) > productrules.MaxSubtitleRunes {
 		fields["subtitle"] = "Keep the subtitle under 160 characters."
 	}
-	if runeLen(p.Description) > 4000 {
+	if runeLen(p.Description) > productrules.MaxDescriptionRunes {
 		fields["description"] = "Keep the description under 4000 characters."
 	}
-	if p.PriceCents <= 0 || p.PriceCents >= 100000000 {
+	if !productrules.ValidPrice(p.PriceCents) {
 		fields["price_cents"] = "Enter a price above 0 and below 100000000."
 	}
-	if p.CompareAtCents != nil && (*p.CompareAtCents <= 0 || *p.CompareAtCents >= 100000000) {
+	if p.CompareAtCents != nil && !productrules.ValidPrice(*p.CompareAtCents) {
 		fields["compare_at_cents"] = "Enter a compare-at price above 0, or leave it empty."
 	}
 	for _, problem := range p.SaleWindow().Problems(p.PriceCents) {
@@ -612,20 +615,20 @@ func validateProduct(p store.Product) map[string]string {
 	if runeLen(p.HowTo) > 1000 {
 		fields["how_to"] = "Keep the instructions under 1000 characters."
 	}
-	if !validImagePath(p.Image) {
+	if !productrules.ValidImagePath(p.Image) {
 		fields["image"] = "Use an uploaded image."
 	}
 	if len(p.Gallery) > 12 {
 		fields["gallery"] = "Use at most 12 images."
 	} else {
 		for _, image := range p.Gallery {
-			if !validImagePath(image) {
+			if !productrules.ValidImagePath(image) {
 				fields["gallery"] = "Each image must be an uploaded image."
 				break
 			}
 		}
 	}
-	if p.Stock < 0 || p.Stock > 100000 {
+	if !productrules.ValidStock(p.Stock) {
 		fields["stock"] = "Use a stock count between 0 and 100000."
 	}
 	return fields

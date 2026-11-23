@@ -176,7 +176,10 @@ make desktop
 ```
 
 On Linux, install GTK 3 and WebKit2GTK 4.1 development packages first. The Makefile detects
-WebKitGTK 4.1 and adds the `webkit2_41` build tag.
+WebKitGTK 4.1 and adds the `webkit2_41` build tag. If the app starts without a window on a
+Wayland desktop, the WebKitGTK DMA-BUF renderer cannot use your GPU driver; start it with
+`WEBKIT_DISABLE_DMABUF_RENDERER=1` and the window appears through the fallback path. This is a
+WebKitGTK driver fallback, not an app setting.
 
 Sign in with the admin account. The app opens the local API by default. If the API is on
 another machine, open **Connection** on the sign-in screen.

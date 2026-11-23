@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
 	import { ApiError, apiFetch } from '#lib/api';
-	import { errorMessage, isAbortError } from '#lib/admin/api';
+	import { errorMessage } from '#lib/admin/api';
+	import { createResource } from '#lib/admin/resource.svelte';
 	import ErrorState from '#lib/components/admin/ErrorState.svelte';
 	import LoadingState from '#lib/components/admin/LoadingState.svelte';
 	import { formatDate, money } from '#lib/format';
@@ -63,22 +64,54 @@
 	let instructionError = $state('');
 	let planError = $state('');
 	let applyError = $state('');
-	let planning = $state(false);
-	let applying = $state(false);
 
 	let plan = $state<Plan | null>(null);
 	let results = $state<ActionResult[]>([]);
-
-	let history = $state<HistoryPlan[]>([]);
-	let historyLoading = $state(true);
-	let historyError = $state('');
 
 	let formEl = $state<HTMLFormElement | null>(null);
 	let instructionEl = $state<HTMLTextAreaElement | null>(null);
 	let planPanel = $state<HTMLElement | null>(null);
 
-	let historyController: AbortController | null = null;
-	let actionController: AbortController | null = null;
+	const historyList = createResource(async (signal) => {
+		const data = await apiFetch<{ plans: HistoryPlan[] }>(
+			'/plugins/codemode/admin/plans?limit=10',
+			{ signal }
+		);
+		return data.plans;
+	});
+	const history = $derived(historyList.data ?? []);
+	const historyLoading = $derived(historyList.loading);
+	const historyError = $derived(historyList.error);
+	const loadHistory = historyList.load;
+
+	const preview = createResource(
+		async (signal) => {
+			const data = await apiFetch<{ plan: Plan }>('/plugins/codemode/admin/preview', {
+				method: 'POST',
+				body: { instruction: instruction.trim() },
+				signal
+			});
+			return data.plan;
+		},
+		{ loading: false }
+	);
+	const planning = $derived(preview.loading);
+
+	const applyRun = createResource(
+		async (signal) => {
+			const data = await apiFetch<{ plan: Plan; results: ActionResult[] }>(
+				'/plugins/codemode/admin/apply',
+				{
+					method: 'POST',
+					body: { plan_id: plan?.id ?? '' },
+					signal
+				}
+			);
+			return data;
+		},
+		{ loading: false }
+	);
+	const applying = $derived(applyRun.loading);
 
 	const busy = $derived(planning || applying);
 	const canApply = $derived(plan !== null && plan.status === 'preview' && !busy);
@@ -90,33 +123,7 @@
 
 	onMount(() => {
 		void loadHistory();
-		return () => {
-			historyController?.abort();
-			actionController?.abort();
-		};
 	});
-
-	async function loadHistory(): Promise<void> {
-		historyController?.abort();
-		const controller = new AbortController();
-		historyController = controller;
-		historyLoading = true;
-		historyError = '';
-
-		try {
-			const data = await apiFetch<{ plans: HistoryPlan[] }>(
-				'/plugins/codemode/admin/plans?limit=10',
-				{ signal: controller.signal }
-			);
-			if (historyController !== controller) return;
-			history = data.plans;
-		} catch (caught) {
-			if (historyController !== controller || isAbortError(caught)) return;
-			historyError = errorMessage(caught);
-		} finally {
-			if (historyController === controller) historyLoading = false;
-		}
-	}
 
 	function instructionChanged(): void {
 		if (instructionError) instructionError = '';
@@ -168,91 +175,63 @@
 
 		planError = '';
 		applyError = '';
-		const trimmed = instruction.trim();
-		if (!trimmed) {
+		if (!instruction.trim()) {
 			instructionError = 'Describe the change you want to make.';
 			await focusFirstError();
 			return;
 		}
 
-		actionController?.abort();
-		const controller = new AbortController();
-		actionController = controller;
-		planning = true;
-
-		try {
-			const data = await apiFetch<{ plan: Plan }>('/plugins/codemode/admin/preview', {
-				method: 'POST',
-				body: { instruction: trimmed },
-				signal: controller.signal
-			});
-			if (actionController !== controller) return;
-			plan = data.plan;
-			results = [];
-			void loadHistory();
-			await tick();
-			planPanel?.focus();
-		} catch (caught) {
-			if (actionController !== controller || isAbortError(caught)) return;
-			if (caught instanceof ApiError && caught.fields.instruction) {
-				instructionError = caught.fields.instruction;
+		const outcome = await preview.load();
+		if (outcome.status === 'discarded') return;
+		if (outcome.status === 'error') {
+			if (outcome.error instanceof ApiError && outcome.error.fields.instruction) {
+				instructionError = outcome.error.fields.instruction;
 				planError = 'Check the marked field.';
-				planning = false;
 				await focusFirstError();
 				return;
 			}
-			planError = requestError(caught);
-		} finally {
-			if (actionController === controller) planning = false;
+			planError = requestError(outcome.error);
+			return;
 		}
+		plan = outcome.data;
+		results = [];
+		void loadHistory();
+		await tick();
+		planPanel?.focus();
 	}
 
 	async function applyPlan(): Promise<void> {
 		if (!plan || !canApply) return;
 
-		actionController?.abort();
-		const controller = new AbortController();
-		actionController = controller;
-		applying = true;
 		applyError = '';
 
-		try {
-			const data = await apiFetch<{ plan: Plan; results: ActionResult[] }>(
-				'/plugins/codemode/admin/apply',
-				{
-					method: 'POST',
-					body: { plan_id: plan.id },
-					signal: controller.signal
-				}
-			);
-			if (actionController !== controller) return;
-			plan = data.plan;
-			results = data.results;
-			void loadHistory();
-			await tick();
-			planPanel?.focus();
-		} catch (caught) {
-			if (actionController !== controller || isAbortError(caught)) return;
-			if (caught instanceof ApiError && caught.code === 'invalid_plan') {
+		const outcome = await applyRun.load();
+		if (outcome.status === 'discarded') return;
+		if (outcome.status === 'error') {
+			if (outcome.error instanceof ApiError && outcome.error.code === 'invalid_plan') {
 				plan = { ...plan, status: 'failed' };
 				results = [];
-				applyError = requestError(caught);
+				applyError = requestError(outcome.error);
 				void loadHistory();
 				await tick();
 				planPanel?.focus();
 				return;
 			}
-			if (caught instanceof ApiError && caught.code === 'plan_already_applied') {
+			if (outcome.error instanceof ApiError && outcome.error.code === 'plan_already_applied') {
 				plan = null;
 				results = [];
-				planError = requestError(caught);
+				planError = requestError(outcome.error);
 				void loadHistory();
 				return;
 			}
-			applyError = requestError(caught);
-		} finally {
-			if (actionController === controller) applying = false;
+			applyError = requestError(outcome.error);
+			return;
 		}
+		plan = outcome.data.plan;
+		results = outcome.data.results;
+		void loadHistory();
+		await tick();
+		planPanel?.focus();
 	}
 
 	function statusLabel(status: PlanStatus): string {

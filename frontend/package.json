@@ -15,7 +15,7 @@
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"test:security": "node --experimental-strip-types --test tests/security.test.mjs",
-		"test:framework": "node --experimental-strip-types --test tests/framework.test.mjs",
+		"test:framework": "node --experimental-strip-types --test tests/framework.test.mjs tests/product-options.test.mjs tests/admin-domain.test.mjs tests/resource.test.mjs tests/checkout.test.mjs",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
 	},
 	"devDependencies": {

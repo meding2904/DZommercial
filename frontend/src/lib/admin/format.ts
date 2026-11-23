@@ -1,5 +1,12 @@
 import { formatDate } from '#lib/format';
-import type { OrderStatus } from '#lib/types';
+
+export { ORDER_STATUSES, STATUS_TRANSITIONS } from './domain/statuses.js';
+export {
+	courierLabel,
+	courierStatusLabel,
+	deliveryTypeLabel,
+	titleCase
+} from './domain/labels.js';
 
 const dateTime = new Intl.DateTimeFormat('en-GB', {
 	day: '2-digit',
@@ -29,23 +36,5 @@ export function parseList(value: string): string[] {
 export function countLabel(count: number, singular: string, plural = `${singular}s`): string {
 	return `${count} ${count === 1 ? singular : plural}`;
 }
-
-export const ORDER_STATUSES: OrderStatus[] = [
-	'pending',
-	'confirmed',
-	'packed',
-	'shipped',
-	'delivered',
-	'cancelled'
-];
-
-export const STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
-	pending: ['confirmed', 'cancelled'],
-	confirmed: ['packed', 'cancelled'],
-	packed: ['shipped', 'cancelled'],
-	shipped: ['delivered'],
-	delivered: [],
-	cancelled: []
-};
 
 export const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;

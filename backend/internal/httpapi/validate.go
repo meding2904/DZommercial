@@ -29,19 +29,6 @@ func validSlug(value string) bool {
 	return len(value) >= 1 && len(value) <= 120 && slugPattern.MatchString(value)
 }
 
-func validImagePath(value string) bool {
-	if value == "" || len(value) > 500 {
-		return false
-	}
-	if strings.ContainsAny(value, "\\%?#") || strings.Contains(value, "..") {
-		return false
-	}
-	if strings.HasPrefix(value, "/api/images/") {
-		return imageIDPattern.MatchString(strings.TrimPrefix(value, "/api/images/"))
-	}
-	return strings.HasPrefix(value, "/images/")
-}
-
 func validPhone(value string) bool {
 	return phonePattern.MatchString(value)
 }

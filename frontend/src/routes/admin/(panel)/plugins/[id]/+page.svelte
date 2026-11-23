@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { ApiError } from '#lib/api';
-	import { adminApi, errorMessage, isAbortError } from '#lib/admin/api';
+	import { adminApi } from '#lib/admin/api';
+	import { createResource } from '#lib/admin/resource.svelte';
 	import ErrorState from '#lib/components/admin/ErrorState.svelte';
 	import LoadingState from '#lib/components/admin/LoadingState.svelte';
 	import { adminComponentFor } from '#lib/plugins/admin/registry';
@@ -9,17 +10,57 @@
 	import { formatDate } from '#lib/format';
 	import type { AdminPlugin, PluginSettings } from '#lib/types';
 
-	let plugin = $state<AdminPlugin | null>(null);
-	let allPlugins = $state<AdminPlugin[]>([]);
-	let settings = $state<PluginSettings | null>(null);
-	let settingsNote = $state('');
-	let settingsUnreadable = $state(false);
-	let loading = $state(true);
-	let error = $state('');
-	let notFound = $state(false);
+	type PluginDetail = {
+		plugins: AdminPlugin[];
+		plugin: AdminPlugin | null;
+		settings: PluginSettings | null;
+		settingsNote: string;
+		settingsUnreadable: boolean;
+	};
 
-	let controller: AbortController | null = null;
-	let requestId = 0;
+	const detail = createResource(async (signal): Promise<PluginDetail> => {
+		const id = page.params.id;
+		const data = await adminApi.adminPlugins(signal);
+		const found = id ? (data.plugins.find((item) => item.id === id) ?? null) : null;
+		const empty: PluginDetail = {
+			plugins: data.plugins,
+			plugin: found,
+			settings: null,
+			settingsNote: '',
+			settingsUnreadable: false
+		};
+		if (!found) return { ...empty, plugin: null };
+		if (!found.settings?.length) return empty;
+		if (found.settings_state === 'unreadable') {
+			return { ...empty, settings: blankSettings(found), settingsUnreadable: true };
+		}
+
+		try {
+			return { ...empty, settings: await adminApi.pluginSettings(found.id) };
+		} catch (caught) {
+			if (caught instanceof ApiError && caught.status === 404) {
+				return {
+					...empty,
+					settingsNote:
+						'This plugin reports settings, but they could not be loaded. The rest of the plugin still works.'
+				};
+			}
+			if (caught instanceof ApiError && caught.code === 'plugin_settings_unreadable') {
+				return { ...empty, settings: blankSettings(found), settingsUnreadable: true };
+			}
+			throw caught;
+		}
+	});
+
+	const plugin = $derived(detail.data?.plugin ?? null);
+	const allPlugins = $derived(detail.data?.plugins ?? []);
+	const settings = $derived(detail.data?.settings ?? null);
+	const settingsNote = $derived(detail.data?.settingsNote ?? '');
+	const settingsUnreadable = $derived(detail.data?.settingsUnreadable ?? false);
+	const loading = $derived(detail.loading);
+	const error = $derived(detail.error);
+	let missing = $state(false);
+	const notFound = $derived(missing || (detail.data !== null && detail.data.plugin === null));
 
 	const AdminBody = $derived(plugin ? adminComponentFor(plugin.id) : null);
 	const showAdminPath = $derived(
@@ -32,13 +73,10 @@
 
 	$effect(() => {
 		const id = page.params.id;
-		if (!id) {
-			loading = false;
-			notFound = true;
-			return;
-		}
-		void load(id);
-		return () => controller?.abort();
+		missing = !id;
+		if (id) void detail.load();
+		else detail.reset();
+		return () => detail.abort();
 	});
 
 	function blankSettings(item: AdminPlugin): PluginSettings {
@@ -57,66 +95,7 @@
 	}
 
 	function reload(): void {
-		const id = page.params.id;
-		if (id) void load(id);
-	}
-
-	async function load(id: string): Promise<void> {
-		const current = ++requestId;
-		controller?.abort();
-		controller = new AbortController();
-		loading = true;
-		error = '';
-		notFound = false;
-		plugin = null;
-		settings = null;
-		settingsNote = '';
-		settingsUnreadable = false;
-
-		try {
-			const data = await adminApi.adminPlugins(controller.signal);
-			if (current !== requestId) return;
-			allPlugins = data.plugins;
-			const found = data.plugins.find((item) => item.id === id) ?? null;
-			if (!found) {
-				notFound = true;
-				return;
-			}
-			plugin = found;
-
-			if (!found.settings?.length) return;
-
-			if (found.settings_state === 'unreadable') {
-				settings = blankSettings(found);
-				settingsUnreadable = true;
-				return;
-			}
-
-			try {
-				settings = await adminApi.pluginSettings(found.id);
-				if (current !== requestId) return;
-			} catch (caught) {
-				if (current !== requestId) return;
-				if (caught instanceof ApiError && caught.status === 404) {
-					settingsNote =
-						'This plugin reports settings, but they could not be loaded. The rest of the plugin still works.';
-					settings = null;
-				} else if (
-					caught instanceof ApiError &&
-					caught.code === 'plugin_settings_unreadable'
-				) {
-					settings = blankSettings(found);
-					settingsUnreadable = true;
-				} else {
-					throw caught;
-				}
-			}
-		} catch (caught) {
-			if (current !== requestId || isAbortError(caught)) return;
-			error = errorMessage(caught);
-		} finally {
-			if (current === requestId) loading = false;
-		}
+		if (page.params.id) void detail.load();
 	}
 
 	function stateLabel(item: AdminPlugin): string {
@@ -143,15 +122,20 @@
 	}
 
 	function settingsSaved(next: PluginSettings): void {
-		if (!plugin || plugin.id !== next.plugin_id) return;
-		settings = next;
-		settingsUnreadable = false;
-		plugin = {
-			...plugin,
-			configured: next.configured,
-			settings_state: 'ready',
-			updated_at: next.updated_at
-		};
+		detail.update((current) => {
+			if (!current.plugin || current.plugin.id !== next.plugin_id) return current;
+			return {
+				...current,
+				settings: next,
+				settingsUnreadable: false,
+				plugin: {
+					...current.plugin,
+					configured: next.configured,
+					settings_state: 'ready',
+					updated_at: next.updated_at
+				}
+			};
+		});
 	}
 </script>
 

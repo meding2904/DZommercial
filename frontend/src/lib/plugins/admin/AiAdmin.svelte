@@ -1,12 +1,13 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
 	import { ApiError, apiFetch } from '#lib/api';
-	import { adminApi, errorMessage, isAbortError } from '#lib/admin/api';
+	import { adminApi, errorMessage } from '#lib/admin/api';
+	import { createResource } from '#lib/admin/resource.svelte';
 	import Dropdown from '#lib/components/Dropdown.svelte';
 	import ErrorState from '#lib/components/admin/ErrorState.svelte';
 	import LoadingState from '#lib/components/admin/LoadingState.svelte';
 	import { formatDate } from '#lib/format';
-	import type { AdminPlugin, AdminProduct } from '#lib/types';
+	import type { AdminPlugin } from '#lib/types';
 
 	let { plugin }: { plugin: AdminPlugin } = $props();
 
@@ -24,15 +25,7 @@
 	let kind = $state<RunKind>('store');
 	let days = $state('30');
 	let productId = $state('');
-
-	let runs = $state<AiRun[]>([]);
-	let runsLoading = $state(true);
-	let runsError = $state('');
 	let latestId = $state('');
-
-	let products = $state<AdminProduct[]>([]);
-	let productsLoading = $state(true);
-	let productsError = $state('');
 
 	let fieldErrors = $state<Record<string, string>>({});
 	let formError = $state('');
@@ -40,8 +33,43 @@
 	let notice = $state('');
 	let formEl = $state<HTMLFormElement | null>(null);
 
-	let runsController: AbortController | null = null;
-	let productsController: AbortController | null = null;
+	const runsList = createResource(
+		async (signal) => {
+			const data = await apiFetch<{ runs: AiRun[] }>('/plugins/ai/admin/runs?limit=10', {
+				signal
+			});
+			return data.runs;
+		},
+		{
+			onLoaded: (list) => {
+				if (!list.some((run) => run.id === latestId)) latestId = list[0]?.id ?? '';
+			}
+		}
+	);
+	const runs = $derived(runsList.data ?? []);
+	const runsLoading = $derived(runsList.loading);
+	const runsError = $derived(runsList.error);
+	const loadRuns = runsList.load;
+
+	const productList = createResource(
+		async (signal) => (await adminApi.products(signal)).products,
+		{
+			onLoaded: (list) => {
+				if (!list.some((product) => product.id === productId)) {
+					productId = list[0]?.id ?? '';
+				}
+				if (fieldErrors.product_id) {
+					const next = { ...fieldErrors };
+					delete next.product_id;
+					fieldErrors = next;
+				}
+			}
+		}
+	);
+	const products = $derived(productList.data ?? []);
+	const productsLoading = $derived(productList.loading);
+	const productsError = $derived(productList.error);
+	const loadProducts = productList.load;
 
 	const dayOptions = [
 		{ value: '7', label: 'Last 7 days' },
@@ -63,60 +91,7 @@
 	onMount(() => {
 		void loadRuns();
 		void loadProducts();
-		return () => {
-			runsController?.abort();
-			productsController?.abort();
-		};
 	});
-
-	async function loadRuns(): Promise<void> {
-		runsController?.abort();
-		const controller = new AbortController();
-		runsController = controller;
-		runsLoading = true;
-		runsError = '';
-
-		try {
-			const data = await apiFetch<{ runs: AiRun[] }>('/plugins/ai/admin/runs?limit=10', {
-				signal: controller.signal
-			});
-			if (runsController !== controller) return;
-			runs = data.runs;
-			if (!runs.some((run) => run.id === latestId)) latestId = runs[0]?.id ?? '';
-		} catch (caught) {
-			if (runsController !== controller || isAbortError(caught)) return;
-			runsError = errorMessage(caught);
-		} finally {
-			if (runsController === controller) runsLoading = false;
-		}
-	}
-
-	async function loadProducts(): Promise<void> {
-		productsController?.abort();
-		const controller = new AbortController();
-		productsController = controller;
-		productsLoading = true;
-		productsError = '';
-
-		try {
-			const data = await adminApi.products(controller.signal);
-			if (productsController !== controller) return;
-			products = data.products;
-			if (!products.some((product) => product.id === productId)) {
-				productId = products[0]?.id ?? '';
-			}
-			if (fieldErrors.product_id) {
-				const next = { ...fieldErrors };
-				delete next.product_id;
-				fieldErrors = next;
-			}
-		} catch (caught) {
-			if (productsController !== controller || isAbortError(caught)) return;
-			productsError = errorMessage(caught);
-		} finally {
-			if (productsController === controller) productsLoading = false;
-		}
-	}
 
 	function setKind(value: string): void {
 		kind = value === 'product' ? 'product' : 'store';
@@ -209,7 +184,7 @@
 					days: Number(days)
 				}
 			});
-			runs = [data.run, ...runs].slice(0, 10);
+			runsList.update((list) => [data.run, ...list].slice(0, 10));
 			latestId = data.run.id;
 			notice = 'Analysis ready.';
 		} catch (caught) {

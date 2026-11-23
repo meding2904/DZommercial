@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { apiFetch } from '#lib/api';
-	import { errorMessage, isAbortError } from '#lib/admin/api';
+	import { createResource } from '#lib/admin/resource.svelte';
 	import type { AdminOrder } from '#lib/admin/types';
 
 	type Handset = {
@@ -13,36 +13,21 @@
 
 	let { order }: { order: AdminOrder } = $props();
 
-	let handsets = $state<Handset[]>([]);
-	let loading = $state(true);
-	let error = $state('');
-	let controller: AbortController | null = null;
+	const handsetList = createResource(async (signal) => {
+		const data = await apiFetch<{ devices: Handset[] }>(
+			`/plugins/phone/admin/orders/${encodeURIComponent(order.id)}/devices`,
+			{ signal }
+		);
+		return data.devices;
+	});
+	const handsets = $derived(handsetList.data ?? []);
+	const loading = $derived(handsetList.loading);
+	const error = $derived(handsetList.error);
+	const load = handsetList.load;
 
 	onMount(() => {
 		void load();
-		return () => controller?.abort();
 	});
-
-	async function load(): Promise<void> {
-		controller?.abort();
-		const current = new AbortController();
-		controller = current;
-		loading = true;
-		error = '';
-		try {
-			const data = await apiFetch<{ devices: Handset[] }>(
-				`/plugins/phone/admin/orders/${encodeURIComponent(order.id)}/devices`,
-				{ signal: current.signal }
-			);
-			if (controller !== current) return;
-			handsets = data.devices;
-		} catch (caught) {
-			if (controller !== current || isAbortError(caught)) return;
-			error = errorMessage(caught);
-		} finally {
-			if (controller === current) loading = false;
-		}
-	}
 </script>
 
 <section class="order-section handsets" aria-labelledby="order-handsets-title">

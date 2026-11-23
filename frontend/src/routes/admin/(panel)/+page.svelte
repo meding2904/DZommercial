@@ -2,24 +2,24 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { adminApi, errorMessage, isAbortError } from '#lib/admin/api';
+	import { adminApi } from '#lib/admin/api';
+	import { createResource } from '#lib/admin/resource.svelte';
 	import { formatRange } from '#lib/admin/format';
 	import ErrorState from '#lib/components/admin/ErrorState.svelte';
 	import LoadingState from '#lib/components/admin/LoadingState.svelte';
 	import RevenueChart from '#lib/components/admin/RevenueChart.svelte';
 	import StatusPill from '#lib/components/admin/StatusPill.svelte';
 	import { compactMoney, formatDate, formatDay, money, percent, titleCase } from '#lib/format';
-	import type { Metrics } from '#lib/types';
 
 	let days = $state(30);
-	let metrics = $state<Metrics | null>(null);
-	let loading = $state(true);
-	let error = $state('');
 	let shownRevenue = $state(0);
 	let hasCounted = false;
 
-	let controller: AbortController | null = null;
-	let requestId = 0;
+	const metricsResource = createResource((signal) => adminApi.metrics(days, signal));
+	const metrics = $derived(metricsResource.data);
+	const loading = $derived(metricsResource.loading);
+	const error = $derived(metricsResource.error);
+	const load = metricsResource.load;
 
 	const ranges = [7, 30, 90];
 
@@ -99,29 +99,7 @@
 		if (ranges.includes(requested) && requested !== 30) days = requested;
 
 		void load();
-
-		return () => controller?.abort();
 	});
-
-	async function load() {
-		const id = ++requestId;
-		controller?.abort();
-		controller = new AbortController();
-		loading = true;
-		error = '';
-		metrics = null;
-
-		try {
-			const data = await adminApi.metrics(days, controller.signal);
-			if (id !== requestId) return;
-			metrics = data;
-		} catch (caught) {
-			if (id !== requestId || isAbortError(caught)) return;
-			error = errorMessage(caught);
-		} finally {
-			if (id === requestId) loading = false;
-		}
-	}
 
 	function setRange(next: number) {
 		if (next === days && metrics) return;

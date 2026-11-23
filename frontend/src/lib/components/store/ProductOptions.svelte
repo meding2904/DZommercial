@@ -1,7 +1,6 @@
 <script lang="ts">
+	import { isValueAvailable } from '#lib/product-options';
 	import type { Product } from '#lib/types';
-
-	type VariantStock = Record<string, string | number> & { in_stock: number };
 
 	let {
 		product,
@@ -15,36 +14,14 @@
 		product.option_schema.filter((field) => field.type === 'select')
 	);
 
-	const variantStock = $derived.by((): VariantStock[] | null => {
-		const raw = product.plugin_data?.variants;
-		if (!Array.isArray(raw)) return null;
-		return raw.filter(
-			(item): item is VariantStock =>
-				typeof item === 'object' && item !== null && typeof item.in_stock === 'number'
-		);
-	});
-
-	function available(
-		key: string,
-		value: string,
-		current: Record<string, string> = selected
-	): boolean {
-		if (!variantStock) return true;
-		return variantStock.some(
-			(variant) =>
-				variant.in_stock > 0 &&
-				variant[key] === value &&
-				Object.entries(current).every(
-					([otherKey, otherValue]) =>
-						otherKey === key || !otherValue || variant[otherKey] === otherValue
-				)
-		);
-	}
-
 	function choose(key: string, value: string): void {
 		const next: Record<string, string> = { ...selected, [key]: value };
 		for (const field of selectFields) {
-			if (field.key !== key && next[field.key] && !available(field.key, next[field.key], next)) {
+			if (
+				field.key !== key &&
+				next[field.key] &&
+				!isValueAvailable(product, field.key, next[field.key], next)
+			) {
 				delete next[field.key];
 			}
 		}
@@ -65,7 +42,7 @@
 				</legend>
 				<div class="option-values">
 					{#each product.attributes[field.key] ?? [] as value (value)}
-						{@const isAvailable = available(field.key, value)}
+						{@const isAvailable = isValueAvailable(product, field.key, value, selected)}
 						<label
 							class="option"
 							class:is-selected={selected[field.key] === value}

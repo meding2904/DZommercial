@@ -2,22 +2,37 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { adminApi, errorMessage, isAbortError } from '#lib/admin/api';
+	import { adminApi, errorMessage } from '#lib/admin/api';
+	import { createResource } from '#lib/admin/resource.svelte';
 	import ConfirmDialog from '#lib/components/admin/ConfirmDialog.svelte';
 	import ErrorState from '#lib/components/admin/ErrorState.svelte';
 	import LoadingState from '#lib/components/admin/LoadingState.svelte';
 	import ProductDialog from '#lib/components/admin/ProductDialog.svelte';
 	import { auth } from '#lib/stores/auth.svelte';
 	import { money } from '#lib/format';
-	import type { AdminProduct, Category, PluginManifest } from '#lib/types';
+	import type { AdminProduct, Category } from '#lib/types';
 
-	let products = $state<AdminProduct[]>([]);
-	let categories = $state<Category[]>([]);
-	let plugins = $state<PluginManifest[]>([]);
-	let loading = $state(true);
-	let error = $state('');
 	let search = $state('');
 	let lowOnly = $state(false);
+
+	const catalogue = createResource(async (signal) => {
+		const [productData, categoryData, pluginData] = await Promise.all([
+			adminApi.products(signal),
+			adminApi.categories(signal).catch(() => null),
+			adminApi.pluginManifests(signal).catch(() => null)
+		]);
+		return {
+			products: productData.products,
+			categories: mergeCategories(categoryData?.categories ?? [], productData.products),
+			plugins: pluginData?.plugins ?? []
+		};
+	});
+	const products = $derived(catalogue.data?.products ?? []);
+	const categories = $derived(catalogue.data?.categories ?? []);
+	const plugins = $derived(catalogue.data?.plugins ?? []);
+	const loading = $derived(catalogue.loading);
+	const error = $derived(catalogue.error);
+	const load = catalogue.load;
 
 	let formOpen = $state(false);
 	let editProduct = $state<AdminProduct | null>(null);
@@ -26,8 +41,6 @@
 	let archiveError = $state('');
 	let notice = $state('');
 
-	let controller: AbortController | null = null;
-	let requestId = 0;
 	let trigger: HTMLElement | null = null;
 
 	const filtered = $derived.by(() => {
@@ -64,35 +77,7 @@
 		lowOnly = params.get('low') === '1';
 
 		void load();
-
-		return () => controller?.abort();
 	});
-
-	async function load() {
-		const id = ++requestId;
-		controller?.abort();
-		controller = new AbortController();
-		loading = true;
-		error = '';
-		products = [];
-
-		try {
-			const [productData, categoryData, pluginData] = await Promise.all([
-				adminApi.products(controller.signal),
-				adminApi.categories(controller.signal).catch(() => null),
-				adminApi.pluginManifests(controller.signal).catch(() => null)
-			]);
-			if (id !== requestId) return;
-			products = productData.products;
-			categories = mergeCategories(categoryData?.categories ?? [], productData.products);
-			plugins = pluginData?.plugins ?? [];
-		} catch (caught) {
-			if (id !== requestId || isAbortError(caught)) return;
-			error = errorMessage(caught);
-		} finally {
-			if (id === requestId) loading = false;
-		}
-	}
 
 	function mergeCategories(base: Category[], list: AdminProduct[]): Category[] {
 		const merged = new Map(base.map((category) => [category.slug, category]));
@@ -151,8 +136,13 @@
 	}
 
 	function saved(product: AdminProduct, mode: 'create' | 'edit') {
-		if (mode === 'create') products = [product, ...products];
-		else products = products.map((item) => (item.id === product.id ? product : item));
+		catalogue.update((current) => ({
+			...current,
+			products:
+				mode === 'create'
+					? [product, ...current.products]
+					: current.products.map((item) => (item.id === product.id ? product : item))
+		}));
 		notice = mode === 'create' ? 'Product created.' : 'Product updated.';
 		closeForm();
 	}
@@ -178,9 +168,12 @@
 
 		try {
 			await adminApi.archiveProduct(target.id);
-			products = products.map((product) =>
-				product.id === target.id ? { ...product, active: false } : product
-			);
+			catalogue.update((current) => ({
+				...current,
+				products: current.products.map((product) =>
+					product.id === target.id ? { ...product, active: false } : product
+				)
+			}));
 			notice = 'Product archived.';
 			archiveTarget = null;
 			focusProduct(target.id);

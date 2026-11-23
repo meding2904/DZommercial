@@ -3,16 +3,13 @@ package httpapi
 import (
 	"crypto/subtle"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
 	"time"
 
 	"azahar/internal/auth"
-	"azahar/internal/ids"
-	"azahar/internal/plugins"
-	"azahar/internal/store"
+	"azahar/internal/orderintake"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -126,43 +123,18 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	type line struct {
-		productID          string
-		quantity           int
-		options            map[string]string
-		expectedPriceCents *int64
-	}
-	lines := make([]line, 0, len(payload.Items))
-	index := make(map[string]int)
+	items := make([]orderintake.Line, 0, len(payload.Items))
 	for _, item := range payload.Items {
-		productID := strings.TrimSpace(item.ProductID)
-		if productID == "" {
-			fields["items"] = "Choose a product for every line."
-			continue
-		}
-		if item.Quantity < 1 || item.Quantity > 10 {
-			fields["items"] = "Use between 1 and 10 units per product."
-			continue
-		}
-		options := normalizeOptions(item.Options)
-		lineKey := productID + "|" + optionsKey(options)
-		if existing, ok := index[lineKey]; ok {
-			lines[existing].quantity += item.Quantity
-			if lines[existing].quantity > 10 {
-				fields["items"] = "Use between 1 and 10 units per product."
-			}
-			continue
-		}
-		index[lineKey] = len(lines)
-		lines = append(lines, line{
-			productID:          productID,
-			quantity:           item.Quantity,
-			options:            options,
-			expectedPriceCents: item.ExpectedPriceCents,
+		items = append(items, orderintake.Line{
+			ProductID:          item.ProductID,
+			Quantity:           item.Quantity,
+			Options:            item.Options,
+			ExpectedPriceCents: item.ExpectedPriceCents,
 		})
 	}
-	if len(fields) > 0 {
-		writeProblem(w, problemFields(422, "validation_error", "Check the marked fields.", fields))
+	lines, itemFields := orderintake.BuildLines(items)
+	if len(itemFields) > 0 {
+		writeProblem(w, problemFields(422, "validation_error", "Check the marked fields.", itemFields))
 		return
 	}
 	if len(lines) == 0 {
@@ -199,192 +171,52 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	now := time.Now().UTC()
-	order := store.Order{
-		ID:           ids.New("ord"),
-		Status:       "pending",
-		Name:         payload.Name,
-		Email:        payload.Email,
-		Phone:        payload.Phone,
-		Address:      payload.Address,
-		City:         destination.Commune,
-		Notes:        payload.Notes,
-		Currency:     "DZD",
-		CreatedAt:    now,
-		UpdatedAt:    now,
+	customer := orderintake.Customer{
+		Name:    payload.Name,
+		Email:   payload.Email,
+		Phone:   payload.Phone,
+		Address: payload.Address,
+		Notes:   payload.Notes,
+	}
+	target := orderintake.Destination{
 		WilayaCode:   destination.Wilaya.Code,
 		WilayaName:   destination.Wilaya.NameFr,
 		CommuneName:  destination.Commune,
 		DeliveryType: payload.DeliveryType,
 	}
 	if destination.Desk != nil {
-		order.StopDeskID = destination.Desk.ID
-		order.StopDeskName = destination.Desk.Name
-		if order.Address == "" {
-			order.Address = destination.Desk.Address
+		target.StopDeskID = destination.Desk.ID
+		target.StopDeskName = destination.Desk.Name
+		if customer.Address == "" {
+			customer.Address = destination.Desk.Address
 		}
 	}
-	userID := ""
 	if user := s.optionalUser(r); user != nil {
-		userID = user.ID
-		order.UserID = &user.ID
+		customer.UserID = user.ID
 	}
+
 	token, err := auth.NewToken()
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal_error", "Something went wrong.")
 		return
 	}
-	order.TokenHash = auth.HashToken(token)
 
-	items := make([]store.OrderItem, 0, len(lines))
-	pluginLines := make(map[string][]plugins.CheckoutLine)
-	var problem *apiProblem
-
-	err = s.store.InTx(r.Context(), func(tx *sql.Tx) error {
-		var subtotal int64
-		for _, line := range lines {
-			product, err := s.store.ProductByIDTx(r.Context(), tx, line.productID, true)
-			if err != nil {
-				if errors.Is(err, sql.ErrNoRows) {
-					problem = problemFields(409, "conflict", "Some products are no longer available.",
-						map[string]string{"items": "A product in the bag is no longer available."})
-					return problem
-				}
-				return err
-			}
-			if !s.plugins.EffectiveEnabled(product.PluginID) {
-				problem = problemFields(409, "conflict", "Some products are no longer available.",
-					map[string]string{"items": product.Name + " is no longer available."})
-				return problem
-			}
-
-			schema := s.optionSchema(product)
-			for _, message := range validateSelectedOptions(schema, product.Attributes, line.options) {
-				problem = problemFields(409, "conflict", "Some product options have changed.",
-					map[string]string{"items": message})
-				return problem
-			}
-
-			itemID := ids.New("itm")
-			pluginLine := plugins.CheckoutLine{
-				Product:  product,
-				Options:  line.options,
-				Quantity: line.quantity,
-				OrderID:  order.ID,
-				ItemID:   itemID,
-			}
-			if hook := s.plugins.CheckoutHook(product.PluginID); hook != nil {
-				if hookProblem := hook.ValidateCheckoutLine(r.Context(), tx, pluginLine); hookProblem != nil {
-					problem = problemFields(hookProblem.Status, hookProblem.Code,
-						hookProblem.Message, hookProblem.Fields)
-					return problem
-				}
-			}
-
-			if product.Stock < line.quantity {
-				problem = problemFields(409, "conflict", "Some products do not have enough stock.",
-					map[string]string{"items": "Reduce the quantity for " + product.Name + "."})
-				return problem
-			}
-			unitPrice := product.EffectivePriceCents(now)
-			if line.expectedPriceCents != nil && *line.expectedPriceCents != unitPrice {
-				problem = problemFields(409, "price_changed",
-					"A price changed while the bag was open. Review the bag and try again.",
-					map[string]string{"items": product.Name + " now costs a different amount."})
-				return problem
-			}
-			lineTotal := unitPrice * int64(line.quantity)
-			subtotal += lineTotal
-			items = append(items, store.OrderItem{
-				ID:             itemID,
-				ProductID:      product.ID,
-				Slug:           product.Slug,
-				Name:           product.Name,
-				Image:          product.Image,
-				UnitPriceCents: unitPrice,
-				Quantity:       line.quantity,
-				LineTotalCents: lineTotal,
-				Options:        line.options,
-				OptionsLabel:   optionLabel(schema, line.options),
-				PluginID:       store.NormalizePluginID(product.PluginID),
-			})
-			if store.NormalizePluginID(product.PluginID) != store.CorePluginID {
-				pluginLines[product.PluginID] = append(pluginLines[product.PluginID], pluginLine)
-			}
-		}
-
-		order.SubtotalCents = subtotal
-		if subtotal > 800000 {
-			order.ShippingCents = 0
-		} else {
-			order.ShippingCents = 60000
-		}
-		order.TotalCents = order.SubtotalCents + order.ShippingCents
-
-		number, err := s.store.NextOrderNumber(r.Context(), tx, now.Year())
-		if err != nil {
-			return err
-		}
-		order.Number = number
-
-		if err := s.store.CreateOrder(r.Context(), tx, order, items); err != nil {
-			return err
-		}
-		detail, err := json.Marshal(map[string]string{
-			"version":     payload.TermsVersion,
-			"accepted_at": store.FormatTime(now),
-		})
-		if err != nil {
-			return err
-		}
-		if err := s.store.InsertAudit(r.Context(), tx, store.AuditEntry{
-			ID:          ids.New("aud"),
-			ActorUserID: userID,
-			Action:      "order.terms_accepted",
-			EntityType:  "order",
-			EntityID:    order.ID,
-			Detail:      string(detail),
-			CreatedAt:   now,
-		}); err != nil {
-			return err
-		}
-		for _, line := range lines {
-			ok, err := s.store.DecrementStock(r.Context(), tx, line.productID, line.quantity)
-			if err != nil {
-				return err
-			}
-			if !ok {
-				problem = problemFields(409, "conflict", "Some products do not have enough stock.",
-					map[string]string{"items": "Reduce the quantity in the bag."})
-				return problem
-			}
-		}
-		for pluginID, hookLines := range pluginLines {
-			hook := s.plugins.CheckoutHook(pluginID)
-			if hook == nil {
-				continue
-			}
-			if err := hook.OnOrderCreated(r.Context(), tx, plugins.OrderRef{
-				ID:     order.ID,
-				Number: order.Number,
-				Status: order.Status,
-			}, hookLines); err != nil {
-				return err
-			}
-		}
-		return nil
+	result, err := s.intake.Place(r.Context(), orderintake.Request{
+		Lines:       lines,
+		Channel:     orderintake.CheckoutChannel(payload.TermsVersion),
+		Customer:    customer,
+		Destination: target,
+		Status:      "pending",
+		TokenHash:   auth.HashToken(token),
+		ActorUserID: customer.UserID,
 	})
 	if err != nil {
-		if problem != nil {
-			writeProblem(w, problem)
-			return
-		}
-		writeError(w, http.StatusInternalServerError, "internal_error", "Something went wrong.")
+		writeIntakeError(w, err)
 		return
 	}
 
 	writeJSON(w, http.StatusCreated, map[string]any{
-		"order": toOrder(order, items, token, true),
+		"order": toOrder(result.Order, result.Items, token, true),
 	})
 }
 

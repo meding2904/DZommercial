@@ -1,8 +1,17 @@
 <script lang="ts">
-	import { onMount, tick } from 'svelte';
+	import { onDestroy, onMount, tick } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { PUBLIC_TURNSTILE_SITE_KEY } from '$app/env/public';
 	import { ApiError, apiFetch } from '#lib/api';
+	import { createDeliveryMap, createDeliveryMapState } from '#lib/checkout/delivery-map';
+	import { createHumanCheck, createHumanCheckState } from '#lib/checkout/human-check';
+	import {
+		INVALID_FIELDS_MESSAGE,
+		orderBody,
+		pickFieldErrors,
+		validateOrder,
+		type DeliveryType
+	} from '#lib/checkout/order-validation';
 	import {
 		FREE_SHIPPING_OVER_CENTS,
 		SHIPPING_CENTS,
@@ -13,398 +22,73 @@
 	import { TERMS_VERSION } from '#lib/legal';
 	import { cart } from '#lib/stores/cart.svelte';
 	import type { StorefrontTheme } from '#lib/theme/storefront';
-	import type { Commune, Order, StopDesk, Wilaya } from '#lib/types';
+	import type { Order } from '#lib/types';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData & { theme: StorefrontTheme } } = $props();
 	const contactEmail = $derived(data.theme.contact_email);
-
-	const FIELD_ORDER = [
-		'name',
-		'email',
-		'phone',
-		'wilaya_code',
-		'commune_name',
-		'delivery_type',
-		'stop_desk_id',
-		'address',
-		'notes',
-		'captcha',
-		'terms'
-	] as const;
-	type FieldKey = (typeof FIELD_ORDER)[number];
-
-	type CaptchaChallenge = {
-		token: string;
-		image: string;
-		expires_in: number;
-	};
-
-	type TurnstileOptions = {
-		sitekey: string;
-		theme: 'light' | 'dark';
-		size: 'flexible';
-		callback: (token: string) => void;
-		'expired-callback': () => void;
-		'error-callback': () => void;
-		'timeout-callback': () => void;
-	};
-
-	type TurnstileApi = {
-		render: (container: HTMLElement, options: TurnstileOptions) => string;
-		reset: (widgetId?: string) => void;
-		remove: (widgetId?: string) => void;
-	};
-
-	const turnstileSiteKey = PUBLIC_TURNSTILE_SITE_KEY.trim();
-	const turnstileEnabled = turnstileSiteKey.length > 0;
 
 	let mounted = $state(false);
 	let busy = $state(false);
 	let formError = $state('');
 	let errors = $state<Record<string, string>>({});
 	let errorBox = $state<HTMLDivElement | null>(null);
-
-	let captcha = $state<CaptchaChallenge | null>(null);
-	let captchaState = $state<'idle' | 'loading' | 'ready' | 'error'>('idle');
-	let captchaAnswer = $state('');
-	let captchaError = $state('');
-	let turnstileContainer = $state<HTMLDivElement | null>(null);
-	let turnstileToken = $state('');
-	let turnstileState = $state<'idle' | 'loading' | 'ready' | 'error'>('idle');
-	let turnstileError = $state('');
-	let turnstileWidgetId: string | null = null;
-	let turnstileScript: Promise<void> | null = null;
 	let termsAccepted = $state(false);
 	let website = $state('');
+	let turnstileContainer = $state<HTMLDivElement | null>(null);
 
+	// The page keeps the contact and address details; the delivery map owns the
+	// wilaya, commune and stop desk, and the human check owns its own state.
 	let form = $state({
 		name: '',
 		email: '',
 		phone: '',
-		wilayaCode: '',
-		communeName: '',
-		deliveryType: 'home' as 'home' | 'stopdesk',
-		stopDeskId: '',
 		address: '',
 		notes: ''
 	});
 
-	let wilayas = $state<Wilaya[]>([]);
-	let communes = $state<Commune[]>([]);
-	let desks = $state<StopDesk[]>([]);
-	let wilayaState = $state<'loading' | 'ready' | 'error'>('loading');
-	let communeState = $state<'idle' | 'loading' | 'ready' | 'error'>('idle');
-	let deskState = $state<'idle' | 'loading' | 'ready' | 'error'>('idle');
-	let mapError = $state('');
-	let communeError = $state('');
-	let deskError = $state('');
-	let communeRequest = 0;
-	let deskRequest = 0;
+	const mapState = $state(createDeliveryMapState());
+	const checkState = $state(createHumanCheckState(PUBLIC_TURNSTILE_SITE_KEY));
 
-	const selectedDesk = $derived(desks.find((desk) => desk.id === form.stopDeskId));
-	const communeLocked = $derived(
-		form.deliveryType === 'stopdesk' && Boolean(selectedDesk?.communeName)
-	);
+	const check = createHumanCheck(checkState, {
+		request: (path, signal) => apiFetch(path, { signal }),
+		container: () => turnstileContainer
+	});
+
+	const map = createDeliveryMap(mapState, {
+		request: (path, signal) => apiFetch(path, { signal })
+	});
+
 	const shipping = $derived(shippingFor(cart.subtotal));
 	const total = $derived(cart.subtotal + shipping);
 	const hasStockIssue = $derived(
 		cart.items.some((line) => line.stock < 1 || line.quantity > line.stock)
 	);
-	const wilayaOptions = $derived.by(() => {
-		if (wilayaState === 'loading') return [{ value: '', label: 'Reading wilayas…' }];
-		if (wilayaState === 'error') return [{ value: '', label: 'Wilayas unavailable' }];
-		return [
-			{ value: '', label: 'Choose a wilaya' },
-			...wilayas.map((wilaya) => ({ value: String(wilaya.code), label: wilaya.nameFr }))
-		];
-	});
-	const communeOptions = $derived.by(() => {
-		if (!form.wilayaCode) return [{ value: '', label: 'Choose a wilaya first' }];
-		if (communeState === 'loading') return [{ value: '', label: 'Reading communes…' }];
-		if (communeState === 'error') return [{ value: '', label: 'Communes unavailable' }];
-		return [
-			{ value: '', label: 'Choose a commune' },
-			...communes.map((commune) => ({ value: commune.nameFr, label: commune.nameFr }))
-		];
-	});
-	const deskOptions = $derived.by(() => {
-		if (!form.wilayaCode) return [{ value: '', label: 'Choose a wilaya first' }];
-		if (deskState === 'loading') return [{ value: '', label: 'Reading stop desks…' }];
-		if (deskState === 'error') return [{ value: '', label: 'Stop desks unavailable' }];
-		if (desks.length === 0) return [{ value: '', label: 'No stop desks in this wilaya' }];
-		return [
-			{ value: '', label: 'Choose a stop desk' },
-			...desks.map((desk) => ({
-				value: desk.id,
-				label: `${desk.name}${desk.communeName ? `, ${desk.communeName}` : ''}`
-			}))
-		];
-	});
 
 	onMount(() => {
 		mounted = true;
-		if (cart.items.length > 0) {
-			void loadWilayas();
-			if (turnstileEnabled) {
-				void tick().then(() => loadTurnstile());
-			} else {
-				void loadCaptcha();
-			}
-		}
+		if (cart.items.length === 0) return;
+		void map.load();
+		// The form appears only once `mounted` is true, so the check's container
+		// is in the DOM one tick later.
+		void tick().then(() => check.load());
 	});
 
-	function turnstileApi(): TurnstileApi | undefined {
-		return (window as Window & { turnstile?: TurnstileApi }).turnstile;
-	}
+	onDestroy(() => {
+		check.destroy();
+		map.destroy();
+	});
 
-	function ensureTurnstileScript(): Promise<void> {
-		if (turnstileApi()) return Promise.resolve();
-		if (turnstileScript) return turnstileScript;
-
-		turnstileScript = new Promise<void>((resolve, reject) => {
-			const prior = document.querySelector<HTMLScriptElement>('script[data-azahar-turnstile]');
-			const script = prior ?? document.createElement('script');
-
-			script.addEventListener('load', () => resolve(), { once: true });
-			script.addEventListener(
-				'error',
-				() => {
-					script.remove();
-					reject(new Error('The Turnstile script failed to load.'));
-				},
-				{ once: true }
-			);
-
-			if (!prior) {
-				script.dataset.azaharTurnstile = 'true';
-				script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
-				script.async = true;
-				document.head.appendChild(script);
-			}
-		}).catch((error: unknown) => {
-			turnstileScript = null;
-			throw error;
-		});
-
-		return turnstileScript;
-	}
-
-	async function loadTurnstile(): Promise<void> {
-		if (!turnstileEnabled || turnstileState === 'loading') return;
-
-		turnstileState = 'loading';
-		turnstileToken = '';
-		turnstileError = '';
-
-		try {
-			await ensureTurnstileScript();
-			const api = turnstileApi();
-			if (!api || !turnstileContainer) throw new Error('Turnstile is unavailable.');
-
-			if (turnstileWidgetId) {
-				api.remove(turnstileWidgetId);
-				turnstileWidgetId = null;
-				turnstileContainer.replaceChildren();
-			}
-
-			const theme =
-				document.documentElement.getAttribute('data-store-theme') === 'dark' ? 'dark' : 'light';
-
-			turnstileWidgetId = api.render(turnstileContainer, {
-				sitekey: turnstileSiteKey,
-				theme,
-				size: 'flexible',
-				callback: (token) => {
-					turnstileToken = token;
-					turnstileState = 'ready';
-					turnstileError = '';
-				},
-				'expired-callback': () => {
-					turnstileToken = '';
-					turnstileError = 'The security check expired. Complete it again.';
-				},
-				'error-callback': () => {
-					turnstileToken = '';
-					turnstileState = 'error';
-					turnstileError =
-						'The security check failed to load. Check your connection and try again.';
-				},
-				'timeout-callback': () => {
-					turnstileToken = '';
-					turnstileError = 'The security check timed out. Complete it again.';
-				}
-			});
-
-			turnstileState = 'ready';
-		} catch {
-			turnstileState = 'error';
-			turnstileError =
-				'The security check could not load. Check your connection and try again, or write to hello@azahar.example.';
-		}
-	}
-
-	function resetTurnstile(): void {
-		turnstileToken = '';
-		turnstileError = '';
-
-		const api = turnstileApi();
-		if (api && turnstileWidgetId) {
-			api.reset(turnstileWidgetId);
-			turnstileState = 'ready';
-			return;
-		}
-
-		turnstileState = 'idle';
-		void loadTurnstile();
-	}
-
-	async function loadCaptcha(): Promise<void> {
-		captchaState = 'loading';
-		captchaError = '';
-		captcha = null;
-		captchaAnswer = '';
-		try {
-			const data = await apiFetch<CaptchaChallenge>('/checkout/challenge');
-			captcha = data;
-			captchaState = 'ready';
-		} catch {
-			captchaState = 'error';
-			captchaError = 'The security check could not load. Check your connection and try again.';
-		}
-	}
-
-	async function loadWilayas(): Promise<void> {
-		wilayaState = 'loading';
-		mapError = '';
-		try {
-			const data = await apiFetch<{ wilayas: Wilaya[] }>('/shipping/wilayas');
-			wilayas = data.wilayas;
-			wilayaState = 'ready';
-			if (form.wilayaCode) void loadCommunes(Number(form.wilayaCode));
-		} catch {
-			wilayaState = 'error';
-			mapError = 'The delivery map could not be read. Check your connection and try again.';
-		}
-	}
-
-	async function loadCommunes(wilayaCode: number): Promise<void> {
-		const request = ++communeRequest;
-		communeState = 'loading';
-		communeError = '';
-		communes = [];
-		try {
-			const data = await apiFetch<{ communes: Commune[] }>(
-				`/shipping/communes?wilaya=${wilayaCode}`
-			);
-			if (request !== communeRequest) return;
-			communes = data.communes;
-			communeState = 'ready';
-		} catch {
-			if (request !== communeRequest) return;
-			communeState = 'error';
-			communeError = 'The communes could not be read. Try again.';
-		}
-	}
-
-	async function loadDesks(wilayaCode: number): Promise<void> {
-		const request = ++deskRequest;
-		deskState = 'loading';
-		deskError = '';
-		desks = [];
-		try {
-			const data = await apiFetch<{ desks: StopDesk[] }>(`/shipping/desks?wilaya=${wilayaCode}`);
-			if (request !== deskRequest) return;
-			desks = data.desks;
-			deskState = 'ready';
-		} catch {
-			if (request !== deskRequest) return;
-			deskState = 'error';
-			deskError = 'The stop desks could not be read. Try again, or choose home delivery.';
-		}
-	}
-
+	// A new wilaya or delivery type clears the messages that pointed at the
+	// previous choice.
 	function onWilayaChange(value: string): void {
-		form.wilayaCode = value;
-		form.communeName = '';
-		form.stopDeskId = '';
-		communes = [];
-		desks = [];
-		communeState = 'idle';
-		deskState = 'idle';
+		map.chooseWilaya(value);
 		errors = {};
-
-		const code = Number(value);
-		if (!code) return;
-		void loadCommunes(code);
-		if (form.deliveryType === 'stopdesk') void loadDesks(code);
 	}
 
-	function onDeliveryTypeChange(next: 'home' | 'stopdesk'): void {
-		form.deliveryType = next;
-		form.stopDeskId = '';
-		desks = [];
-		deskState = 'idle';
+	function onDeliveryTypeChange(next: DeliveryType): void {
+		map.chooseDeliveryType(next);
 		errors = {};
-
-		if (next === 'stopdesk' && form.wilayaCode) {
-			void loadDesks(Number(form.wilayaCode));
-		}
-	}
-
-	function onDeskChange(value: string): void {
-		form.stopDeskId = value;
-		const desk = desks.find((item) => item.id === value);
-		if (desk?.communeName) form.communeName = desk.communeName;
-	}
-
-	function validMobile(value: string): boolean {
-		const digits = value.replace(/[\s()+-]/g, '').replace(/^213/, '0');
-		return /^0[567]\d{8}$/.test(digits);
-	}
-
-	function validate(): FieldKey | null {
-		const next: Record<string, string> = {};
-
-		if (!form.name.trim()) next.name = 'Enter the name for the delivery.';
-		if (!form.email.trim()) next.email = 'Enter an email for the order.';
-		else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
-			next.email = 'Enter a valid email.';
-		}
-		if (!form.phone.trim()) next.phone = 'Enter a phone number the courier can call.';
-		else if (!validMobile(form.phone)) {
-			next.phone = 'Use an Algerian mobile number, for example 0550 12 34 56.';
-		}
-		if (!form.wilayaCode) next.wilaya_code = 'Choose a wilaya.';
-		if (!form.communeName) next.commune_name = 'Choose a commune.';
-		if (form.deliveryType === 'stopdesk') {
-			if (!form.stopDeskId) next.stop_desk_id = 'Choose a stop desk.';
-		} else if (!form.address.trim()) {
-			next.address = 'Enter the delivery address.';
-		}
-		if (form.notes.length > 500) {
-			next.notes = 'Keep notes to 500 characters or fewer.';
-		}
-		if (turnstileEnabled) {
-			if (!turnstileToken) {
-				next.captcha =
-					turnstileState === 'error'
-						? 'The security check is unavailable. Try again, or write to hello@azahar.example.'
-						: turnstileState === 'loading'
-							? 'Wait for the security check to finish loading.'
-							: 'Complete the security check before placing the order.';
-			}
-		} else if (!captcha?.token) {
-			next.captcha = 'The security check is not ready. Request a new code.';
-		} else if (!captchaAnswer.trim()) {
-			next.captcha = 'Enter the code from the security check.';
-		}
-		if (!termsAccepted) {
-			next.terms = 'Accept the terms of service before placing the order.';
-		}
-
-		errors = next;
-		return FIELD_ORDER.find((key) => next[key]) ?? null;
 	}
 
 	async function placeOrder(event: SubmitEvent): Promise<void> {
@@ -413,20 +97,25 @@
 
 		formError = '';
 
-		const firstInvalid = validate();
-		if (firstInvalid) {
-			formError = 'Check the marked fields.';
+		const validation = validateOrder({
+			form: { ...form, ...map.selection() },
+			termsAccepted,
+			checkError: check.validationError()
+		});
+		// A passing check clears every message the previous submit left behind,
+		// matching the old page: stale field errors must not survive a fix.
+		errors = validation.errors;
+		if (validation.field) {
+			formError = INVALID_FIELDS_MESSAGE;
 			await tick();
 			const focusId =
-				firstInvalid === 'delivery_type'
+				validation.field === 'delivery_type'
 					? 'delivery-home'
-					: firstInvalid === 'captcha'
-						? turnstileEnabled
-							? 'turnstile-check'
-							: 'captcha-answer'
-						: firstInvalid === 'terms'
+					: validation.field === 'captcha'
+						? check.focusId()
+						: validation.field === 'terms'
 							? 'terms'
-							: firstInvalid;
+							: validation.field;
 			const target = document.getElementById(focusId);
 			if (target instanceof HTMLElement && !target.matches(':disabled')) {
 				target.focus();
@@ -441,29 +130,14 @@
 		try {
 			const data = await apiFetch<{ order: Order }>('/checkout', {
 				method: 'POST',
-				body: {
-					name: form.name.trim(),
-					email: form.email.trim(),
-					phone: form.phone.trim(),
-					address: form.deliveryType === 'home' ? form.address.trim() : '',
-					wilaya_code: Number(form.wilayaCode),
-					commune_name: form.communeName,
-					delivery_type: form.deliveryType,
-					stop_desk_id: form.deliveryType === 'stopdesk' ? form.stopDeskId : '',
-					notes: form.notes.trim(),
-					items: cart.items.map((line) => ({
-						product_id: line.product_id,
-						quantity: line.quantity,
-						options: line.options,
-						expected_price_cents: line.price_cents
-					})),
+				body: orderBody({
+					form: { ...form, ...map.selection() },
+					bag: cart.items,
+					check: check.body(),
 					website,
-					captcha_token: captcha?.token ?? '',
-					captcha_answer: captchaAnswer.trim(),
-					turnstile_token: turnstileEnabled ? turnstileToken : '',
-					terms_accepted: termsAccepted,
-					terms_version: TERMS_VERSION
-				}
+					termsAccepted,
+					termsVersion: TERMS_VERSION
+				})
 			});
 
 			if (!data.order.token) {
@@ -477,7 +151,7 @@
 			cart.clear();
 			await goto(`/order/${encodeURIComponent(data.order.token)}`);
 		} catch (err) {
-			let refreshCaptcha = false;
+			let refreshed = false;
 			if (err instanceof ApiError) {
 				if (err.code === 'price_changed') {
 					await cart.refreshPrices();
@@ -486,25 +160,17 @@
 				} else {
 					formError = err.fields.items ?? err.message;
 				}
-				errors = Object.fromEntries(
-					Object.entries(err.fields).filter(([key]) =>
-						FIELD_ORDER.includes(key as FieldKey)
-					)
-				);
-				refreshCaptcha = Boolean(err.fields.captcha) || err.status === 409;
+				errors = pickFieldErrors(err.fields);
+				// The check knows whether a refusal spent it: a 422 that names the
+				// check, or any 409, and it replaces itself.
+				refreshed = await check.recover(err);
 			} else {
 				formError = 'The order could not be placed. Check your connection and try again.';
 			}
 
-			if (refreshCaptcha) {
-				if (turnstileEnabled) resetTurnstile();
-				else await loadCaptcha();
-			}
 			await tick();
-			if (refreshCaptcha) {
-				document
-					.getElementById(turnstileEnabled ? 'turnstile-check' : 'captcha-answer')
-					?.focus();
+			if (refreshed) {
+				document.getElementById(check.focusId())?.focus();
 			} else if (errors.terms) {
 				document.getElementById('terms')?.focus();
 			} else {
@@ -625,10 +291,10 @@
 							class="checkout-dropdown"
 							label="Wilaya"
 							labelId="wilaya-label"
-							value={form.wilayaCode}
-							options={wilayaOptions}
+							value={map.state.wilayaCode}
+							options={map.wilayaOptions}
 							onchange={onWilayaChange}
-							disabled={wilayaState !== 'ready'}
+							disabled={map.state.wilayaStatus !== 'ready'}
 							invalid={Boolean(errors.wilaya_code)}
 							describedBy={errors.wilaya_code ? 'wilaya-error' : undefined}
 						/>
@@ -644,20 +310,20 @@
 							class="checkout-dropdown"
 							label="Commune"
 							labelId="commune-label"
-							value={form.communeName}
-							options={communeOptions}
-							onchange={(value) => (form.communeName = value)}
-							disabled={!form.wilayaCode || communeState !== 'ready' || communeLocked}
+							value={map.state.communeName}
+							options={map.communeOptions}
+							onchange={map.chooseCommune}
+							disabled={!map.state.wilayaCode || map.state.communeStatus !== 'ready' || map.communeLocked}
 							invalid={Boolean(errors.commune_name)}
 							describedBy={errors.commune_name
 								? 'commune-error'
-								: communeLocked
+								: map.communeLocked
 									? 'commune-hint'
 									: undefined}
 						/>
 						{#if errors.commune_name}
 							<p class="field-error" id="commune-error">{errors.commune_name}</p>
-						{:else if communeLocked}
+						{:else if map.communeLocked}
 							<p class="meta" id="commune-hint">The stop desk sets the commune.</p>
 						{/if}
 					</div>
@@ -670,7 +336,7 @@
 								id="delivery-home"
 								name="delivery_type"
 								value="home"
-								checked={form.deliveryType === 'home'}
+								checked={map.state.deliveryType === 'home'}
 								onchange={() => onDeliveryTypeChange('home')}
 							/>
 							<span>
@@ -684,7 +350,7 @@
 								id="delivery-stopdesk"
 								name="delivery_type"
 								value="stopdesk"
-								checked={form.deliveryType === 'stopdesk'}
+								checked={map.state.deliveryType === 'stopdesk'}
 								onchange={() => onDeliveryTypeChange('stopdesk')}
 							/>
 							<span>
@@ -694,7 +360,7 @@
 						</label>
 					</fieldset>
 
-					{#if form.deliveryType === 'home'}
+					{#if map.state.deliveryType === 'home'}
 						<div class="field field-full">
 							<label for="address">Address</label>
 							<input
@@ -721,10 +387,10 @@
 								class="checkout-dropdown"
 								label="Stop desk"
 								labelId="stop-desk-label"
-								value={form.stopDeskId}
-								options={deskOptions}
-								onchange={onDeskChange}
-								disabled={deskState !== 'ready' || desks.length === 0}
+								value={map.state.stopDeskId}
+								options={map.deskOptions}
+								onchange={map.chooseDesk}
+								disabled={map.state.deskStatus !== 'ready' || map.state.desks.length === 0}
 								invalid={Boolean(errors.stop_desk_id)}
 								describedBy={errors.stop_desk_id
 									? 'stop-desk-error'
@@ -732,10 +398,10 @@
 							/>
 							{#if errors.stop_desk_id}
 								<p class="field-error" id="stop-desk-error">{errors.stop_desk_id}</p>
-							{:else if deskState === 'ready' && desks.length === 0}
+							{:else if map.state.deskStatus === 'ready' && map.state.desks.length === 0}
 								<p class="meta" id="stop-desk-hint">No stop desks here. Choose home delivery.</p>
-							{:else if selectedDesk?.address}
-								<p class="meta" id="stop-desk-hint">{selectedDesk.address}</p>
+							{:else if map.selectedDesk?.address}
+								<p class="meta" id="stop-desk-hint">{map.selectedDesk?.address}</p>
 							{:else}
 								<p class="meta" id="stop-desk-hint">The desk that suits you.</p>
 							{/if}
@@ -764,34 +430,36 @@
 					</div>
 				</div>
 
-				{#if wilayaState === 'error'}
+				{#if map.state.wilayaStatus === 'error'}
 					<div class="form-error" role="alert">
-						<p>{mapError}</p>
-						<button class="inline-action" type="button" onclick={loadWilayas}>Try again</button>
+						<p>{map.state.wilayaError}</p>
+						<button class="inline-action" type="button" onclick={() => void map.load()}>
+							Try again
+						</button>
 					</div>
-				{:else if communeState === 'error'}
+				{:else if map.state.communeStatus === 'error'}
 					<div class="form-error" role="alert">
-						<p>{communeError}</p>
+						<p>{map.state.communeError}</p>
 						<button
 							class="inline-action"
 							type="button"
-							onclick={() => loadCommunes(Number(form.wilayaCode))}
+							onclick={map.retryCommunes}
 						>
 							Try again
 						</button>
 					</div>
-				{:else if form.deliveryType === 'stopdesk' && deskState === 'error'}
+				{:else if map.state.deliveryType === 'stopdesk' && map.state.deskStatus === 'error'}
 					<div class="form-error" role="alert">
-						<p>{deskError}</p>
+						<p>{map.state.deskError}</p>
 						<button
 							class="inline-action"
 							type="button"
-							onclick={() => loadDesks(Number(form.wilayaCode))}
+							onclick={map.retryDesks}
 						>
 							Try again
 						</button>
 					</div>
-				{:else if wilayaState === 'loading'}
+				{:else if map.state.wilayaStatus === 'loading'}
 					<p class="meta" aria-live="polite">Reading the delivery map…</p>
 				{/if}
 
@@ -816,7 +484,7 @@
 					/>
 				</div>
 
-				{#if turnstileEnabled}
+				{#if check.kind === 'turnstile'}
 					<fieldset class="security-check">
 						<legend>Security check</legend>
 						<p class="meta">
@@ -838,20 +506,20 @@
 							<p class="field-error" id="captcha-error">{errors.captcha}</p>
 						{/if}
 
-						{#if turnstileState === 'error'}
+						{#if check.state.status === 'error'}
 							<div class="form-error" id="turnstile-status" role="alert">
-								<p>{turnstileError}</p>
-								<button class="inline-action" type="button" onclick={loadTurnstile}>
+								<p>{check.state.error}</p>
+								<button class="inline-action" type="button" onclick={() => void check.load()}>
 									Try again
 								</button>
 							</div>
 						{:else}
 							<p class="meta" id="turnstile-status" role="status" aria-live="polite">
-								{#if turnstileState === 'loading'}
+								{#if check.state.status === 'loading'}
 									Loading the security check…
-								{:else if turnstileError}
-									{turnstileError}
-								{:else if turnstileToken}
+								{:else if check.state.error}
+									{check.state.error}
+								{:else if check.state.token}
 									Security check complete.
 								{:else}
 									Complete the security check to place the order.
@@ -870,26 +538,26 @@
 
 						<div class="captcha-row">
 							<div class="captcha-frame">
-								{#if captchaState === 'ready' && captcha}
+								{#if check.state.status === 'ready' && check.state.challenge}
 									<img
-										src={captcha.image}
+										src={check.state.challenge.image}
 										alt="Verification code. Type the five characters shown."
 										width="220"
 										height="64"
 									/>
-								{:else if captchaState === 'loading'}
+								{:else if check.state.status === 'loading'}
 									<span class="loading">Loading code…</span>
 								{:else}
-									<span class="captcha-error" role="alert">{captchaError}</span>
+									<span class="captcha-error" role="alert">{check.state.error}</span>
 								{/if}
 							</div>
 							<button
 								class="btn btn-secondary btn-small"
 								type="button"
-								onclick={loadCaptcha}
-								disabled={captchaState === 'loading'}
+								onclick={() => void check.load()}
+								disabled={check.state.status === 'loading'}
 							>
-								{captchaState === 'error' ? 'Try again' : 'New code'}
+								{check.state.status === 'error' ? 'Try again' : 'New code'}
 							</button>
 						</div>
 
@@ -904,7 +572,8 @@
 								autocapitalize="characters"
 								spellcheck="false"
 								maxlength="5"
-								bind:value={captchaAnswer}
+								value={check.state.answer}
+								oninput={(event) => check.setAnswer(event.currentTarget.value)}
 								aria-invalid={errors.captcha ? 'true' : undefined}
 								aria-describedby={errors.captcha ? 'captcha-error' : 'captcha-hint'}
 							/>

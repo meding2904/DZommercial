@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
 	import { ApiError, apiFetch } from '#lib/api';
-	import { adminApi, errorMessage, isAbortError } from '#lib/admin/api';
+	import { adminApi, errorMessage } from '#lib/admin/api';
+	import { createResource } from '#lib/admin/resource.svelte';
 	import Dropdown from '#lib/components/Dropdown.svelte';
 	import ErrorState from '#lib/components/admin/ErrorState.svelte';
 	import LoadingState from '#lib/components/admin/LoadingState.svelte';
@@ -54,15 +55,50 @@
 		sold: 'Sold'
 	};
 
-	let products = $state<AdminProduct[]>([]);
-	let productsLoading = $state(true);
-	let productsError = $state('');
 	let selectedId = $state('');
 
-	let devices = $state<PhoneDevice[]>([]);
-	let counts = $state<DeviceCounts | null>(null);
-	let devicesLoading = $state(false);
-	let devicesError = $state('');
+	const deviceList = createResource(
+		async (signal) => {
+			const data = await apiFetch<DevicesResponse>(
+				`/plugins/phone/admin/devices?product_id=${encodeURIComponent(selectedId)}`,
+				{ signal }
+			);
+			return { devices: data.devices, counts: data.counts };
+		},
+		{ loading: false }
+	);
+	const devicesData = $derived(deviceList.data);
+	const devices = $derived(devicesData?.devices ?? []);
+	const counts = $derived(devicesData?.counts ?? null);
+	const devicesLoading = $derived(deviceList.loading);
+	const devicesError = $derived(deviceList.error);
+
+	const productList = createResource(
+		async (signal) => {
+			const data = await adminApi.products(signal);
+			return data.products.filter((product) => product.plugin_id === 'phone');
+		},
+		{
+			onLoaded: async (list) => {
+				const current = list.find((product) => product.id === selectedId) ?? list[0] ?? null;
+				if (!current) {
+					selectedId = '';
+					deviceList.reset();
+					applyProduct(null);
+					return;
+				}
+				selectedId = current.id;
+				applyProduct(current);
+				await deviceList.load();
+			}
+		}
+	);
+	const products = $derived(productList.data ?? []);
+	const productsLoading = $derived(productList.loading);
+	const productsError = $derived(productList.error);
+
+	const loadProducts = productList.load;
+	const loadDevices = deviceList.load;
 
 	let config = $state<Record<ConfigKey, string>>({ config: '', color: '' });
 	let imei = $state('');
@@ -78,9 +114,6 @@
 	let deleteError = $state('');
 	let deleteTrigger: HTMLElement | null = null;
 
-	let productsController: AbortController | null = null;
-	let devicesController: AbortController | null = null;
-
 	const selectedProduct = $derived(products.find((product) => product.id === selectedId) ?? null);
 	const missingConfigOptions = $derived(
 		!!selectedProduct && (selectedProduct.attributes.config ?? []).length === 0
@@ -92,42 +125,7 @@
 
 	onMount(() => {
 		void loadProducts();
-		return () => {
-			productsController?.abort();
-			devicesController?.abort();
-		};
 	});
-
-	async function loadProducts(): Promise<void> {
-		productsController?.abort();
-		const controller = new AbortController();
-		productsController = controller;
-		productsLoading = true;
-		productsError = '';
-
-		try {
-			const data = await adminApi.products(controller.signal);
-			if (productsController !== controller) return;
-			const list = data.products.filter((product) => product.plugin_id === 'phone');
-			products = list;
-			const current = list.find((product) => product.id === selectedId) ?? list[0] ?? null;
-			if (!current) {
-				selectedId = '';
-				devices = [];
-				counts = null;
-				applyProduct(null);
-				return;
-			}
-			selectedId = current.id;
-			applyProduct(current);
-			await loadDevices(current.id);
-		} catch (caught) {
-			if (productsController !== controller || isAbortError(caught)) return;
-			productsError = errorMessage(caught);
-		} finally {
-			if (productsController === controller) productsLoading = false;
-		}
-	}
 
 	function applyProduct(product: AdminProduct | null): void {
 		config = {
@@ -146,7 +144,7 @@
 		if (!product) return;
 		selectedId = id;
 		applyProduct(product);
-		void loadDevices(id);
+		void loadDevices();
 	}
 
 	function setConfig(key: ConfigKey, value: string): void {
@@ -159,31 +157,6 @@
 		const next = { ...fieldErrors };
 		delete next[key];
 		fieldErrors = next;
-	}
-
-	async function loadDevices(productId: string): Promise<void> {
-		devicesController?.abort();
-		const controller = new AbortController();
-		devicesController = controller;
-		devicesLoading = true;
-		devicesError = '';
-		devices = [];
-		counts = null;
-
-		try {
-			const data = await apiFetch<DevicesResponse>(
-				`/plugins/phone/admin/devices?product_id=${encodeURIComponent(productId)}`,
-				{ signal: controller.signal }
-			);
-			if (devicesController !== controller) return;
-			devices = data.devices;
-			counts = data.counts;
-		} catch (caught) {
-			if (devicesController !== controller || isAbortError(caught)) return;
-			devicesError = errorMessage(caught);
-		} finally {
-			if (devicesController === controller) devicesLoading = false;
-		}
 	}
 
 	function optionsFor(key: ConfigKey): { value: string; label: string }[] {
@@ -250,9 +223,16 @@
 					imei: normalized
 				}
 			});
-			devices = [data.device, ...devices];
-			if (counts) counts = { ...counts, in_stock: counts.in_stock + 1 };
-			else void loadDevices(product.id);
+			if (deviceList.data) {
+				deviceList.update((current) => ({
+					devices: [data.device, ...current.devices],
+					counts: current.counts
+						? { ...current.counts, in_stock: current.counts.in_stock + 1 }
+						: current.counts
+				}));
+			} else {
+				void loadDevices();
+			}
 			imei = '';
 			fieldErrors = {};
 			notice = 'Handset added.';
@@ -308,10 +288,13 @@
 				`/plugins/phone/admin/devices/${encodeURIComponent(target.id)}`,
 				{ method: 'DELETE' }
 			);
-			devices = devices.filter((device) => device.id !== target.id);
-			if (counts && target.status === 'in_stock') {
-				counts = { ...counts, in_stock: Math.max(0, counts.in_stock - 1) };
-			}
+			deviceList.update((current) => ({
+				devices: current.devices.filter((device) => device.id !== target.id),
+				counts:
+					current.counts && target.status === 'in_stock'
+						? { ...current.counts, in_stock: Math.max(0, current.counts.in_stock - 1) }
+						: current.counts
+			}));
 			deleteDialog?.close();
 			closeDelete();
 			notice = 'Handset removed.';
@@ -494,7 +477,7 @@
 						<ErrorState
 							title="Handsets could not be read."
 							message={devicesError}
-							onretry={() => loadDevices(selectedId)}
+							onretry={loadDevices}
 						/>
 					{:else if counts}
 						<dl class="phone-counts" aria-label="Stock counts">

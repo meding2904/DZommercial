@@ -2,7 +2,8 @@
 	import { onMount, tick } from 'svelte';
 	import { beforeNavigate } from '$app/navigation';
 	import { ApiError } from '#lib/api';
-	import { adminApi, errorMessage, isAbortError } from '#lib/admin/api';
+	import { adminApi, errorMessage } from '#lib/admin/api';
+	import { createResource } from '#lib/admin/resource.svelte';
 	import ErrorState from '#lib/components/admin/ErrorState.svelte';
 	import LoadingState from '#lib/components/admin/LoadingState.svelte';
 	import Dropdown from '#lib/components/Dropdown.svelte';
@@ -321,8 +322,6 @@
 	let theme = $state<StorefrontTheme>(initialTheme);
 	let baseline = $state(snapshot(initialTheme));
 	let defaults = $state<StorefrontTheme | null>(null);
-	let loading = $state(true);
-	let error = $state('');
 	let busy = $state(false);
 	let fieldErrors = $state<Record<string, string>>({});
 	let styleChoice = $state('');
@@ -332,8 +331,16 @@
 	let formEl = $state<HTMLFormElement | null>(null);
 	let previewMode = $state<'light' | 'dark'>('light');
 
-	let controller: AbortController | null = null;
-	let requestId = 0;
+	const storefront = createResource(() => adminApi.storefrontTheme(), {
+		onLoaded: (data) => {
+			theme = cloneTheme(data.theme);
+			defaults = cloneTheme(data.defaults);
+			baseline = snapshot(theme);
+			styleChoice = detectStyle(theme);
+		}
+	});
+	const loading = $derived(storefront.loading);
+	const error = $derived(storefront.error);
 
 	const brand = $derived(theme.brand_name.trim() || 'Azahar');
 	const previewBrand = $derived(theme.brand_name.trim() || 'Brand name');
@@ -476,7 +483,6 @@
 
 	onMount(() => {
 		void load();
-		return () => controller?.abort();
 	});
 
 	$effect(() => {
@@ -489,31 +495,12 @@
 		return () => window.removeEventListener('beforeunload', warn);
 	});
 
-	async function load() {
-		const id = ++requestId;
-		controller?.abort();
-		const current = new AbortController();
-		controller = current;
-		loading = true;
-		error = '';
+	async function load(): Promise<void> {
 		notice = '';
 		resetNotice = '';
 		formError = '';
 		fieldErrors = {};
-
-		try {
-			const data = await adminApi.storefrontTheme();
-			if (id !== requestId || current.signal.aborted) return;
-			theme = cloneTheme(data.theme);
-			defaults = cloneTheme(data.defaults);
-			baseline = snapshot(theme);
-			styleChoice = detectStyle(theme);
-		} catch (caught) {
-			if (id !== requestId || current.signal.aborted || isAbortError(caught)) return;
-			error = errorMessage(caught);
-		} finally {
-			if (id === requestId) loading = false;
-		}
+		await storefront.load();
 	}
 
 	function resetToDefaults() {

@@ -173,26 +173,27 @@ func (s *Server) handleCreateShipment(w http.ResponseWriter, r *http.Request) {
 	if deliveryType != "stopdesk" {
 		addressLine = order.Address
 	}
-	shipment, err := s.shipping.CreateOrder(r.Context(), courier.OrderRequest{
-		Reference: order.Number,
-		Recipient: courier.Recipient{
-			FullName:    order.Name,
-			Phone:       phone,
-			WilayaCode:  order.WilayaCode,
-			CommuneName: order.CommuneName,
-			AddressLine: addressLine,
-		},
-		DeliveryType: deliveryType,
-		StopDeskID:   order.StopDeskID,
-		ProductList:  orderProductList(items),
-		// The COD amount already contains the store's delivery charge. Tell the
-		// courier not to add its own fee on top of the amount we collect.
-		CODAmount:    order.TotalCents / 100,
-		FreeShipping: true,
-		Notes:        truncateRunes(order.Notes, 255),
+	shipment, ok := courierCall(s, w, r, func() (courier.Shipment, error) {
+		return s.shipping.CreateOrder(r.Context(), courier.OrderRequest{
+			Reference: order.Number,
+			Recipient: courier.Recipient{
+				FullName:    order.Name,
+				Phone:       phone,
+				WilayaCode:  order.WilayaCode,
+				CommuneName: order.CommuneName,
+				AddressLine: addressLine,
+			},
+			DeliveryType: deliveryType,
+			StopDeskID:   order.StopDeskID,
+			ProductList:  orderProductList(items),
+			// The COD amount already contains the store's delivery charge. Tell the
+			// courier not to add its own fee on top of the amount we collect.
+			CODAmount:    order.TotalCents / 100,
+			FreeShipping: true,
+			Notes:        truncateRunes(order.Notes, 255),
+		})
 	})
-	if err != nil {
-		s.writeCourierError(w, r, err)
+	if !ok {
 		return
 	}
 
@@ -251,9 +252,10 @@ func (s *Server) handleRefreshTracking(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tracking, err := s.shipping.Track(r.Context(), order.CourierKey, order.TrackingNumber)
-	if err != nil {
-		s.writeCourierError(w, r, err)
+	tracking, ok := courierCall(s, w, r, func() (courier.Tracking, error) {
+		return s.shipping.Track(r.Context(), order.CourierKey, order.TrackingNumber)
+	})
+	if !ok {
 		return
 	}
 
@@ -307,6 +309,18 @@ func (s *Server) writeDeliveryMapError(w http.ResponseWriter, r *http.Request, e
 	s.logger.Warn("delivery map lookup failed", "error", err, "request_id", requestID(r))
 	writeError(w, http.StatusServiceUnavailable, "courier_unavailable",
 		"The delivery map is unavailable. Try again in a moment.")
+}
+
+// courierCall runs one courier request and renders its failure, so both admin
+// shipment endpoints share one error policy.
+func courierCall[T any](s *Server, w http.ResponseWriter, r *http.Request, fetch func() (T, error)) (T, bool) {
+	value, err := fetch()
+	if err != nil {
+		s.writeCourierError(w, r, err)
+		var zero T
+		return zero, false
+	}
+	return value, true
 }
 
 func (s *Server) writeCourierError(w http.ResponseWriter, r *http.Request, err error) {

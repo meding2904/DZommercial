@@ -186,25 +186,6 @@ func TestOrderStatusShape(t *testing.T) {
 			t.Errorf("order plan %s was accepted", raw)
 		}
 	}
-
-	for _, pair := range [][2]string{
-		{"pending", "confirmed"},
-		{"confirmed", "packed"},
-		{"packed", "shipped"},
-		{"packed", "cancelled"},
-		{"shipped", "delivered"},
-	} {
-		if !canOrderTransition(pair[0], pair[1]) {
-			t.Errorf("expected %s -> %s to be allowed", pair[0], pair[1])
-		}
-	}
-	for _, pair := range [][2]string{
-		{"delivered", "cancelled"}, {"cancelled", "confirmed"}, {"pending", "shipped"},
-	} {
-		if canOrderTransition(pair[0], pair[1]) {
-			t.Errorf("%s -> %s must be rejected", pair[0], pair[1])
-		}
-	}
 }
 
 func TestParsePlanRejectsUnknownShape(t *testing.T) {

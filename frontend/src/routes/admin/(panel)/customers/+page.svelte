@@ -1,18 +1,18 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { adminApi, errorMessage, isAbortError } from '#lib/admin/api';
+	import { adminApi } from '#lib/admin/api';
+	import { createResource } from '#lib/admin/resource.svelte';
 	import ErrorState from '#lib/components/admin/ErrorState.svelte';
 	import LoadingState from '#lib/components/admin/LoadingState.svelte';
 	import { formatDate, money } from '#lib/format';
-	import type { Customer } from '#lib/types';
 
-	let customers = $state<Customer[]>([]);
-	let loading = $state(true);
-	let error = $state('');
+	const customersResource = createResource((signal) => adminApi.customers(signal));
+	const customers = $derived(customersResource.data?.customers ?? []);
+	const loading = $derived(customersResource.loading);
+	const error = $derived(customersResource.error);
+	const load = customersResource.load;
+
 	let search = $state('');
-
-	let controller: AbortController | null = null;
-	let requestId = 0;
 
 	const filtered = $derived.by(() => {
 		const query = search.trim().toLowerCase();
@@ -35,28 +35,7 @@
 
 	onMount(() => {
 		void load();
-		return () => controller?.abort();
 	});
-
-	async function load() {
-		const id = ++requestId;
-		controller?.abort();
-		controller = new AbortController();
-		loading = true;
-		error = '';
-		customers = [];
-
-		try {
-			const data = await adminApi.customers(controller.signal);
-			if (id !== requestId) return;
-			customers = data.customers;
-		} catch (caught) {
-			if (id !== requestId || isAbortError(caught)) return;
-			error = errorMessage(caught);
-		} finally {
-			if (id === requestId) loading = false;
-		}
-	}
 </script>
 
 <svelte:head>

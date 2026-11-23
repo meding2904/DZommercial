@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -129,12 +128,9 @@ func main() {
 		)
 	}
 
-	courierCredentials := map[string]string{}
-	if cfg.CourierCredentials != "" {
-		if err := json.Unmarshal([]byte(cfg.CourierCredentials), &courierCredentials); err != nil {
-			logger.Warn("COURIER_CREDENTIALS must be a JSON object; ignoring the value")
-			courierCredentials = map[string]string{}
-		}
+	courierCredentials, credentialsParsed := cfg.CourierCredentialValues()
+	if !credentialsParsed {
+		logger.Warn("COURIER_CREDENTIALS must be a JSON object; ignoring the value")
 	}
 	if cfg.CourierKey != "sandbox" && len(courierCredentials) == 0 {
 		logger.Warn("courier credentials are empty; shipment creation will fail until they are set",

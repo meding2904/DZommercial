@@ -37,32 +37,6 @@ func TestValidSlug(t *testing.T) {
 	}
 }
 
-func TestValidImagePath(t *testing.T) {
-	valid := []string{
-		"/images/products/cleansing-oil-1200.webp",
-	}
-	for _, image := range valid {
-		if !validImagePath(image) {
-			t.Errorf("%q should be valid", image)
-		}
-	}
-	invalid := []string{
-		"", "images/product.webp", "/static/product.webp",
-		"/images/../secret", "/images/products/../../etc/passwd",
-		`/images/\evil.webp`, "/images/%2e%2e/secret.webp",
-		"/images/product.webp?x=1", "/images/product.webp#x",
-		"http://images.example.com/product.webp",
-		"javascript:alert(1)",
-		"https://",
-		"https://images.example.com/product.webp",
-	}
-	for _, image := range invalid {
-		if validImagePath(image) {
-			t.Errorf("%q should be invalid", image)
-		}
-	}
-}
-
 func TestValidPhone(t *testing.T) {
 	valid := []string{"0550 00 00 00", "+213 550-00-00", "(0550) 000000"}
 	for _, phone := range valid {

@@ -1,47 +1,27 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
 	import { ApiError } from '#lib/api';
-	import { adminApi, errorMessage, isAbortError } from '#lib/admin/api';
+	import { adminApi, errorMessage } from '#lib/admin/api';
+	import { createResource } from '#lib/admin/resource.svelte';
 	import ErrorState from '#lib/components/admin/ErrorState.svelte';
 	import LoadingState from '#lib/components/admin/LoadingState.svelte';
 	import { formatDate } from '#lib/format';
 	import type { AdminPlugin } from '#lib/types';
 
-	let plugins = $state<AdminPlugin[]>([]);
-	let loading = $state(true);
-	let error = $state('');
+	const pluginList = createResource((signal) => adminApi.adminPlugins(signal));
+	const plugins = $derived(pluginList.data?.plugins ?? []);
+	const loading = $derived(pluginList.loading);
+	const error = $derived(pluginList.error);
+	const load = pluginList.load;
+
 	let stateError = $state('');
 	let saving = $state('');
 	let pendingDisable = $state<{ plugin: AdminPlugin; dependents: AdminPlugin[] } | null>(null);
 	let confirmPanel = $state<HTMLElement | null>(null);
 
-	let controller: AbortController | null = null;
-	let requestId = 0;
-
 	onMount(() => {
 		void load();
-		return () => controller?.abort();
 	});
-
-	async function load(): Promise<void> {
-		const id = ++requestId;
-		controller?.abort();
-		controller = new AbortController();
-		loading = true;
-		error = '';
-		plugins = [];
-
-		try {
-			const data = await adminApi.adminPlugins(controller.signal);
-			if (id !== requestId) return;
-			plugins = data.plugins;
-		} catch (caught) {
-			if (id !== requestId || isAbortError(caught)) return;
-			error = errorMessage(caught);
-		} finally {
-			if (id === requestId) loading = false;
-		}
-	}
 
 	function stateLabel(plugin: AdminPlugin): string {
 		if (plugin.settings_state === 'unreadable') return 'Settings unreadable';

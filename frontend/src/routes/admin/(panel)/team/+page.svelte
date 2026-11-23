@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { adminApi, errorMessage, isAbortError } from '#lib/admin/api';
+	import { adminApi, errorMessage } from '#lib/admin/api';
+	import { createResource } from '#lib/admin/resource.svelte';
 	import ErrorState from '#lib/components/admin/ErrorState.svelte';
 	import LoadingState from '#lib/components/admin/LoadingState.svelte';
 	import Dropdown from '#lib/components/Dropdown.svelte';
@@ -14,38 +15,19 @@
 		{ value: 'customer', label: 'Customer' }
 	];
 
-	let users = $state<TeamMember[]>([]);
-	let loading = $state(true);
-	let error = $state('');
 	let notice = $state('');
 	let roleError = $state('');
 	let saving = $state('');
 
-	let controller: AbortController | null = null;
-	let requestId = 0;
+	const team = createResource((signal) => adminApi.team(signal));
+	const users = $derived(team.data?.users ?? []);
+	const loading = $derived(team.loading);
+	const error = $derived(team.error);
+	const load = team.load;
 
 	onMount(() => {
 		void load();
-		return () => controller?.abort();
 	});
-
-	async function load(): Promise<void> {
-		const id = ++requestId;
-		controller?.abort();
-		controller = new AbortController();
-		loading = true;
-		error = '';
-		try {
-			const data = await adminApi.team(controller.signal);
-			if (id !== requestId) return;
-			users = data.users;
-		} catch (caught) {
-			if (id !== requestId || isAbortError(caught)) return;
-			error = errorMessage(caught);
-		} finally {
-			if (id === requestId) loading = false;
-		}
-	}
 
 	async function changeRole(user: TeamMember, role: Role): Promise<void> {
 		if (role === user.role || saving) return;
@@ -54,7 +36,10 @@
 		saving = user.id;
 		try {
 			const data = await adminApi.updateTeamRole(user.id, role);
-			users = users.map((item) => (item.id === user.id ? data.user : item));
+			team.update((current) => ({
+				...current,
+				users: current.users.map((item) => (item.id === user.id ? data.user : item))
+			}));
 			notice = `${data.user.name} is now ${roles.find((item) => item.value === data.user.role)?.label.toLowerCase() ?? data.user.role}.`;
 		} catch (caught) {
 			roleError = errorMessage(caught);

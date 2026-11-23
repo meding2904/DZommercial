@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"azahar/internal/plugins"
+	"azahar/internal/productrules"
 	"azahar/internal/store"
 	"azahar/internal/storefront"
 )
@@ -222,7 +223,7 @@ func (p *Plugin) handlePreview(c *plugins.Context) {
 		return
 	}
 	instruction := strings.TrimSpace(request.Instruction)
-	if length := len([]rune(instruction)); length < 1 || length > 2000 || !plainText(instruction) {
+	if length := len([]rune(instruction)); length < 1 || length > 2000 || !productrules.PlainText(instruction) {
 		c.Problem(http.StatusUnprocessableEntity, "validation_error", "Check the marked fields.",
 			map[string]string{"instruction": "Describe the change in 1 to 2000 plain characters."})
 		return

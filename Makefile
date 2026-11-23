@@ -10,7 +10,7 @@ WAILS_TAG_FLAGS = $(if $(strip $(WAILS_TAGS)),-tags "$(WAILS_TAGS)")
 VERSION ?= 2.0.0
 DESKTOP_GOARCH ?= $(shell go env GOARCH)
 
-.PHONY: help dev-db dev-api dev-web check desktop-check desktop-deps build smoke kiri-up kiri-local kiri-down desktop desktop-build desktop-package loadtest
+.PHONY: help dev-db dev-api dev-web check desktop-sync desktop-check desktop-deps build smoke kiri-up kiri-local kiri-down desktop desktop-build desktop-package loadtest
 
 help:
 	@echo "Azahar demo store"
@@ -21,6 +21,7 @@ help:
 	@echo "  make build     build both apps"
 	@echo "  make smoke     call the public API endpoints"
 	@echo "  make desktop-deps  install the Wails CLI"
+	@echo "  make desktop-sync  copy the shared admin domain into the desktop renderer"
 	@echo "  make desktop   run the Wails admin app against the local API"
 	@echo "  make desktop-build  build the Wails admin binary"
 	@echo "  make desktop-package  build a Linux tarball with binary, desktop file and icon"
@@ -33,6 +34,9 @@ dev-db:
 	@if ! command -v kiri >/dev/null; then echo "kiri is not installed"; exit 1; fi
 	@if kiri ps --format '{{.Names}}' 2>/dev/null | grep -qx azahar-db; then \
 		echo "azahar-db is already running on $(TURSO_URL)"; \
+	elif kiri ps -a --format '{{.Names}}' 2>/dev/null | grep -qx azahar-db; then \
+		kiri start azahar-db >/dev/null; \
+		echo "azahar-db restarted on $(TURSO_URL)"; \
 	else \
 		kiri volume create azahar-db >/dev/null 2>&1 || true; \
 		kiri run -d --name azahar-db -p 8880:8080 -v azahar-db:/data \
@@ -40,6 +44,11 @@ dev-db:
 			--http-listen-addr 0.0.0.0:8080 -d /data; \
 		echo "azahar-db started on $(TURSO_URL)"; \
 	fi
+	@for i in $$(seq 1 30); do \
+		if curl -fsS $(TURSO_URL)/health >/dev/null 2>&1; then exit 0; fi; \
+		sleep 1; \
+	done; \
+	echo "azahar-db did not answer on $(TURSO_URL)"; exit 1
 
 dev-api:
 	cd backend && \
@@ -59,8 +68,33 @@ check:
 	cd backend && APP_ENV=development go vet ./... && APP_ENV=development go test ./...
 	$(MAKE) desktop-check
 
+desktop-sync:
+	@mkdir -p desktop/frontend/domain
+	cp frontend/src/lib/admin/domain/*.js desktop/frontend/domain/
+
 desktop-check:
+	@for file in frontend/src/lib/admin/domain/*.js; do \
+		name=$$(basename "$$file"); \
+		if ! cmp -s "$$file" "desktop/frontend/domain/$$name"; then \
+			echo "desktop/frontend/domain/$$name differs from $$file; run make desktop-sync"; \
+			exit 1; \
+		fi; \
+	done
+	@for file in desktop/frontend/domain/*.js; do \
+		name=$$(basename "$$file"); \
+		if [ ! -f "frontend/src/lib/admin/domain/$$name" ]; then \
+			echo "desktop/frontend/domain/$$name has no source in frontend/src/lib/admin/domain"; \
+			exit 1; \
+		fi; \
+	done
 	node --check desktop/frontend/app.js
+	@for file in "desktop/frontend/tests/"*.test.mjs; do \
+		if [ ! -f "$$file" ]; then \
+			echo "no desktop frontend tests found; expected desktop/frontend/tests/*.test.mjs"; \
+			exit 1; \
+		fi; \
+	done
+	node --test desktop/frontend/tests/*.test.mjs
 	cd desktop && CGO_ENABLED=0 go vet ./internal/api && CGO_ENABLED=0 go test ./internal/api
 	@if pkg-config --exists gtk+-3.0 && pkg-config --exists webkit2gtk-4.1; then \
 		cd desktop && go vet $(WAILS_TAG_FLAGS) ./... && go test $(WAILS_TAG_FLAGS) ./...; \
@@ -88,10 +122,10 @@ kiri-local:
 kiri-down:
 	./deploy/kiri-down.sh
 
-desktop:
+desktop: desktop-sync
 	cd desktop && $(WAILS) dev $(WAILS_TAG_FLAGS) -s
 
-desktop-build:
+desktop-build: desktop-sync
 	cd desktop && $(WAILS) build $(WAILS_TAG_FLAGS) -s -clean -trimpath -ldflags "-X main.version=$(VERSION)"
 
 desktop-package: desktop-build

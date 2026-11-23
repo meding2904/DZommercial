@@ -23,6 +23,8 @@ export type OptionField = {
 	suggestions?: string[];
 };
 
+export type VariantStock = Record<string, string | number> & { in_stock: number };
+
 export type Product = {
 	id: string;
 	slug: string;

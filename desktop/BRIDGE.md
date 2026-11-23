@@ -7,6 +7,10 @@ or a raw network handle.
 All methods return JSON-serialisable structs. `Request` and `Image` wrap failures in the same
 shape as the old Electron bridge.
 
+The admin domain the renderer shares with the web admin (order statuses and transitions, human
+labels, receipt HTML) lives in `frontend/src/lib/admin/domain/`, which is the single source of
+truth; `desktop/frontend/domain/` is a byte-identical copy kept by `make desktop-sync`.
+
 ## Methods
 
 ### `Info()`

@@ -93,6 +93,7 @@ fn escape_json(raw: &str) -> String {
 pub fn decode_body<T: DeserializeOwned + Default>(
     content_type: &str,
     body: &[u8],
+    fields: &[&str],
 ) -> Result<T, Problem> {
     if !content_type
         .trim()
@@ -125,10 +126,28 @@ pub fn decode_body<T: DeserializeOwned + Default>(
             )])),
         ));
     }
-    let mut deserializer = serde_json::Deserializer::from_slice(body);
-    let value: serde_json::Value = match serde_json::Value::deserialize(&mut deserializer) {
-        Ok(value) => value,
-        Err(_) => {
+
+    let mut probe = serde_json::Deserializer::from_slice(body);
+    if serde_json::Value::deserialize(&mut probe).is_err() {
+        return Err(Problem::new(
+            422,
+            "invalid_json",
+            "The request body does not match the expected shape.",
+            None,
+        ));
+    }
+    if probe.end().is_err() {
+        return Err(Problem::new(
+            422,
+            "invalid_json",
+            "Send one JSON object.",
+            None,
+        ));
+    }
+
+    let pairs = match parse_pairs(body) {
+        Ok(pairs) => pairs,
+        Err(()) => {
             return Err(Problem::new(
                 422,
                 "invalid_json",
@@ -137,18 +156,25 @@ pub fn decode_body<T: DeserializeOwned + Default>(
             ));
         }
     };
-    if deserializer.end().is_err() {
-        return Err(Problem::new(
-            422,
-            "invalid_json",
-            "Send one JSON object.",
-            None,
-        ));
-    }
-    if value.is_null() {
+    let Some(pairs) = pairs else {
         return Ok(T::default());
+    };
+
+    // encoding/json matches struct fields case-insensitively and applies
+    // duplicate keys in document order, so the last matching spelling wins.
+    let mut normalized = serde_json::Map::new();
+    for (key, value) in pairs {
+        let Some(field) = fields.iter().find(|field| field.eq_ignore_ascii_case(&key)) else {
+            return Err(Problem::new(
+                422,
+                "invalid_json",
+                "The request body does not match the expected shape.",
+                None,
+            ));
+        };
+        normalized.insert((*field).to_string(), value);
     }
-    serde_json::from_value(value).map_err(|_| {
+    serde_json::from_value(serde_json::Value::Object(normalized)).map_err(|_| {
         Problem::new(
             422,
             "invalid_json",
@@ -156,6 +182,68 @@ pub fn decode_body<T: DeserializeOwned + Default>(
             None,
         )
     })
+}
+
+/// Top-level `null` is Go's zero value; any other non-object is a shape error.
+fn parse_pairs(body: &[u8]) -> Result<Option<Vec<(String, serde_json::Value)>>, ()> {
+    struct Pairs(Vec<(String, serde_json::Value)>);
+
+    impl<'de> Deserialize<'de> for Pairs {
+        fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+            struct Visitor;
+            impl<'de> serde::de::Visitor<'de> for Visitor {
+                type Value = Option<Vec<(String, serde_json::Value)>>;
+                fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    formatter.write_str("a JSON object")
+                }
+                fn visit_unit<E: serde::de::Error>(self) -> Result<Self::Value, E> {
+                    Ok(None)
+                }
+                fn visit_none<E: serde::de::Error>(self) -> Result<Self::Value, E> {
+                    Ok(None)
+                }
+                fn visit_map<A: serde::de::MapAccess<'de>>(
+                    self,
+                    mut map: A,
+                ) -> Result<Self::Value, A::Error> {
+                    let mut pairs = Vec::new();
+                    while let Some(key) = map.next_key::<String>()? {
+                        let value = map.next_value::<serde_json::Value>()?;
+                        pairs.push((key, value));
+                    }
+                    Ok(Some(pairs))
+                }
+            }
+            struct Wrapper(Option<Vec<(String, serde_json::Value)>>);
+            impl<'de> Deserialize<'de> for Wrapper {
+                fn deserialize<D: serde::Deserializer<'de>>(
+                    deserializer: D,
+                ) -> Result<Self, D::Error> {
+                    deserializer.deserialize_any(Visitor).map(Wrapper)
+                }
+            }
+            let Pairs(pairs) = Pairs(Vec::new());
+            let _ = pairs;
+            let wrapper = Wrapper::deserialize(deserializer)?;
+            Ok(Pairs(wrapper.0.unwrap_or_default()))
+        }
+    }
+
+    let mut deserializer = serde_json::Deserializer::from_slice(body);
+    let parsed = Pairs::deserialize(&mut deserializer).map_err(|_| ())?;
+    if deserializer.end().is_err() {
+        return Err(());
+    }
+    // A non-object top level (array/number/string) has no pairs; distinguish it
+    // from null by re-checking the first non-space byte.
+    let trimmed = body.iter().find(|byte| !byte.is_ascii_whitespace());
+    if trimmed == Some(&b'n') {
+        return Ok(None);
+    }
+    if trimmed != Some(&b'{') {
+        return Err(());
+    }
+    Ok(Some(parsed.0))
 }
 
 /// The SDK's error envelope, matching the HTTP layer's omission of empty
@@ -197,12 +285,12 @@ mod tests {
 
     #[test]
     fn body_decoder_matches_go_statuses() {
-        let problem = decode_body::<Payload>("text/plain", b"{}").unwrap_err();
+        let problem = decode_body::<Payload>("text/plain", b"{}", &["name"]).unwrap_err();
         assert_eq!(
             (problem.status, problem.code.as_str()),
             (415, "unsupported_media_type")
         );
-        let problem = decode_body::<Payload>("application/json", b"  ").unwrap_err();
+        let problem = decode_body::<Payload>("application/json", b"  ", &["name"]).unwrap_err();
         assert_eq!(
             (problem.status, problem.code.as_str()),
             (422, "validation_error")
@@ -213,32 +301,35 @@ mod tests {
                 .as_ref()
                 .is_some_and(|fields| fields.get("body").is_some())
         );
-        let problem = decode_body::<Payload>("application/json; charset=utf-8", b"[]").unwrap_err();
+        let problem = decode_body::<Payload>("application/json; charset=utf-8", b"[]", &["name"])
+            .unwrap_err();
         assert_eq!(
             (problem.status, problem.code.as_str()),
             (422, "invalid_json")
         );
         let problem =
-            decode_body::<Payload>("application/json", br#"{"name":"a","x":1}"#).unwrap_err();
+            decode_body::<Payload>("application/json", br#"{"name":"a","x":1}"#, &["name"])
+                .unwrap_err();
         assert_eq!(
             (problem.status, problem.code.as_str()),
             (422, "invalid_json")
         );
-        let problem =
-            decode_body::<Payload>("application/json", br#"{"name":"a"} {}"#).unwrap_err();
+        let problem = decode_body::<Payload>("application/json", br#"{"name":"a"} {}"#, &["name"])
+            .unwrap_err();
         assert_eq!(problem.message, "Send one JSON object.");
         assert_eq!(
-            decode_body::<Payload>("APPLICATION/JSON", br#"{"name":"a"}"#).unwrap(),
+            decode_body::<Payload>("APPLICATION/JSON", br#"{"name":"a"}"#, &["name"]).unwrap(),
             Payload {
                 name: "a".to_string()
             }
         );
         assert_eq!(
-            decode_body::<Payload>("application/json", b"null").unwrap(),
+            decode_body::<Payload>("application/json", b"null", &["name"]).unwrap(),
             Payload::default()
         );
         assert_eq!(
-            decode_body::<Payload>("application/json", br#"{"name":"a","name":"b"}"#).unwrap(),
+            decode_body::<Payload>("application/json", br#"{"name":"a","name":"b"}"#, &["name"])
+                .unwrap(),
             Payload {
                 name: "b".to_string()
             }

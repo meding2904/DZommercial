@@ -193,7 +193,7 @@ async fn fixture_with(mode: ShippingMode, configure: impl FnOnce(&mut Registry))
         configured_ttl(&cfg),
     );
     Fixture {
-        app: build_router(state, sessions),
+        app: build_router(state, sessions, axum::Router::new()),
         store,
     }
 }

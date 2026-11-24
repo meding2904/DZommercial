@@ -196,7 +196,7 @@ impl App {
 
     /// Port of `desktop.domReady`: restore a saved position only when the
     /// coarse screen check allows it, then clamp the size to the monitor.
-    pub fn dom_ready(&self, window: &WebviewWindow) {
+    pub fn dom_ready(self: &Arc<Self>, window: &WebviewWindow) {
         let bounds = self.window_bounds();
         if (bounds.x != 0 || bounds.y != 0) && self.screen_position_allowed(window, bounds) {
             let _ = window.set_position(tauri::LogicalPosition::new(
@@ -205,6 +205,37 @@ impl App {
             ));
         }
         self.clamp_window_size(window);
+
+        // Headless smoke hook: wait for the compositor to apply the clamped
+        // size, report runtime geometry, exercise the close/save path and exit.
+        // Production never sets these variables.
+        if let Some(path) = std::env::var_os("AZAHAR_SMOKE_REPORT") {
+            let app = Arc::clone(self);
+            let window = window.clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_millis(800));
+                let bounds = window::logical_webview_bounds(&window);
+                let monitor = window
+                    .current_monitor()
+                    .ok()
+                    .flatten()
+                    .and_then(|monitor| window::monitor_geometry(&monitor));
+                let report = serde_json::json!({
+                    "window": bounds,
+                    "monitor": monitor,
+                    "saved": app.window_bounds(),
+                });
+                let _ = std::fs::write(path, report.to_string());
+                if std::env::var_os("AZAHAR_SMOKE_CLOSE").is_some() {
+                    if let Some(bounds) = window::logical_webview_bounds(&window) {
+                        app.client.save_window_bounds(bounds);
+                    }
+                    if let Some(handle) = app.context() {
+                        handle.exit(0);
+                    }
+                }
+            });
+        }
     }
 
     /// Port of `desktop.beforeClose`. Maximised and minimised windows keep the

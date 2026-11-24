@@ -116,11 +116,14 @@ fn context_helpers_match_go() {
         ("application/json", r#"{"name":"a"} {}"#),
         ("application/json; charset=utf-8", r#"{"name":"a"}"#),
         ("APPLICATION/JSON", r#"{"name":"b"}"#),
+        ("application/json", r#"{"NAME":"a"}"#),
+        ("application/json", r#"{"name":"a","NAME":"b"}"#),
+        ("application/json", "null"),
     ] {
         let expected = oracle.call(&json!({
             "op":"decode","content_type":content_type,"body":body
         }));
-        let rust = decode_body::<Payload>(content_type, body.as_bytes());
+        let rust = decode_body::<Payload>(content_type, body.as_bytes(), &["name"]);
         match expected.get("problem") {
             Some(expected_problem) => {
                 let problem = rust.expect_err("expected refusal");

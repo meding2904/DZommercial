@@ -20,7 +20,7 @@ pub const MIN_HEIGHT: f64 = 720.0;
 pub const BACKGROUND: Color = Color(246, 240, 235, 255);
 
 /// A monitor size in logical pixels.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 pub struct MonitorGeometry {
     pub width: i64,
     pub height: i64,
@@ -120,6 +120,15 @@ pub fn is_app_url(url: &url::Url) -> bool {
 }
 
 /// Read the window size and position from Tauri, in Wails' logical units.
+pub fn logical_webview_bounds(window: &tauri::WebviewWindow) -> Option<WindowBounds> {
+    let size = window.inner_size().ok()?;
+    let scale = window.scale_factor().ok()?;
+    let position = window
+        .outer_position()
+        .unwrap_or(tauri::PhysicalPosition::new(0, 0));
+    bounds_from(size, scale, position)
+}
+
 pub fn logical_window_bounds(window: &tauri::Window) -> Option<WindowBounds> {
     let size = window.inner_size().ok()?;
     let scale = window.scale_factor().ok()?;
@@ -127,6 +136,14 @@ pub fn logical_window_bounds(window: &tauri::Window) -> Option<WindowBounds> {
         .outer_position()
         .unwrap_or(tauri::PhysicalPosition::new(0, 0));
 
+    bounds_from(size, scale, position)
+}
+
+fn bounds_from(
+    size: tauri::PhysicalSize<u32>,
+    scale: f64,
+    position: tauri::PhysicalPosition<i32>,
+) -> Option<WindowBounds> {
     let width = physical_to_logical(size.width, scale)?;
     let height = physical_to_logical(size.height, scale)?;
     let x = coordinate_to_logical(position.x, scale)?;

@@ -62,7 +62,7 @@ async fn fixture_with(cfg: Config) -> Fixture {
         ttl,
     );
     Fixture {
-        app: build_router(state, sessions),
+        app: build_router(state, sessions, axum::Router::new()),
     }
 }
 

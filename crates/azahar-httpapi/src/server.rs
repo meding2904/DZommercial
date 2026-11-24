@@ -7,7 +7,7 @@ use axum::Router;
 use tokio::net::TcpListener;
 use tower_sessions::SessionManagerLayer;
 
-use crate::router::build_router_with_extra;
+use crate::router::build_router;
 use crate::session_layer::session_layer;
 use crate::session_store::LibsqlSessionStore;
 use crate::state::{AppState, configured_ttl};
@@ -31,44 +31,42 @@ pub fn session_layer_for(state: &AppState) -> SessionManagerLayer<LibsqlSessionS
 pub struct Server {
     listener: TcpListener,
     app: Router,
+    state: AppState,
 }
 
 impl Server {
     /// Binds `API_ADDR`. Go accepts `:8080`; Rust needs an explicit host, so a
     /// leading colon is expanded to all IPv4 interfaces.
-    pub async fn bind(address: &str, state: AppState) -> std::io::Result<Self> {
-        Self::bind_with_extra(address, state, Router::new()).await
-    }
-
-    /// Binds and merges plugin routes supplied by the binary.
-    pub async fn bind_with_extra(
+    pub async fn bind(
         address: &str,
         state: AppState,
-        extra: Router<AppState>,
+        plugin_routes: Router<AppState>,
     ) -> std::io::Result<Self> {
         let listener = TcpListener::bind(normalize_bind_address(address)).await?;
-        Ok(Self::with_listener_and_extra(listener, state, extra))
+        Ok(Self::with_listener(listener, state, plugin_routes))
     }
 
     /// Builds the app on an already-bound listener.
     #[must_use]
-    pub fn with_listener(listener: TcpListener, state: AppState) -> Self {
-        Self::with_listener_and_extra(listener, state, Router::new())
-    }
-
-    pub fn with_listener_and_extra(
+    pub fn with_listener(
         listener: TcpListener,
         state: AppState,
-        extra: Router<AppState>,
+        plugin_routes: Router<AppState>,
     ) -> Self {
         let sessions = session_layer_for(&state);
-        let app = build_router_with_extra(state, sessions, extra);
-        Self { listener, app }
+        let app = build_router(state.clone(), sessions, plugin_routes);
+        Self {
+            listener,
+            app,
+            state,
+        }
     }
 
-    /// Go's `Server.Close` stops the limiter and captcha cleanup goroutines.
-    /// Axum drops its tasks with the runtime; the listener closes on drop.
-    pub fn close(&self) {}
+    /// Go's `Server.Close`: stops the captcha sweep and lets the limiters
+    /// release their state. Axum closes the listener when the server drops.
+    pub fn close(&self) {
+        shutdown_state(&self.state);
+    }
 
     /// The address the OS assigned, useful with port `0` in tests.
     pub fn local_addr(&self) -> std::io::Result<SocketAddr> {
@@ -77,11 +75,14 @@ impl Server {
 
     /// Serves until the process is stopped.
     pub async fn run(self) -> std::io::Result<()> {
-        axum::serve(
+        let state = self.state.clone();
+        let result = axum::serve(
             self.listener,
             self.app.into_make_service_with_connect_info::<SocketAddr>(),
         )
-        .await
+        .await;
+        shutdown_state(&state);
+        result
     }
 
     /// Serves until `signal` resolves, then drains in-flight requests.
@@ -89,12 +90,15 @@ impl Server {
     where
         F: Future<Output = ()> + Send + 'static,
     {
-        axum::serve(
+        let state = self.state.clone();
+        let result = axum::serve(
             self.listener,
             self.app.into_make_service_with_connect_info::<SocketAddr>(),
         )
         .with_graceful_shutdown(signal)
-        .await
+        .await;
+        shutdown_state(&state);
+        result
     }
 }
 
@@ -104,6 +108,15 @@ fn normalize_bind_address(address: &str) -> String {
     } else {
         address.to_string()
     }
+}
+
+fn shutdown_state(state: &AppState) {
+    state.captcha.close();
+    state.general_limiter.close();
+    state.auth_limiter.close();
+    state.checkout_limiter.close();
+    state.captcha_limiter.close();
+    state.admin_limiter.close();
 }
 
 #[cfg(test)]

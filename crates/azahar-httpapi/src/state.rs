@@ -14,6 +14,7 @@ use azahar_plugins::Registry;
 use azahar_store::Store;
 use chrono::Duration as ChronoDuration;
 
+use crate::captcha::{CAPTCHA_TTL, CaptchaStore};
 use crate::ratelimit::RateLimiter;
 
 /// One token bucket per client address for the whole API: 120 requests a
@@ -57,6 +58,7 @@ pub struct AppStateInner {
     pub checkout_limiter: RateLimiter,
     pub captcha_limiter: RateLimiter,
     pub admin_limiter: RateLimiter,
+    pub captcha: CaptchaStore,
 }
 
 impl AppState {
@@ -94,6 +96,7 @@ impl AppState {
                     ADMIN_LIMIT,
                     std::time::Duration::from_secs(ADMIN_WINDOW_SECS),
                 ),
+                captcha: CaptchaStore::new(CAPTCHA_TTL),
             }),
         }
     }

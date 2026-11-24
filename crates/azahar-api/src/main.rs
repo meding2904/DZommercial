@@ -179,7 +179,7 @@ async fn run() -> anyhow::Result<()> {
     let plugin_routes = axum::Router::new()
         .merge(azahar_plugin_codemode::codemode_routes())
         .merge(azahar_plugin_ai::ai_routes());
-    let server = Server::bind_with_extra(&cfg.api_addr, state.clone(), plugin_routes).await?;
+    let server = Server::bind(&cfg.api_addr, state.clone(), plugin_routes).await?;
     info!(
         addr = %server.local_addr()?,
         env = %cfg.app_env,

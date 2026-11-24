@@ -12,6 +12,7 @@ SOCKET="wayland-azahar-smoke-$$"
 PROFILE="$(mktemp -d)"
 LOG="$(mktemp)"
 WESTON_LOG="$(mktemp)"
+REPORT="$(mktemp)"
 WESTON_PID=""
 
 cleanup() {
@@ -21,6 +22,7 @@ cleanup() {
     wait "$WESTON_PID" 2>/dev/null || true
   fi
   rm -rf "$PROFILE"
+  rm -f "$REPORT"
 }
 trap cleanup EXIT
 
@@ -37,10 +39,11 @@ done
 cargo build -p azahar-desktop --manifest-path "$ROOT/Cargo.toml" >/dev/null
 
 WAYLAND_DISPLAY="$SOCKET" GDK_BACKEND=wayland AZAHAR_PROFILE_DIR="$PROFILE" \
-  timeout 10s "$ROOT/target/debug/azahar-admin" >"$LOG" 2>&1 &
+  AZAHAR_SMOKE_REPORT="$REPORT" AZAHAR_SMOKE_CLOSE=1 \
+  timeout 15s "$ROOT/target/debug/azahar-admin" >"$LOG" 2>&1 &
 APP_PID=$!
 
-sleep 5
+sleep 1
 if ! kill -0 "$APP_PID" 2>/dev/null; then
   echo "desktop smoke failed: azahar-admin exited before the window was up" >&2
   tail -30 "$LOG" >&2
@@ -56,9 +59,22 @@ set +e
 wait "$APP_PID"
 STATUS=$?
 set -e
-if [[ "$STATUS" -ne 124 ]]; then
-  echo "desktop smoke failed: expected the app to survive until timeout, got $STATUS" >&2
+if [[ "$STATUS" -ne 0 ]]; then
+  echo "desktop smoke failed: the smoke close hook exited with $STATUS" >&2
   tail -30 "$LOG" >&2
+  exit 1
+fi
+if [[ ! -s "$REPORT" ]]; then
+  echo "desktop smoke failed: no runtime geometry report" >&2
+  tail -30 "$LOG" >&2
+  exit 1
+fi
+if ! jq -e '.window.width > 0 and .window.height > 0 and .monitor.width > 0 and .monitor.height > 0' "$REPORT" >/dev/null; then
+  echo "desktop smoke failed: invalid window/monitor geometry: $(cat "$REPORT")" >&2
+  exit 1
+fi
+if ! find "$PROFILE" -name 'settings.json' -exec grep -q '"width"' {} +; then
+  echo "desktop smoke failed: the close hook did not persist window bounds" >&2
   exit 1
 fi
 if grep -Eq "panicked at|thread 'main' panicked|ERROR .*tauri|Failed to create window" "$LOG"; then
@@ -67,4 +83,4 @@ if grep -Eq "panicked at|thread 'main' panicked|ERROR .*tauri|Failed to create w
   exit 1
 fi
 
-echo "desktop smoke passed: Tauri window stayed alive for 5s under Weston headless"
+echo "desktop smoke passed: window $(jq -r '.window.width' "$REPORT")x$(jq -r '.window.height' "$REPORT"), monitor $(jq -r '.monitor.width' "$REPORT")x$(jq -r '.monitor.height' "$REPORT"), bounds persisted"

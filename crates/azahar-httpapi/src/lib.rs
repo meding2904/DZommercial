@@ -37,7 +37,7 @@ pub use dto::{
 pub use extract::{BODY_LIMIT, JsonBody, RawFields, client_ip, decode_json};
 pub use middleware::{CurrentUser, RequestId};
 pub use respond::{ApiProblem, problem, problem_fields};
-pub use router::{build_router, build_router_with_extra};
+pub use router::build_router;
 pub use server::{Server, session_layer_for};
 pub use session_layer::{
     SESSION_COOKIE_NAME, STAFF_SESSION_CAP_HOURS, SessionError, SessionUser, USER_ID_KEY,

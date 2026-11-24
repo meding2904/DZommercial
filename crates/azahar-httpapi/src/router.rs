@@ -46,16 +46,11 @@ const ADMIN_PRODUCTS_TTL: Duration = Duration::from_secs(1);
 const ADMIN_ORDERS_TTL: Duration = Duration::from_secs(1);
 const ADMIN_CUSTOMERS_TTL: Duration = Duration::from_secs(5);
 
-/// Builds the complete API router.
-pub fn build_router(state: AppState, sessions: SessionManagerLayer<LibsqlSessionStore>) -> Router {
-    build_router_with_extra(state, sessions, Router::new())
-}
-
-/// Builds the router and merges plugin-provided routes before the state is
-/// applied. Plugin crates depend on this crate for `AppState` and the response
-/// helpers, so they cannot be merged here without a dependency cycle; the
-/// binary passes them in.
-pub fn build_router_with_extra(
+/// Builds the API router and merges the plugin routes the binary supplies.
+/// Plugin crates depend on this crate for `AppState` and the response helpers,
+/// so they cannot be merged here without a dependency cycle. There is no
+/// default: every caller must pass its plugin router (tests pass an empty one).
+pub fn build_router(
     state: AppState,
     sessions: SessionManagerLayer<LibsqlSessionStore>,
     extra: Router<AppState>,
@@ -204,7 +199,9 @@ pub fn build_router_with_extra(
         .merge(admin_routes)
         .merge(handlers_plugins::public_plugin_routes())
         .merge(handlers_plugins::admin_plugin_routes(state.clone()))
-        .merge(crate::handlers_checkout::checkout_routes())
+        .merge(crate::handlers_checkout::checkout_routes_with_captcha(
+            Arc::new(state.captcha.clone()),
+        ))
         .merge(crate::handlers_shipments::shipment_routes())
         .merge(extra)
         .fallback(not_found)

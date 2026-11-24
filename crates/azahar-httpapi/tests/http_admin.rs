@@ -156,7 +156,7 @@ async fn fixture_with(configure: impl FnOnce(&mut Registry)) -> Fixture {
         configured_ttl(&cfg),
     );
     Fixture {
-        app: build_router(state, sessions),
+        app: build_router(state, sessions, axum::Router::new()),
         store,
     }
 }

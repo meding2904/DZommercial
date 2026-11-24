@@ -21,6 +21,7 @@ import http.client
 import json
 import re
 import sys
+import time
 from dataclasses import dataclass, field
 from typing import Any
 from urllib.parse import urlsplit
@@ -235,7 +236,7 @@ def pump_cases(oracle: Client, candidate: Client, group: str = "all") -> list[tu
                 "admin_me", "logout", "me_after_logout",
             }
         if group == "checkout":
-            return name in {"checkout_validation", "checkout_challenge"}
+            return name in {"checkout_validation", "checkout_challenge", "checkout_success"}
         if group == "admin":
             return name in {
                 "admin_login", "admin_me", "admin_metrics", "admin_products",
@@ -303,6 +304,53 @@ def pump_cases(oracle: Client, candidate: Client, group: str = "all") -> list[tu
             oracle.request("GET", "/api/checkout/challenge", headers=headers),
             candidate.request("GET", "/api/checkout/challenge", headers=headers),
         ))
+    if wanted("checkout_success"):
+        # Both servers must run with AZAHAR_TEST_CAPTCHA_CODE=ABCDE. The Go
+        # oracle binary is built with scripts/build-go-oracle.sh, which injects
+        # the same seam through a temporary overlay.
+        time.sleep(2.2)
+        challenge_headers = {"X-Requested-With": "azahar-web"}
+        oracle.ensure_csrf()
+        candidate.ensure_csrf()
+        oracle_status, _, oracle_challenge = oracle.request(
+            "GET", "/api/checkout/challenge", headers=challenge_headers
+        )
+        candidate_status, _, candidate_challenge = candidate.request(
+            "GET", "/api/checkout/challenge", headers=challenge_headers
+        )
+        if oracle_status != 200 or candidate_status != 200:
+            results.append((
+                "checkout_success",
+                (oracle_status, {}, oracle_challenge),
+                (candidate_status, {}, candidate_challenge),
+            ))
+        else:
+            oracle_token = json.loads(oracle_challenge)["token"]
+            candidate_token = json.loads(candidate_challenge)["token"]
+            _, _, oracle_product = oracle.request("GET", "/api/products/rose-petal-bath-soak")
+            _, _, candidate_product = candidate.request("GET", "/api/products/rose-petal-bath-soak")
+            oracle_id = json.loads(oracle_product)["product"]["id"]
+            candidate_id = json.loads(candidate_product)["product"]["id"]
+            payload = {
+                "name": "Diff Buyer",
+                "email": "buyer@example.test",
+                "phone": "0550123456",
+                "address": "12 Test Street",
+                "wilaya_code": 16,
+                "commune_name": "Ain Benian",
+                "delivery_type": "home",
+                "items": [{"product_id": None, "quantity": 1}],
+                "captcha_answer": "ABCDE",
+                "terms_accepted": True,
+                "terms_version": "2026-11-14",
+            }
+            oracle_payload = dict(payload, items=[{"product_id": oracle_id, "quantity": 1}], captcha_token=oracle_token)
+            candidate_payload = dict(payload, items=[{"product_id": candidate_id, "quantity": 1}], captcha_token=candidate_token)
+            results.append((
+                "checkout_success",
+                oracle.mutation("POST", "/api/checkout", oracle_payload),
+                candidate.mutation("POST", "/api/checkout", candidate_payload),
+            ))
     if wanted("logout"):
         results.append(("logout", oracle.mutation("POST", "/api/auth/logout", {}), candidate.mutation("POST", "/api/auth/logout", {})))
         get("me_after_logout", "/api/auth/me")

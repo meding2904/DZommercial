@@ -650,11 +650,14 @@ make oracle-diff   # cargo test --workspace --tests
 ```
 
 For an HTTP-level comparison, run the Go oracle on one database and the Rust
-server on another seeded database, then:
+server on another seeded database. The checkout-success case also needs both
+servers started with `AZAHAR_TEST_CAPTCHA_CODE=ABCDE`; build the Go oracle with
+the same seam, without editing the Go tree:
 
 ```sh
+make go-oracle-seam   # /tmp/azahar-go-seam
 python3 scripts/httpdiff/httpdiff.py --oracle http://127.0.0.1:18080 \
-    --candidate http://127.0.0.1:18081 --group public
+    --candidate http://127.0.0.1:18081 --group all
 ```
 
 Groups are `core`, `public`, `auth`, `admin` and `all`. Generated ids,

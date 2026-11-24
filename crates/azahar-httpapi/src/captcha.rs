@@ -195,7 +195,19 @@ impl CaptchaStore {
     /// Returns [`CaptchaError`] if the OS random generator fails or the PNG
     /// cannot be encoded.
     pub fn issue(&self, ip: &str) -> Result<IssuedCaptcha, CaptchaError> {
-        let code = random_code().map_err(CaptchaError::Code)?;
+        // Test/oracle seam: both servers can issue a known code so the live
+        // checkout success path is diffable. Unset in normal operation.
+        let code = match std::env::var("AZAHAR_TEST_CAPTCHA_CODE") {
+            Ok(value)
+                if value.len() == CAPTCHA_CODE_LENGTH
+                    && value
+                        .chars()
+                        .all(|character| CAPTCHA_ALPHABET.contains(character)) =>
+            {
+                value
+            }
+            _ => random_code().map_err(CaptchaError::Code)?,
+        };
         let token = random_token().map_err(CaptchaError::Token)?;
         let image = captcha_image(&code).ok_or(CaptchaError::Image)?;
         let now = self.now();

@@ -10,7 +10,7 @@ WAILS_TAG_FLAGS = $(if $(strip $(WAILS_TAGS)),-tags "$(WAILS_TAGS)")
 VERSION ?= 2.0.0
 DESKTOP_GOARCH ?= $(shell go env GOARCH)
 
-.PHONY: help dev-db dev-api dev-web check desktop-sync desktop-check desktop-deps build smoke kiri-up kiri-local kiri-down desktop desktop-build desktop-package desktop-rust desktop-rust-build desktop-smoke loadtest rust-check rust-test bench-baseline rust-bench oracle-diff
+.PHONY: help dev-db dev-api dev-web check desktop-sync desktop-check desktop-deps build smoke kiri-up kiri-local kiri-down desktop desktop-build desktop-package desktop-rust desktop-rust-build desktop-smoke loadtest rust-check rust-test bench-baseline rust-bench oracle-diff go-oracle-seam
 
 help:
 	@echo "Azahar demo store"
@@ -87,6 +87,10 @@ rust-bench:
 
 oracle-diff:
 	cargo test --workspace --tests -- --nocapture
+
+# Go oracle with the deterministic captcha seam, for the live checkout diff.
+go-oracle-seam:
+	./scripts/build-go-oracle.sh /tmp/azahar-go-seam
 
 check:
 	cd frontend && APP_ENV=development pnpm check && pnpm test:security && pnpm test:framework

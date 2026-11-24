@@ -10,4 +10,20 @@ path = "src/main.rs"
 
 [dependencies]
 anyhow.workspace = true
+azahar-auditbatch.workspace = true
+chrono.workspace = true
+azahar-config.workspace = true
+azahar-courier.workspace = true
+azahar-db.workspace = true
+azahar-httpapi.workspace = true
+azahar-plugin-oils.workspace = true
+azahar-plugin-pcparts.workspace = true
+azahar-plugin-pcbuilder.workspace = true
+azahar-plugin-phone.workspace = true
+azahar-plugins.workspace = true
+azahar-seed.workspace = true
+azahar-store.workspace = true
 tokio.workspace = true
+tokio-util = { version = "0.7", features = ["rt"] }
+tracing.workspace = true
+tracing-subscriber.workspace = true

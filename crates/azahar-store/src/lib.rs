@@ -23,5 +23,6 @@ pub mod store;
 pub mod types;
 pub mod users;
 
+pub use products::{CORE_PLUGIN_ID, ProductFilter, normalize_plugin_id};
 pub use store::{Store, StoreError};
 pub use types::*;

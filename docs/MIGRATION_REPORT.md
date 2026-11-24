@@ -7,7 +7,7 @@ stayed runnable as the oracle. Every ported function is covered by a Rust test
 that drives the real Go code through a line-delimited JSON oracle and compares
 outputs, by a database differential, or by an HTTP-level differential.
 
-- **426 / 624** non-test Go functions in the migration scope are
+- **590 / 624** non-test Go functions in the migration scope are
   ticked in `MIGRATION.md` (the four `cmd/oracle-*` harness functions added for
   testing are excluded from this count).
 - **22 workspace crates** compile, `cargo clippy --workspace --all-targets -- -D warnings`
@@ -15,10 +15,10 @@ outputs, by a database differential, or by an HTTP-level differential.
 - The Rust `azahar-api` boots against Turso, runs the same migrations and seed,
   and serves the ported HTTP surface.
 - Live Go-vs-Rust HTTP diff (`scripts/httpdiff/httpdiff.py --group all`) matches
-  for health, CSRF, auth, catalogue, product, theme, shipping, order-by-token,
-  account orders, admin reads/mutations, checkout validation/challenge and phone
-  device listing. The only expected gap is the plugin list, which omits the AI
-  and code-mode plugins that are not ported.
+  every case: health, CSRF, auth, catalogue, product, theme, shipping,
+  order-by-token, account orders, admin reads/mutations, plugin manifests and
+  settings, AI runs, code-mode plans, phone devices and checkout
+  validation/challenge.
 
 ## Packages
 
@@ -37,23 +37,22 @@ outputs, by a database differential, or by an HTTP-level differential.
 | `internal/orderintake` | 17 | 17 | done |
 | `internal/productrules` | 9 | 9 | done |
 | `internal/storefront` | 13 | 13 | done |
-| `internal/httpapi` | 148 | 156 | partial |
-| `internal/plugins/ai` | 0 | 20 | partial |
-| `internal/plugins/codemode` | 0 | 55 | partial |
+| `internal/httpapi` | 151 | 156 | partial |
+| `internal/plugins/ai` | 20 | 20 | done |
+| `internal/plugins/codemode` | 55 | 55 | done |
 | `internal/plugins/oils` | 3 | 3 | done |
 | `internal/plugins/pcparts` | 3 | 3 | done |
 | `internal/plugins/pcbuilder` | 6 | 6 | done |
 | `internal/plugins/phone` | 26 | 26 | done |
 | `internal/seed` | 5 | 5 | done |
 | `cmd/api` | 1 | 1 | done |
-| `desktop/internal/api` | 0 | 86 | partial |
+| `desktop/internal/api` | 86 | 86 | done |
 | `desktop` | 0 | 19 | partial |
 
-Remaining: the AI plugin (20), the code-mode plugin (55), ten plugin HTTP
-`Context` helpers and the generic handler-bearing route registration, eight
-HTTP logging/panic/limiter-shutdown helpers, and the desktop Wails host (105).
-The desktop host and the SvelteKit UI are documented as deferred in
-`MIGRATION.md`.
+Remaining: ten plugin SDK `Context` helpers (the HTTP behaviour lives in
+`azahar-httpapi`), five HTTP dispatch/shutdown adapters, and the 19 Wails window
+host functions. The desktop API client (86 functions) is ported; the SvelteKit
+UI remains the UI layer by design. These are listed in `MIGRATION.md`.
 
 ## Benchmarks
 
@@ -63,13 +62,13 @@ per side on the development machine. `bench/baseline.json` and
 
 | Metric | Go oracle | Rust |
 | --- | ---: | ---: |
-| Read throughput | 5,964 req/s | 6,334 req/s |
-| Read p50 / p95 / p99 | 2.50 / 4.29 / 5.29 ms | 2.34 / 4.10 / 5.00 ms |
-| Login p50 / p95 / p99 | 160.4 / 657.8 / 827.4 ms | 145.2 / 153.0 / 153.9 ms |
-| Peak RSS after reads | 100.0 MiB | 17.7 MiB |
-| Peak RSS including logins | 541.9 MiB | 273.4 MiB |
-| Release binary | 14.7 MB | 25.2 MB |
-| Startup to healthy | 0.254 s | 0.061 s |
+| Read throughput | 6,106 req/s | 6,236 req/s |
+| Read p50 / p95 / p99 | 2.49 / 4.07 / 5.01 ms | 2.40 / 4.17 / 5.07 ms |
+| Login p50 / p95 / p99 | 480.0 / 926.1 / 983.2 ms | 171.2 / 215.2 / 217.5 ms |
+| Peak RSS after reads | 100.1 MiB | 18.6 MiB |
+| Peak RSS including logins | 539.0 MiB | 274.2 MiB |
+| Release binary | 14.7 MB | 26.9 MB |
+| Startup to healthy | 0.255 s | 0.052 s |
 
 The read path includes the in-process read cache on both sides. Login uses the
 same Argon2id parameters (64 MiB, 3 passes, 4 lanes); the Go tail is dominated by
@@ -106,8 +105,10 @@ Recorded in `MIGRATION.md`:
 
 ## Risks
 
-- The AI and code-mode admin screens and their plugin endpoints do not exist in
-  Rust yet; the corresponding README features are Go-only.
+- The Wails window host (`desktop/main.go`, 19 functions) remains Go. The Rust
+  desktop API client is ported, but no Rust GUI shell is wired yet.
+- The keyring-backed secret store is abstracted and tested with fakes; live OS
+  Secret Service integration is not covered by the differential.
 - Checkout success is covered by 39 unit/integration tests against a local
   database, but the live HTTP diff only compares validation and challenge
   responses because captcha codes are server-local.

@@ -574,14 +574,18 @@ Ported and differential-clean against the Go oracle so far:
   `productrules`, `orderintake` basket/shipping rules and `auditbatch`.
 - **HTTP** — axum server, CSRF, rate limits, health, registration/login/logout,
   Turso-backed `tower-sessions`, public catalogue/categories/theme/plugins,
-  shipping lookup and order-by-token. The live auth surface matches the Go
-  server over HTTP, and the public endpoints match except `/api/plugins`, which
-  omits the AI and code-mode plugins that are not ported yet.
-- **Plugins** — registry/settings framework, oils, PC parts, PC builder
-  manifest and parts catalog, phone manifest/migrations.
+  shipping lookup and order-by-token. The live Go-vs-Rust HTTP diff matches
+  every case, including the plugin manifests, admin reads/mutations, checkout
+  validation/challenge and the AI/code-mode admin routes.
+- **Plugins** — registry/settings framework, oils, PC parts, PC builder,
+  phone IMEI catalog and hooks, AI analyst and code-mode console (plans,
+  preview, validated apply with audit).
+- **Desktop** — the API client, URL/firewall policy, session/CSRF handling,
+  settings and image layer are ported in `azahar-desktop-api`; the Wails
+  window host remains Go.
 
-Still in progress: admin routes, checkout and order placement, phone IMEI
-handlers, AI and code-mode plugins, the desktop Wails host.
+Remaining: the Wails host, the plugin SDK's `Context` JSON helpers, and a few
+HTTP shutdown/logging adapters. Everything the server serves is ported.
 
 ### Before and after
 
@@ -591,13 +595,13 @@ the same seeded local libSQL database.
 
 | Metric | Go oracle | Rust |
 | --- | ---: | ---: |
-| Read throughput | 5,964 req/s | 6,334 req/s |
-| Read p50 / p95 / p99 | 2.50 / 4.29 / 5.29 ms | 2.34 / 4.10 / 5.00 ms |
-| Login p50 / p95 / p99 | 160.4 / 657.8 / 827.4 ms | 145.2 / 153.0 / 153.9 ms |
-| Peak RSS after reads | 100.0 MiB | 17.7 MiB |
-| Peak RSS including logins | 541.9 MiB | 273.4 MiB |
-| Release binary | 14.7 MB | 25.2 MB |
-| Startup to healthy | 0.254 s | 0.061 s |
+| Read throughput | 6,106 req/s | 6,236 req/s |
+| Read p50 / p95 / p99 | 2.49 / 4.07 / 5.01 ms | 2.40 / 4.17 / 5.07 ms |
+| Login p50 / p95 / p99 | 480.0 / 926.1 / 983.2 ms | 171.2 / 215.2 / 217.5 ms |
+| Peak RSS after reads | 100.1 MiB | 18.6 MiB |
+| Peak RSS including logins | 539.0 MiB | 274.2 MiB |
+| Release binary | 14.7 MB | 26.9 MB |
+| Startup to healthy | 0.255 s | 0.052 s |
 
 ![Read, login and tail latency](docs/charts/latency.png)
 

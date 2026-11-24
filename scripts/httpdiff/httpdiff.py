@@ -287,6 +287,8 @@ def pump_cases(oracle: Client, candidate: Client, group: str = "all") -> list[tu
         get("admin_team", "/api/admin/team")
         get("admin_plugins", "/api/admin/plugins")
         get("phone_devices", "/api/plugins/phone/admin/devices")
+        get("ai_runs", "/api/plugins/ai/admin/runs")
+        get("codemode_plans", "/api/plugins/codemode/admin/plans")
     if wanted("checkout_validation"):
         results.append((
             "checkout_validation",

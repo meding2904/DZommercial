@@ -153,6 +153,10 @@ desktop              <- desktop/internal/api
 | 32 | implementer | phone domain/hooks | done | 26 functions total, 354 IMEI + 345 variant cases |
 | 33 | integrator | routes, Turso hooks, full diff | done | 145 httpapi tests, all groups match |
 | 34 | docs/benchmark | charts, README, report | done | `docs/MIGRATION_REPORT.md`, `docs/charts/`, `bench/after.json` |
+| 35 | implementer | AI analyst plugin | done | 20 functions, 249 oracle comparisons |
+| 36 | implementer | code-mode plugin | done | 55 functions, 352 plan documents + 12 DB scenarios |
+| 37 | implementer | desktop API client | done | 86 functions, 5,930 comparisons |
+| 38 | integrator | plugin route mounting + final diff | done | all HTTP groups match, no expected skips |
 
 Status values: `queued`, `running`, `review`, `done`, `failed`, `rebriefed`.
 
@@ -172,6 +176,7 @@ Differences are only acceptable when behaviour is unobservable at the HTTP/API b
 | Plugin enrichment | `Registry::enrich_product` is synchronous; the phone enricher needs database I/O. | No in-tree enricher is ported yet (phone/AI are deferred). The trait will become async before those plugins land. |
 | `ProductType.fields` | Empty `Vec` serialises as `null`; Go distinguishes nil (`null`) from an explicit empty slice (`[]`). | No in-tree plugin declares an empty field list. |
 | Plugin settings numbers | `is_go_number` follows `strconv.ParseFloat` acceptance exactly, pinned by 2,907 generated probes. | Validation-only; no behavioural gap remains. |
+| Desktop host | `desktop/internal/api` is ported; `desktop/main.go` (19 Wails window/lifecycle functions) stays Go until a Rust GUI shell is chosen. | Wails is a Go webview framework with no drop-in Rust equivalent; porting the client layer first keeps the migration useful without inventing a UI stack. |
 | Demo seed RNG | Go `math/rand` and Rust `StdRng` use the same fixed seed and the same plan/ranges/branches, but draw different concrete orders. | Seeded demo orders are illustrative data. Order-dependent endpoints are compared by response shape in the HTTP diff. |
 | Captcha image | The PNG uses the same size, palette and code alphabet but a simpler built-in 5x7 glyph table instead of Go's font rendering. | The answer check is identical; the image is only displayed to a person. |
 
@@ -767,13 +772,13 @@ Differences are only acceptable when behaviour is unobservable at the HTTP/API b
 
 ### `cmd/oracle-ids-auth` (2 functions)
 
-- [ ] `cmd/oracle-ids-auth.handle` — `backend/cmd/oracle-ids-auth/main.go:35`
-- [ ] `cmd/oracle-ids-auth.main` — `backend/cmd/oracle-ids-auth/main.go:74`
+- [x] `cmd/oracle-ids-auth.handle` — `backend/cmd/oracle-ids-auth/main.go:35`
+- [x] `cmd/oracle-ids-auth.main` — `backend/cmd/oracle-ids-auth/main.go:74`
 
 ### `cmd/oracle-orderstatus-secrets` (2 functions)
 
-- [ ] `cmd/oracle-orderstatus-secrets.handle` — `backend/cmd/oracle-orderstatus-secrets/main.go:64`
-- [ ] `cmd/oracle-orderstatus-secrets.main` — `backend/cmd/oracle-orderstatus-secrets/main.go:26`
+- [x] `cmd/oracle-orderstatus-secrets.handle` — `backend/cmd/oracle-orderstatus-secrets/main.go:64`
+- [x] `cmd/oracle-orderstatus-secrets.main` — `backend/cmd/oracle-orderstatus-secrets/main.go:26`
 
 ### `desktop/internal/api` (86 functions)
 

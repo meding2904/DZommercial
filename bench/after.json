@@ -1,29 +1,29 @@
 {
   "label": "rust",
-  "generated_at": "2026-11-24T19:12:09Z",
+  "generated_at": "2026-11-24T20:22:58Z",
   "binary": {
     "path": "/home/mohamed/Projects/DZommercial/target/release/azahar-api",
-    "bytes": 25153968
+    "bytes": 26898032
   },
   "server": {
-    "startup_seconds": 0.061,
-    "peak_rss_after_reads_kb": 18148,
-    "peak_rss_after_reads_mb": 17.7,
-    "peak_rss_kb": 279928,
-    "peak_rss_mb": 273.4
+    "startup_seconds": 0.052,
+    "peak_rss_after_reads_kb": 19076,
+    "peak_rss_after_reads_mb": 18.6,
+    "peak_rss_kb": 280816,
+    "peak_rss_mb": 274.2
   },
   "load": {
     "read_mix": {
       "workers": 16,
       "requests": 2400,
-      "elapsed_seconds": 0.379,
-      "throughput_rps": 6333.9,
+      "elapsed_seconds": 0.385,
+      "throughput_rps": 6235.8,
       "latency_ms": {
-        "p50": 2.342,
-        "p95": 4.1,
-        "p99": 5.002,
-        "mean": 2.462,
-        "max": 6.362
+        "p50": 2.404,
+        "p95": 4.171,
+        "p99": 5.065,
+        "mean": 2.508,
+        "max": 6.433
       },
       "status_counts": {
         "200": 2400
@@ -35,14 +35,14 @@
     "login_flow": {
       "workers": 4,
       "requests": 40,
-      "elapsed_seconds": 1.469,
-      "throughput_rps": 27.24,
+      "elapsed_seconds": 1.731,
+      "throughput_rps": 23.11,
       "latency_ms": {
-        "p50": 145.192,
-        "p95": 153.041,
-        "p99": 153.853,
-        "mean": 146.708,
-        "max": 153.853
+        "p50": 171.155,
+        "p95": 215.196,
+        "p99": 217.472,
+        "mean": 172.941,
+        "max": 217.472
       },
       "outcomes": {
         "ok": 40
@@ -54,11 +54,11 @@
     "health": {
       "command": "curl -fsS -o /dev/null http://127.0.0.1:18082/api/health",
       "runs": 10,
-      "mean_seconds": 0.004,
+      "mean_seconds": 0.0039,
       "median_seconds": 0.0039,
-      "stddev_seconds": 0.0003,
-      "min_seconds": 0.0036,
-      "max_seconds": 0.0047
+      "stddev_seconds": 0.0002,
+      "min_seconds": 0.0037,
+      "max_seconds": 0.0043
     }
   },
   "environment": {

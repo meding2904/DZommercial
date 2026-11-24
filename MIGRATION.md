@@ -18,8 +18,10 @@ Living plan for the Rust port. The Go tree stays runnable and untouched as the *
   format. Sessions move to `tower-sessions` 0.15 with a local libSQL-backed
   `SessionStore` and the Rust-owned `web_sessions` table. The Go `sessions`
   table is left alone. Full rationale and versions: `docs/auth.md`.
-- **Decision D3 — desktop:** the Wails Go host in `desktop/` is inventoried
-  (109 functions) and migrated after the API. Its renderer is Svelte/JS and
+- **Decision D3 — desktop:** the API client (`desktop/internal/api`, 86
+  functions) is ported to `azahar-desktop-api`. The 19 Wails window-host
+  functions in `desktop/main.go` are **blocked on a GUI-framework decision**
+  (Tauri vs egui/wry vs keeping the Go host). The renderer is Svelte/JS and
   stays.
 - **Oracle harness convention:** each package adds `backend/cmd/oracle-<pkg>/`,
   a line-delimited JSON adapter around the Go functions. Rust integration

@@ -7,7 +7,7 @@ stayed runnable as the oracle. Every ported function is covered by a Rust test
 that drives the real Go code through a line-delimited JSON oracle and compares
 outputs, by a database differential, or by an HTTP-level differential.
 
-- **590 / 624** non-test Go functions in the migration scope are
+- **605 / 624** non-test Go functions in the migration scope are
   ticked in `MIGRATION.md` (the four `cmd/oracle-*` harness functions added for
   testing are excluded from this count).
 - **22 workspace crates** compile, `cargo clippy --workspace --all-targets -- -D warnings`
@@ -33,11 +33,11 @@ outputs, by a database differential, or by an HTTP-level differential.
 | `internal/ids` | 1 | 1 | done |
 | `internal/orderstatus` | 2 | 2 | done |
 | `internal/secrets` | 3 | 3 | done |
-| `internal/plugins` | 31 | 41 | partial |
+| `internal/plugins` | 41 | 41 | done |
 | `internal/orderintake` | 17 | 17 | done |
 | `internal/productrules` | 9 | 9 | done |
 | `internal/storefront` | 13 | 13 | done |
-| `internal/httpapi` | 151 | 156 | partial |
+| `internal/httpapi` | 156 | 156 | done |
 | `internal/plugins/ai` | 20 | 20 | done |
 | `internal/plugins/codemode` | 55 | 55 | done |
 | `internal/plugins/oils` | 3 | 3 | done |
@@ -49,10 +49,10 @@ outputs, by a database differential, or by an HTTP-level differential.
 | `desktop/internal/api` | 86 | 86 | done |
 | `desktop` | 0 | 19 | partial |
 
-Remaining: ten plugin SDK `Context` helpers (the HTTP behaviour lives in
-`azahar-httpapi`), five HTTP dispatch/shutdown adapters, and the 19 Wails window
-host functions. The desktop API client (86 functions) is ported; the SvelteKit
-UI remains the UI layer by design. These are listed in `MIGRATION.md`.
+Remaining: the 19 Wails window-host functions in `desktop/main.go`. The desktop
+API client (86 functions) is ported; the SvelteKit UI remains the UI layer by
+design. Choosing a Rust GUI framework (Tauri, egui/wry, or keeping the Go host)
+is a product decision, so it is recorded in `MIGRATION.md` rather than guessed.
 
 ## Benchmarks
 
@@ -62,13 +62,13 @@ per side on the development machine. `bench/baseline.json` and
 
 | Metric | Go oracle | Rust |
 | --- | ---: | ---: |
-| Read throughput | 6,106 req/s | 6,236 req/s |
-| Read p50 / p95 / p99 | 2.49 / 4.07 / 5.01 ms | 2.40 / 4.17 / 5.07 ms |
-| Login p50 / p95 / p99 | 480.0 / 926.1 / 983.2 ms | 171.2 / 215.2 / 217.5 ms |
-| Peak RSS after reads | 100.1 MiB | 18.6 MiB |
-| Peak RSS including logins | 539.0 MiB | 274.2 MiB |
+| Read throughput | 6,106 req/s | 5,731 req/s |
+| Read p50 / p95 / p99 | 2.49 / 4.07 / 5.01 ms | 2.56 / 4.77 / 5.87 ms |
+| Login p50 / p95 / p99 | 480.0 / 926.1 / 983.2 ms | 168.0 / 174.8 / 179.3 ms |
+| Peak RSS after reads | 100.1 MiB | 19.3 MiB |
+| Peak RSS including logins | 539.0 MiB | 275.0 MiB |
 | Release binary | 14.7 MB | 26.9 MB |
-| Startup to healthy | 0.255 s | 0.052 s |
+| Startup to healthy | 0.255 s | 0.062 s |
 
 The read path includes the in-process read cache on both sides. Login uses the
 same Argon2id parameters (64 MiB, 3 passes, 4 lanes); the Go tail is dominated by

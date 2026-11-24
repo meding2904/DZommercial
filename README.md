@@ -584,8 +584,9 @@ Ported and differential-clean against the Go oracle so far:
   settings and image layer are ported in `azahar-desktop-api`; the Wails
   window host remains Go.
 
-Remaining: the Wails host, the plugin SDK's `Context` JSON helpers, and a few
-HTTP shutdown/logging adapters. Everything the server serves is ported.
+Remaining: the 19 Wails window-host functions in `desktop/main.go`. The desktop
+API client is ported; choosing a Rust GUI framework is a product decision.
+Everything the server serves is ported.
 
 ### Before and after
 
@@ -595,13 +596,13 @@ the same seeded local libSQL database.
 
 | Metric | Go oracle | Rust |
 | --- | ---: | ---: |
-| Read throughput | 6,106 req/s | 6,236 req/s |
-| Read p50 / p95 / p99 | 2.49 / 4.07 / 5.01 ms | 2.40 / 4.17 / 5.07 ms |
-| Login p50 / p95 / p99 | 480.0 / 926.1 / 983.2 ms | 171.2 / 215.2 / 217.5 ms |
-| Peak RSS after reads | 100.1 MiB | 18.6 MiB |
-| Peak RSS including logins | 539.0 MiB | 274.2 MiB |
+| Read throughput | 6,106 req/s | 5,731 req/s |
+| Read p50 / p95 / p99 | 2.49 / 4.07 / 5.01 ms | 2.56 / 4.77 / 5.87 ms |
+| Login p50 / p95 / p99 | 480.0 / 926.1 / 983.2 ms | 168.0 / 174.8 / 179.3 ms |
+| Peak RSS after reads | 100.1 MiB | 19.3 MiB |
+| Peak RSS including logins | 539.0 MiB | 275.0 MiB |
 | Release binary | 14.7 MB | 26.9 MB |
-| Startup to healthy | 0.255 s | 0.052 s |
+| Startup to healthy | 0.255 s | 0.062 s |
 
 ![Read, login and tail latency](docs/charts/latency.png)
 

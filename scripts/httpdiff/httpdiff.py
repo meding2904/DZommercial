@@ -124,10 +124,7 @@ def normalise(value: Any, key: str = "") -> Any:
 
 
 STRUCTURAL_CASES = {"admin_metrics", "admin_orders", "admin_customers", "account_orders"}
-EXPECTED_DIFFERENCES = {
-    "admin_plugins": "AI and code-mode plugins are not ported yet",
-    "plugins": "AI and code-mode plugins are not ported yet",
-}
+EXPECTED_DIFFERENCES: dict[str, str] = {}
 
 
 def shape(value: Any) -> Any:

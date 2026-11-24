@@ -400,11 +400,14 @@ name = "azahar-api"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "axum 0.8.9",
  "azahar-auditbatch",
  "azahar-config",
  "azahar-courier",
  "azahar-db",
  "azahar-httpapi",
+ "azahar-plugin-ai",
+ "azahar-plugin-codemode",
  "azahar-plugin-oils",
  "azahar-plugin-pcbuilder",
  "azahar-plugin-pcparts",
@@ -629,7 +632,6 @@ dependencies = [
  "azahar-storefront",
  "chrono",
  "libsql",
- "proptest",
  "regex",
  "reqwest",
  "serde",

@@ -647,61 +647,61 @@ Differences are only acceptable when behaviour is unobservable at the HTTP/API b
 
 ### `internal/plugins/codemode` (55 functions)
 
-- [ ] `internal/plugins/codemode.New` — `backend/internal/plugins/codemode/codemode.go:42`
-- [ ] `internal/plugins/codemode.insertActionAudit` — `backend/internal/plugins/codemode/apply.go:305`
-- [ ] `internal/plugins/codemode.logWarn` — `backend/internal/plugins/codemode/codemode.go:630`
-- [ ] `internal/plugins/codemode.productFingerprint` — `backend/internal/plugins/codemode/plan.go:658`
-- [ ] `internal/plugins/codemode.applyOrderStatus` *(method)* — `backend/internal/plugins/codemode/apply.go:236`
-- [ ] `internal/plugins/codemode.applyProductArchive` *(method)* — `backend/internal/plugins/codemode/apply.go:141`
-- [ ] `internal/plugins/codemode.Manifest` *(method)* — `backend/internal/plugins/codemode/codemode.go:50`
-- [ ] `internal/plugins/codemode.normalizeAttributes` — `backend/internal/plugins/codemode/plan.go:553`
-- [ ] `internal/plugins/codemode.validateProductAttributes` — `backend/internal/plugins/codemode/plan.go:566`
-- [ ] `internal/plugins/codemode.validateProductDraft` *(method)* — `backend/internal/plugins/codemode/plan.go:487`
-- [ ] `internal/plugins/codemode.applyProductCreate` *(method)* — `backend/internal/plugins/codemode/apply.go:177`
-- [ ] `internal/plugins/codemode.isNull` — `backend/internal/plugins/codemode/plan.go:266`
-- [ ] `internal/plugins/codemode.rawObject` — `backend/internal/plugins/codemode/plan.go:255`
-- [ ] `internal/plugins/codemode.parseProductPatch` — `backend/internal/plugins/codemode/plan.go:422`
-- [ ] `internal/plugins/codemode.applyProductUpdate` *(method)* — `backend/internal/plugins/codemode/apply.go:78`
-- [ ] `internal/plugins/codemode.firstFieldMessage` — `backend/internal/plugins/codemode/plan.go:712`
-- [ ] `internal/plugins/codemode.themeObject` — `backend/internal/plugins/codemode/plan.go:409`
-- [ ] `internal/plugins/codemode.applyThemePatch` — `backend/internal/plugins/codemode/plan.go:335`
-- [ ] `internal/plugins/codemode.applyThemeUpdate` *(method)* — `backend/internal/plugins/codemode/apply.go:50`
-- [ ] `internal/plugins/codemode.applyAction` *(method)* — `backend/internal/plugins/codemode/apply.go:20`
-- [ ] `internal/plugins/codemode.Error` *(method)* — `backend/internal/plugins/codemode/client.go:35`
-- [ ] `internal/plugins/codemode.StatusClass` *(method)* — `backend/internal/plugins/codemode/client.go:42`
-- [ ] `internal/plugins/codemode.Detail` *(method)* — `backend/internal/plugins/codemode/client.go:49`
-- [ ] `internal/plugins/codemode.enabledFromSettings` — `backend/internal/plugins/codemode/client.go:78`
-- [ ] `internal/plugins/codemode.configFromSettings` — `backend/internal/plugins/codemode/client.go:58`
-- [ ] `internal/plugins/codemode.newClient` — `backend/internal/plugins/codemode/client.go:94`
-- [ ] `internal/plugins/codemode.Error` *(method)* — `backend/internal/plugins/codemode/plan.go:126`
-- [ ] `internal/plugins/codemode.plan` *(method)* — `backend/internal/plugins/codemode/client.go:138`
-- [ ] `internal/plugins/codemode.ValidateSettings` *(method)* — `backend/internal/plugins/codemode/codemode.go:87`
-- [ ] `internal/plugins/codemode.Migrations` *(method)* — `backend/internal/plugins/codemode/codemode.go:105`
-- [ ] `internal/plugins/codemode.Routes` *(method)* — `backend/internal/plugins/codemode/codemode.go:126`
-- [ ] `internal/plugins/codemode.parseAction` — `backend/internal/plugins/codemode/plan.go:191`
-- [ ] `internal/plugins/codemode.parsePlan` — `backend/internal/plugins/codemode/plan.go:152`
-- [ ] `internal/plugins/codemode.handlePlans` *(method)* — `backend/internal/plugins/codemode/codemode.go:145`
-- [ ] `internal/plugins/codemode.recentOrders` — `backend/internal/plugins/codemode/codemode.go:196`
-- [ ] `internal/plugins/codemode.buildPrompt` — `backend/internal/plugins/codemode/prompt.go:76`
-- [ ] `internal/plugins/codemode.configFor` *(method)* — `backend/internal/plugins/codemode/codemode.go:539`
-- [ ] `internal/plugins/codemode.encodePlan` — `backend/internal/plugins/codemode/plan.go:144`
-- [ ] `internal/plugins/codemode.loadTheme` *(method)* — `backend/internal/plugins/codemode/codemode.go:561`
-- [ ] `internal/plugins/codemode.logUpstreamFailure` — `backend/internal/plugins/codemode/codemode.go:637`
-- [ ] `internal/plugins/codemode.newPlanID` — `backend/internal/plugins/codemode/plan.go:132`
-- [ ] `internal/plugins/codemode.invalidPlan` — `backend/internal/plugins/codemode/plan.go:128`
-- [ ] `internal/plugins/codemode.planBaseline` *(method)* — `backend/internal/plugins/codemode/plan.go:672`
-- [ ] `internal/plugins/codemode.planDTO` — `backend/internal/plugins/codemode/plan.go:134`
-- [ ] `internal/plugins/codemode.promptPlugins` *(method)* — `backend/internal/plugins/codemode/prompt.go:49`
-- [ ] `internal/plugins/codemode.validatePlanReferences` *(method)* — `backend/internal/plugins/codemode/plan.go:589`
-- [ ] `internal/plugins/codemode.validatePlanShape` *(method)* — `backend/internal/plugins/codemode/plan.go:270`
-- [ ] `internal/plugins/codemode.handlePreview` *(method)* — `backend/internal/plugins/codemode/codemode.go:219`
-- [ ] `internal/plugins/codemode.claimPlan` — `backend/internal/plugins/codemode/codemode.go:616`
-- [ ] `internal/plugins/codemode.encodeResults` — `backend/internal/plugins/codemode/plan.go:722`
-- [ ] `internal/plugins/codemode.ensureEnabled` *(method)* — `backend/internal/plugins/codemode/codemode.go:523`
-- [ ] `internal/plugins/codemode.failPlan` *(method)* — `backend/internal/plugins/codemode/codemode.go:606`
-- [ ] `internal/plugins/codemode.loadPlanRecord` *(method)* — `backend/internal/plugins/codemode/codemode.go:596`
-- [ ] `internal/plugins/codemode.loadThemeTx` *(method)* — `backend/internal/plugins/codemode/codemode.go:580`
-- [ ] `internal/plugins/codemode.handleApply` *(method)* — `backend/internal/plugins/codemode/codemode.go:351`
+- [x] `internal/plugins/codemode.New` — `backend/internal/plugins/codemode/codemode.go:42`
+- [x] `internal/plugins/codemode.insertActionAudit` — `backend/internal/plugins/codemode/apply.go:305`
+- [x] `internal/plugins/codemode.logWarn` — `backend/internal/plugins/codemode/codemode.go:630`
+- [x] `internal/plugins/codemode.productFingerprint` — `backend/internal/plugins/codemode/plan.go:658`
+- [x] `internal/plugins/codemode.applyOrderStatus` *(method)* — `backend/internal/plugins/codemode/apply.go:236`
+- [x] `internal/plugins/codemode.applyProductArchive` *(method)* — `backend/internal/plugins/codemode/apply.go:141`
+- [x] `internal/plugins/codemode.Manifest` *(method)* — `backend/internal/plugins/codemode/codemode.go:50`
+- [x] `internal/plugins/codemode.normalizeAttributes` — `backend/internal/plugins/codemode/plan.go:553`
+- [x] `internal/plugins/codemode.validateProductAttributes` — `backend/internal/plugins/codemode/plan.go:566`
+- [x] `internal/plugins/codemode.validateProductDraft` *(method)* — `backend/internal/plugins/codemode/plan.go:487`
+- [x] `internal/plugins/codemode.applyProductCreate` *(method)* — `backend/internal/plugins/codemode/apply.go:177`
+- [x] `internal/plugins/codemode.isNull` — `backend/internal/plugins/codemode/plan.go:266`
+- [x] `internal/plugins/codemode.rawObject` — `backend/internal/plugins/codemode/plan.go:255`
+- [x] `internal/plugins/codemode.parseProductPatch` — `backend/internal/plugins/codemode/plan.go:422`
+- [x] `internal/plugins/codemode.applyProductUpdate` *(method)* — `backend/internal/plugins/codemode/apply.go:78`
+- [x] `internal/plugins/codemode.firstFieldMessage` — `backend/internal/plugins/codemode/plan.go:712`
+- [x] `internal/plugins/codemode.themeObject` — `backend/internal/plugins/codemode/plan.go:409`
+- [x] `internal/plugins/codemode.applyThemePatch` — `backend/internal/plugins/codemode/plan.go:335`
+- [x] `internal/plugins/codemode.applyThemeUpdate` *(method)* — `backend/internal/plugins/codemode/apply.go:50`
+- [x] `internal/plugins/codemode.applyAction` *(method)* — `backend/internal/plugins/codemode/apply.go:20`
+- [x] `internal/plugins/codemode.Error` *(method)* — `backend/internal/plugins/codemode/client.go:35`
+- [x] `internal/plugins/codemode.StatusClass` *(method)* — `backend/internal/plugins/codemode/client.go:42`
+- [x] `internal/plugins/codemode.Detail` *(method)* — `backend/internal/plugins/codemode/client.go:49`
+- [x] `internal/plugins/codemode.enabledFromSettings` — `backend/internal/plugins/codemode/client.go:78`
+- [x] `internal/plugins/codemode.configFromSettings` — `backend/internal/plugins/codemode/client.go:58`
+- [x] `internal/plugins/codemode.newClient` — `backend/internal/plugins/codemode/client.go:94`
+- [x] `internal/plugins/codemode.Error` *(method)* — `backend/internal/plugins/codemode/plan.go:126`
+- [x] `internal/plugins/codemode.plan` *(method)* — `backend/internal/plugins/codemode/client.go:138`
+- [x] `internal/plugins/codemode.ValidateSettings` *(method)* — `backend/internal/plugins/codemode/codemode.go:87`
+- [x] `internal/plugins/codemode.Migrations` *(method)* — `backend/internal/plugins/codemode/codemode.go:105`
+- [x] `internal/plugins/codemode.Routes` *(method)* — `backend/internal/plugins/codemode/codemode.go:126`
+- [x] `internal/plugins/codemode.parseAction` — `backend/internal/plugins/codemode/plan.go:191`
+- [x] `internal/plugins/codemode.parsePlan` — `backend/internal/plugins/codemode/plan.go:152`
+- [x] `internal/plugins/codemode.handlePlans` *(method)* — `backend/internal/plugins/codemode/codemode.go:145`
+- [x] `internal/plugins/codemode.recentOrders` — `backend/internal/plugins/codemode/codemode.go:196`
+- [x] `internal/plugins/codemode.buildPrompt` — `backend/internal/plugins/codemode/prompt.go:76`
+- [x] `internal/plugins/codemode.configFor` *(method)* — `backend/internal/plugins/codemode/codemode.go:539`
+- [x] `internal/plugins/codemode.encodePlan` — `backend/internal/plugins/codemode/plan.go:144`
+- [x] `internal/plugins/codemode.loadTheme` *(method)* — `backend/internal/plugins/codemode/codemode.go:561`
+- [x] `internal/plugins/codemode.logUpstreamFailure` — `backend/internal/plugins/codemode/codemode.go:637`
+- [x] `internal/plugins/codemode.newPlanID` — `backend/internal/plugins/codemode/plan.go:132`
+- [x] `internal/plugins/codemode.invalidPlan` — `backend/internal/plugins/codemode/plan.go:128`
+- [x] `internal/plugins/codemode.planBaseline` *(method)* — `backend/internal/plugins/codemode/plan.go:672`
+- [x] `internal/plugins/codemode.planDTO` — `backend/internal/plugins/codemode/plan.go:134`
+- [x] `internal/plugins/codemode.promptPlugins` *(method)* — `backend/internal/plugins/codemode/prompt.go:49`
+- [x] `internal/plugins/codemode.validatePlanReferences` *(method)* — `backend/internal/plugins/codemode/plan.go:589`
+- [x] `internal/plugins/codemode.validatePlanShape` *(method)* — `backend/internal/plugins/codemode/plan.go:270`
+- [x] `internal/plugins/codemode.handlePreview` *(method)* — `backend/internal/plugins/codemode/codemode.go:219`
+- [x] `internal/plugins/codemode.claimPlan` — `backend/internal/plugins/codemode/codemode.go:616`
+- [x] `internal/plugins/codemode.encodeResults` — `backend/internal/plugins/codemode/plan.go:722`
+- [x] `internal/plugins/codemode.ensureEnabled` *(method)* — `backend/internal/plugins/codemode/codemode.go:523`
+- [x] `internal/plugins/codemode.failPlan` *(method)* — `backend/internal/plugins/codemode/codemode.go:606`
+- [x] `internal/plugins/codemode.loadPlanRecord` *(method)* — `backend/internal/plugins/codemode/codemode.go:596`
+- [x] `internal/plugins/codemode.loadThemeTx` *(method)* — `backend/internal/plugins/codemode/codemode.go:580`
+- [x] `internal/plugins/codemode.handleApply` *(method)* — `backend/internal/plugins/codemode/codemode.go:351`
 
 ### `internal/plugins/oils` (3 functions)
 

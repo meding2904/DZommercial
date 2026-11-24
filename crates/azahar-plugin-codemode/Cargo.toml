@@ -5,3 +5,31 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+axum.workspace = true
+azahar-httpapi.workspace = true
+azahar-ids.workspace = true
+azahar-orderintake.workspace = true
+azahar-orderstatus.workspace = true
+azahar-plugin-phone.workspace = true
+azahar-plugins.workspace = true
+azahar-productrules.workspace = true
+azahar-store.workspace = true
+azahar-storefront.workspace = true
+chrono.workspace = true
+libsql.workspace = true
+regex.workspace = true
+reqwest = { version = "0.12.28", default-features = false, features = ["rustls-tls"] }
+serde.workspace = true
+serde_json = { workspace = true, features = ["raw_value"] }
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+url.workspace = true
+
+[dev-dependencies]
+async-trait.workspace = true
+azahar-auth.workspace = true
+azahar-courier.workspace = true
+azahar-config.workspace = true
+azahar-db.workspace = true
+tower = { workspace = true, features = ["util"] }

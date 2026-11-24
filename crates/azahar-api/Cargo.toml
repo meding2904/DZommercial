@@ -10,12 +10,15 @@ path = "src/main.rs"
 
 [dependencies]
 anyhow.workspace = true
+axum.workspace = true
 azahar-auditbatch.workspace = true
 chrono.workspace = true
 azahar-config.workspace = true
 azahar-courier.workspace = true
 azahar-db.workspace = true
 azahar-httpapi.workspace = true
+azahar-plugin-ai.workspace = true
+azahar-plugin-codemode.workspace = true
 azahar-plugin-oils.workspace = true
 azahar-plugin-pcparts.workspace = true
 azahar-plugin-pcbuilder.workspace = true

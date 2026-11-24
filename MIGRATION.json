@@ -1,0 +1,4788 @@
+{
+  "packages": [
+    {
+      "package": "internal/store",
+      "go_loc": 1906,
+      "deps": [],
+      "functions": [
+        {
+          "name": "FormatTime",
+          "receiver": "",
+          "file": "backend/internal/store/types.go",
+          "line": 141,
+          "calls": []
+        },
+        {
+          "name": "InsertAudit",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/audit.go",
+          "line": 8,
+          "calls": [
+            "FormatTime"
+          ]
+        },
+        {
+          "name": "FlushAuditBatch",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/audit_flush.go",
+          "line": 15,
+          "calls": []
+        },
+        {
+          "name": "CreateProductImage",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/images.go",
+          "line": 17,
+          "calls": [
+            "FormatTime"
+          ]
+        },
+        {
+          "name": "ParseTime",
+          "receiver": "",
+          "file": "backend/internal/store/types.go",
+          "line": 152,
+          "calls": []
+        },
+        {
+          "name": "ProductImage",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/images.go",
+          "line": 29,
+          "calls": [
+            "ParseTime"
+          ]
+        },
+        {
+          "name": "Metrics",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/metrics.go",
+          "line": 60,
+          "calls": [
+            "FormatTime",
+            "ParseTime"
+          ]
+        },
+        {
+          "name": "CountOrders",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/orders.go",
+          "line": 17,
+          "calls": []
+        },
+        {
+          "name": "NextOrderNumber",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/orders.go",
+          "line": 23,
+          "calls": []
+        },
+        {
+          "name": "FormatOptionalTime",
+          "receiver": "",
+          "file": "backend/internal/store/types.go",
+          "line": 145,
+          "calls": [
+            "FormatTime"
+          ]
+        },
+        {
+          "name": "NormalizePluginID",
+          "receiver": "",
+          "file": "backend/internal/store/products.go",
+          "line": 374,
+          "calls": []
+        },
+        {
+          "name": "defaultCurrency",
+          "receiver": "",
+          "file": "backend/internal/store/products.go",
+          "line": 381,
+          "calls": []
+        },
+        {
+          "name": "encodeCourierEvents",
+          "receiver": "",
+          "file": "backend/internal/store/types.go",
+          "line": 242,
+          "calls": []
+        },
+        {
+          "name": "encodeStringMap",
+          "receiver": "",
+          "file": "backend/internal/store/types.go",
+          "line": 220,
+          "calls": []
+        },
+        {
+          "name": "CreateOrder",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/orders.go",
+          "line": 39,
+          "calls": [
+            "FormatOptionalTime",
+            "FormatTime",
+            "NormalizePluginID",
+            "defaultCurrency",
+            "encodeCourierEvents",
+            "encodeStringMap"
+          ]
+        },
+        {
+          "name": "decodeCourierEvents",
+          "receiver": "",
+          "file": "backend/internal/store/types.go",
+          "line": 253,
+          "calls": []
+        },
+        {
+          "name": "scanOrder",
+          "receiver": "",
+          "file": "backend/internal/store/store.go",
+          "line": 105,
+          "calls": [
+            "ParseTime",
+            "decodeCourierEvents"
+          ]
+        },
+        {
+          "name": "OrderByTokenHash",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/orders.go",
+          "line": 79,
+          "calls": [
+            "scanOrder"
+          ]
+        },
+        {
+          "name": "orderByID",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/orders.go",
+          "line": 95,
+          "calls": [
+            "scanOrder"
+          ]
+        },
+        {
+          "name": "OrderByID",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/orders.go",
+          "line": 85,
+          "calls": [
+            "orderByID"
+          ]
+        },
+        {
+          "name": "OrderByIDTx",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/orders.go",
+          "line": 91,
+          "calls": [
+            "orderByID"
+          ]
+        },
+        {
+          "name": "decodeStringMap",
+          "receiver": "",
+          "file": "backend/internal/store/types.go",
+          "line": 231,
+          "calls": []
+        },
+        {
+          "name": "scanOrderItem",
+          "receiver": "",
+          "file": "backend/internal/store/orders.go",
+          "line": 164,
+          "calls": [
+            "decodeStringMap"
+          ]
+        },
+        {
+          "name": "orderItems",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/orders.go",
+          "line": 142,
+          "calls": [
+            "scanOrderItem"
+          ]
+        },
+        {
+          "name": "OrderItems",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/orders.go",
+          "line": 101,
+          "calls": [
+            "orderItems"
+          ]
+        },
+        {
+          "name": "OrderItemsTx",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/orders.go",
+          "line": 105,
+          "calls": [
+            "orderItems"
+          ]
+        },
+        {
+          "name": "OrderItemsByOrderIDs",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/orders.go",
+          "line": 112,
+          "calls": [
+            "scanOrderItem"
+          ]
+        },
+        {
+          "name": "OrdersByUser",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/orders.go",
+          "line": 176,
+          "calls": [
+            "scanOrder"
+          ]
+        },
+        {
+          "name": "AdminOrders",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/orders.go",
+          "line": 197,
+          "calls": [
+            "scanOrder"
+          ]
+        },
+        {
+          "name": "UpdateOrderStatus",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/orders.go",
+          "line": 239,
+          "calls": [
+            "FormatTime"
+          ]
+        },
+        {
+          "name": "UpdateShipment",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/orders.go",
+          "line": 257,
+          "calls": [
+            "FormatOptionalTime",
+            "FormatTime",
+            "encodeCourierEvents"
+          ]
+        },
+        {
+          "name": "UpdateTracking",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/orders.go",
+          "line": 277,
+          "calls": [
+            "FormatOptionalTime",
+            "FormatTime",
+            "encodeCourierEvents"
+          ]
+        },
+        {
+          "name": "PluginStates",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/plugin_states.go",
+          "line": 11,
+          "calls": []
+        },
+        {
+          "name": "SetPluginState",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/plugin_states.go",
+          "line": 31,
+          "calls": [
+            "FormatTime"
+          ]
+        },
+        {
+          "name": "SaleWindow",
+          "receiver": "p Product",
+          "file": "backend/internal/store/pricing.go",
+          "line": 25,
+          "calls": []
+        },
+        {
+          "name": "PricePositive",
+          "receiver": "w SaleWindow",
+          "file": "backend/internal/store/pricing.go",
+          "line": 35,
+          "calls": []
+        },
+        {
+          "name": "PriceValid",
+          "receiver": "w SaleWindow",
+          "file": "backend/internal/store/pricing.go",
+          "line": 41,
+          "calls": [
+            "PricePositive"
+          ]
+        },
+        {
+          "name": "EndsAfterStarts",
+          "receiver": "w SaleWindow",
+          "file": "backend/internal/store/pricing.go",
+          "line": 47,
+          "calls": []
+        },
+        {
+          "name": "Problems",
+          "receiver": "w SaleWindow",
+          "file": "backend/internal/store/pricing.go",
+          "line": 55,
+          "calls": [
+            "EndsAfterStarts",
+            "PriceValid"
+          ]
+        },
+        {
+          "name": "Valid",
+          "receiver": "w SaleWindow",
+          "file": "backend/internal/store/pricing.go",
+          "line": 80,
+          "calls": [
+            "Problems"
+          ]
+        },
+        {
+          "name": "Active",
+          "receiver": "w SaleWindow",
+          "file": "backend/internal/store/pricing.go",
+          "line": 86,
+          "calls": [
+            "Valid"
+          ]
+        },
+        {
+          "name": "SaleActive",
+          "receiver": "p Product",
+          "file": "backend/internal/store/pricing.go",
+          "line": 95,
+          "calls": [
+            "Active",
+            "SaleWindow"
+          ]
+        },
+        {
+          "name": "EffectivePriceCents",
+          "receiver": "p Product",
+          "file": "backend/internal/store/pricing.go",
+          "line": 100,
+          "calls": [
+            "SaleActive"
+          ]
+        },
+        {
+          "name": "scanCategories",
+          "receiver": "",
+          "file": "backend/internal/store/products.go",
+          "line": 49,
+          "calls": []
+        },
+        {
+          "name": "Categories",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/products.go",
+          "line": 21,
+          "calls": [
+            "scanCategories"
+          ]
+        },
+        {
+          "name": "PublicCategories",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/products.go",
+          "line": 35,
+          "calls": [
+            "scanCategories"
+          ]
+        },
+        {
+          "name": "CategoryBySlugTx",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/products.go",
+          "line": 115,
+          "calls": []
+        },
+        {
+          "name": "CategoryBySlug",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/products.go",
+          "line": 62,
+          "calls": [
+            "CategoryBySlugTx"
+          ]
+        },
+        {
+          "name": "UpsertCategory",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/products.go",
+          "line": 69,
+          "calls": []
+        },
+        {
+          "name": "ReconcileProductCategories",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/products.go",
+          "line": 96,
+          "calls": []
+        },
+        {
+          "name": "CountProducts",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/products.go",
+          "line": 127,
+          "calls": []
+        },
+        {
+          "name": "decodeJSON",
+          "receiver": "",
+          "file": "backend/internal/store/types.go",
+          "line": 184,
+          "calls": []
+        },
+        {
+          "name": "decodeStringListMap",
+          "receiver": "",
+          "file": "backend/internal/store/types.go",
+          "line": 209,
+          "calls": []
+        },
+        {
+          "name": "scanProduct",
+          "receiver": "",
+          "file": "backend/internal/store/store.go",
+          "line": 45,
+          "calls": [
+            "ParseTime",
+            "decodeJSON",
+            "decodeStringListMap"
+          ]
+        },
+        {
+          "name": "ListProducts",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/products.go",
+          "line": 133,
+          "calls": [
+            "FormatTime",
+            "scanProduct"
+          ]
+        },
+        {
+          "name": "ProductBySlug",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/products.go",
+          "line": 203,
+          "calls": [
+            "scanProduct"
+          ]
+        },
+        {
+          "name": "ProductByIDTx",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/products.go",
+          "line": 220,
+          "calls": [
+            "scanProduct"
+          ]
+        },
+        {
+          "name": "ProductByID",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/products.go",
+          "line": 216,
+          "calls": [
+            "ProductByIDTx"
+          ]
+        },
+        {
+          "name": "DecrementStock",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/products.go",
+          "line": 233,
+          "calls": [
+            "FormatTime"
+          ]
+        },
+        {
+          "name": "IncrementStock",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/products.go",
+          "line": 248,
+          "calls": [
+            "FormatTime"
+          ]
+        },
+        {
+          "name": "RelatedProducts",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/products.go",
+          "line": 262,
+          "calls": [
+            "scanProduct"
+          ]
+        },
+        {
+          "name": "boolInt",
+          "receiver": "",
+          "file": "backend/internal/store/products.go",
+          "line": 362,
+          "calls": []
+        },
+        {
+          "name": "encodeJSON",
+          "receiver": "",
+          "file": "backend/internal/store/types.go",
+          "line": 173,
+          "calls": []
+        },
+        {
+          "name": "encodeStringListMap",
+          "receiver": "",
+          "file": "backend/internal/store/types.go",
+          "line": 198,
+          "calls": []
+        },
+        {
+          "name": "CreateProduct",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/products.go",
+          "line": 289,
+          "calls": [
+            "FormatOptionalTime",
+            "FormatTime",
+            "NormalizePluginID",
+            "boolInt",
+            "defaultCurrency",
+            "encodeJSON",
+            "encodeStringListMap"
+          ]
+        },
+        {
+          "name": "UpdateProduct",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/products.go",
+          "line": 313,
+          "calls": [
+            "FormatOptionalTime",
+            "FormatTime",
+            "NormalizePluginID",
+            "boolInt",
+            "defaultCurrency",
+            "encodeJSON",
+            "encodeStringListMap"
+          ]
+        },
+        {
+          "name": "SetProductActive",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/products.go",
+          "line": 344,
+          "calls": [
+            "FormatTime",
+            "boolInt"
+          ]
+        },
+        {
+          "name": "CreateSession",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/sessions.go",
+          "line": 10,
+          "calls": [
+            "FormatTime"
+          ]
+        },
+        {
+          "name": "SessionUserByHash",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/sessions.go",
+          "line": 23,
+          "calls": [
+            "ParseTime"
+          ]
+        },
+        {
+          "name": "DeleteSessionByHash",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/sessions.go",
+          "line": 51,
+          "calls": []
+        },
+        {
+          "name": "DeleteSessionsForUserAgent",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/sessions.go",
+          "line": 56,
+          "calls": []
+        },
+        {
+          "name": "DeleteExpiredSessions",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/sessions.go",
+          "line": 66,
+          "calls": [
+            "FormatTime"
+          ]
+        },
+        {
+          "name": "PluginSettings",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/settings.go",
+          "line": 9,
+          "calls": [
+            "ParseTime"
+          ]
+        },
+        {
+          "name": "SavePluginSettings",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/settings.go",
+          "line": 20,
+          "calls": [
+            "FormatTime"
+          ]
+        },
+        {
+          "name": "storefrontSettings",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/settings.go",
+          "line": 42,
+          "calls": [
+            "ParseTime"
+          ]
+        },
+        {
+          "name": "StorefrontSettings",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/settings.go",
+          "line": 32,
+          "calls": [
+            "storefrontSettings"
+          ]
+        },
+        {
+          "name": "StorefrontSettingsTx",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/settings.go",
+          "line": 38,
+          "calls": [
+            "storefrontSettings"
+          ]
+        },
+        {
+          "name": "SaveStorefrontSettings",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/settings.go",
+          "line": 53,
+          "calls": [
+            "FormatTime"
+          ]
+        },
+        {
+          "name": "New",
+          "receiver": "",
+          "file": "backend/internal/store/store.go",
+          "line": 15,
+          "calls": []
+        },
+        {
+          "name": "DB",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/store.go",
+          "line": 19,
+          "calls": []
+        },
+        {
+          "name": "InTx",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/store.go",
+          "line": 27,
+          "calls": []
+        },
+        {
+          "name": "NullTime",
+          "receiver": "",
+          "file": "backend/internal/store/types.go",
+          "line": 165,
+          "calls": [
+            "ParseTime"
+          ]
+        },
+        {
+          "name": "CountUsers",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/users.go",
+          "line": 10,
+          "calls": []
+        },
+        {
+          "name": "defaultPreset",
+          "receiver": "",
+          "file": "backend/internal/store/users.go",
+          "line": 157,
+          "calls": []
+        },
+        {
+          "name": "CreateUser",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/users.go",
+          "line": 16,
+          "calls": [
+            "FormatTime",
+            "defaultPreset"
+          ]
+        },
+        {
+          "name": "scanUser",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/users.go",
+          "line": 94,
+          "calls": [
+            "ParseTime"
+          ]
+        },
+        {
+          "name": "UserByEmail",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/users.go",
+          "line": 29,
+          "calls": [
+            "scanUser"
+          ]
+        },
+        {
+          "name": "UserByID",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/users.go",
+          "line": 36,
+          "calls": [
+            "scanUser"
+          ]
+        },
+        {
+          "name": "ListUsers",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/users.go",
+          "line": 45,
+          "calls": [
+            "scanUser"
+          ]
+        },
+        {
+          "name": "UpdateUserRole",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/users.go",
+          "line": 67,
+          "calls": [
+            "FormatTime"
+          ]
+        },
+        {
+          "name": "CountAdmins",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/users.go",
+          "line": 85,
+          "calls": []
+        },
+        {
+          "name": "UpdateTheme",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/users.go",
+          "line": 107,
+          "calls": [
+            "FormatTime"
+          ]
+        },
+        {
+          "name": "ListCustomers",
+          "receiver": "s *Store",
+          "file": "backend/internal/store/users.go",
+          "line": 125,
+          "calls": [
+            "NullTime",
+            "ParseTime"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "internal/auditbatch",
+      "go_loc": 58,
+      "deps": [
+        "internal/store"
+      ],
+      "functions": [
+        {
+          "name": "Run",
+          "receiver": "",
+          "file": "backend/internal/auditbatch/batcher.go",
+          "line": 18,
+          "calls": []
+        }
+      ]
+    },
+    {
+      "package": "internal/config",
+      "go_loc": 262,
+      "deps": [],
+      "functions": [
+        {
+          "name": "IsProduction",
+          "receiver": "c Config",
+          "file": "backend/internal/config/config.go",
+          "line": 218,
+          "calls": []
+        },
+        {
+          "name": "getbool",
+          "receiver": "",
+          "file": "backend/internal/config/config.go",
+          "line": 240,
+          "calls": []
+        },
+        {
+          "name": "getenv",
+          "receiver": "",
+          "file": "backend/internal/config/config.go",
+          "line": 233,
+          "calls": []
+        },
+        {
+          "name": "getint",
+          "receiver": "",
+          "file": "backend/internal/config/config.go",
+          "line": 252,
+          "calls": []
+        },
+        {
+          "name": "Load",
+          "receiver": "",
+          "file": "backend/internal/config/config.go",
+          "line": 42,
+          "calls": [
+            "IsProduction",
+            "getbool",
+            "getenv",
+            "getint"
+          ]
+        },
+        {
+          "name": "DSN",
+          "receiver": "c Config",
+          "file": "backend/internal/config/config.go",
+          "line": 187,
+          "calls": []
+        },
+        {
+          "name": "CourierCredentialValues",
+          "receiver": "c Config",
+          "file": "backend/internal/config/config.go",
+          "line": 206,
+          "calls": []
+        },
+        {
+          "name": "IsDevelopment",
+          "receiver": "c Config",
+          "file": "backend/internal/config/config.go",
+          "line": 222,
+          "calls": []
+        },
+        {
+          "name": "AdminSessionTTL",
+          "receiver": "c Config",
+          "file": "backend/internal/config/config.go",
+          "line": 226,
+          "calls": []
+        }
+      ]
+    },
+    {
+      "package": "internal/courier",
+      "go_loc": 824,
+      "deps": [],
+      "functions": [
+        {
+          "name": "Error",
+          "receiver": "e *APIError",
+          "file": "backend/internal/courier/courier.go",
+          "line": 104,
+          "calls": []
+        },
+        {
+          "name": "get",
+          "receiver": "c *cache[T]",
+          "file": "backend/internal/courier/courier.go",
+          "line": 157,
+          "calls": []
+        },
+        {
+          "name": "stale",
+          "receiver": "c *cache[T]",
+          "file": "backend/internal/courier/courier.go",
+          "line": 163,
+          "calls": []
+        },
+        {
+          "name": "set",
+          "receiver": "c *cache[T]",
+          "file": "backend/internal/courier/courier.go",
+          "line": 169,
+          "calls": []
+        },
+        {
+          "name": "newDZShip",
+          "receiver": "",
+          "file": "backend/internal/courier/dzship.go",
+          "line": 25,
+          "calls": []
+        },
+        {
+          "name": "New",
+          "receiver": "",
+          "file": "backend/internal/courier/courier.go",
+          "line": 177,
+          "calls": [
+            "newDZShip"
+          ]
+        },
+        {
+          "name": "isOffline",
+          "receiver": "c *Client",
+          "file": "backend/internal/courier/courier.go",
+          "line": 381,
+          "calls": []
+        },
+        {
+          "name": "markOffline",
+          "receiver": "c *Client",
+          "file": "backend/internal/courier/courier.go",
+          "line": 390,
+          "calls": []
+        },
+        {
+          "name": "notifyFallback",
+          "receiver": "c *Client",
+          "file": "backend/internal/courier/courier.go",
+          "line": 369,
+          "calls": []
+        },
+        {
+          "name": "resolveMap",
+          "receiver": "",
+          "file": "backend/internal/courier/courier.go",
+          "line": 290,
+          "calls": [
+            "get",
+            "isOffline",
+            "markOffline",
+            "notifyFallback",
+            "set",
+            "stale"
+          ]
+        },
+        {
+          "name": "Wilayas",
+          "receiver": "c *Client",
+          "file": "backend/internal/courier/courier.go",
+          "line": 204,
+          "calls": [
+            "resolveMap"
+          ]
+        },
+        {
+          "name": "Wilaya",
+          "receiver": "c *Client",
+          "file": "backend/internal/courier/courier.go",
+          "line": 209,
+          "calls": [
+            "Wilayas"
+          ]
+        },
+        {
+          "name": "communeCache",
+          "receiver": "c *Client",
+          "file": "backend/internal/courier/courier.go",
+          "line": 347,
+          "calls": []
+        },
+        {
+          "name": "apiError",
+          "receiver": "",
+          "file": "backend/internal/courier/dzship.go",
+          "line": 231,
+          "calls": []
+        },
+        {
+          "name": "doJSON",
+          "receiver": "d *dzship",
+          "file": "backend/internal/courier/dzship.go",
+          "line": 144,
+          "calls": [
+            "apiError"
+          ]
+        },
+        {
+          "name": "communes",
+          "receiver": "d *dzship",
+          "file": "backend/internal/courier/dzship.go",
+          "line": 51,
+          "calls": [
+            "doJSON"
+          ]
+        },
+        {
+          "name": "fallbackCommunesFor",
+          "receiver": "",
+          "file": "backend/internal/courier/snapshot.go",
+          "line": 79,
+          "calls": []
+        },
+        {
+          "name": "communes",
+          "receiver": "snapshotSource",
+          "file": "backend/internal/courier/snapshot.go",
+          "line": 59,
+          "calls": [
+            "fallbackCommunesFor"
+          ]
+        },
+        {
+          "name": "Communes",
+          "receiver": "c *Client",
+          "file": "backend/internal/courier/courier.go",
+          "line": 222,
+          "calls": [
+            "communeCache",
+            "communes",
+            "resolveMap"
+          ]
+        },
+        {
+          "name": "Commune",
+          "receiver": "c *Client",
+          "file": "backend/internal/courier/courier.go",
+          "line": 229,
+          "calls": [
+            "Communes"
+          ]
+        },
+        {
+          "name": "deskCache",
+          "receiver": "c *Client",
+          "file": "backend/internal/courier/courier.go",
+          "line": 358,
+          "calls": []
+        },
+        {
+          "name": "credentialsOrNil",
+          "receiver": "d *dzship",
+          "file": "backend/internal/courier/dzship.go",
+          "line": 130,
+          "calls": []
+        },
+        {
+          "name": "options",
+          "receiver": "d *dzship",
+          "file": "backend/internal/courier/dzship.go",
+          "line": 137,
+          "calls": []
+        },
+        {
+          "name": "desks",
+          "receiver": "d *dzship",
+          "file": "backend/internal/courier/dzship.go",
+          "line": 63,
+          "calls": [
+            "credentialsOrNil",
+            "doJSON",
+            "options"
+          ]
+        },
+        {
+          "name": "localDesks",
+          "receiver": "",
+          "file": "backend/internal/courier/snapshot.go",
+          "line": 90,
+          "calls": [
+            "fallbackCommunesFor"
+          ]
+        },
+        {
+          "name": "desks",
+          "receiver": "snapshotSource",
+          "file": "backend/internal/courier/snapshot.go",
+          "line": 67,
+          "calls": [
+            "localDesks"
+          ]
+        },
+        {
+          "name": "Desks",
+          "receiver": "c *Client",
+          "file": "backend/internal/courier/courier.go",
+          "line": 243,
+          "calls": [
+            "deskCache",
+            "desks",
+            "resolveMap"
+          ]
+        },
+        {
+          "name": "Desk",
+          "receiver": "c *Client",
+          "file": "backend/internal/courier/courier.go",
+          "line": 250,
+          "calls": [
+            "Desks"
+          ]
+        },
+        {
+          "name": "createOrder",
+          "receiver": "d *dzship",
+          "file": "backend/internal/courier/dzship.go",
+          "line": 80,
+          "calls": [
+            "credentialsOrNil",
+            "doJSON",
+            "options"
+          ]
+        },
+        {
+          "name": "sanitizeTracking",
+          "receiver": "",
+          "file": "backend/internal/courier/snapshot.go",
+          "line": 132,
+          "calls": []
+        },
+        {
+          "name": "localShipment",
+          "receiver": "",
+          "file": "backend/internal/courier/snapshot.go",
+          "line": 120,
+          "calls": [
+            "sanitizeTracking"
+          ]
+        },
+        {
+          "name": "createOrder",
+          "receiver": "snapshotSource",
+          "file": "backend/internal/courier/snapshot.go",
+          "line": 71,
+          "calls": [
+            "localShipment"
+          ]
+        },
+        {
+          "name": "isUnavailable",
+          "receiver": "",
+          "file": "backend/internal/courier/courier.go",
+          "line": 399,
+          "calls": []
+        },
+        {
+          "name": "sandboxUnavailable",
+          "receiver": "c *Client",
+          "file": "backend/internal/courier/courier.go",
+          "line": 377,
+          "calls": [
+            "isUnavailable"
+          ]
+        },
+        {
+          "name": "resolveCall",
+          "receiver": "",
+          "file": "backend/internal/courier/courier.go",
+          "line": 324,
+          "calls": [
+            "isOffline",
+            "markOffline",
+            "notifyFallback",
+            "sandboxUnavailable"
+          ]
+        },
+        {
+          "name": "CreateOrder",
+          "receiver": "c *Client",
+          "file": "backend/internal/courier/courier.go",
+          "line": 263,
+          "calls": [
+            "createOrder",
+            "resolveCall"
+          ]
+        },
+        {
+          "name": "track",
+          "receiver": "d *dzship",
+          "file": "backend/internal/courier/dzship.go",
+          "line": 111,
+          "calls": [
+            "credentialsOrNil",
+            "doJSON",
+            "options"
+          ]
+        },
+        {
+          "name": "localTracking",
+          "receiver": "",
+          "file": "backend/internal/courier/snapshot.go",
+          "line": 145,
+          "calls": []
+        },
+        {
+          "name": "track",
+          "receiver": "s snapshotSource",
+          "file": "backend/internal/courier/snapshot.go",
+          "line": 75,
+          "calls": [
+            "localTracking"
+          ]
+        },
+        {
+          "name": "Track",
+          "receiver": "c *Client",
+          "file": "backend/internal/courier/courier.go",
+          "line": 280,
+          "calls": [
+            "resolveCall",
+            "track"
+          ]
+        },
+        {
+          "name": "wilayas",
+          "receiver": "d *dzship",
+          "file": "backend/internal/courier/dzship.go",
+          "line": 40,
+          "calls": [
+            "doJSON"
+          ]
+        },
+        {
+          "name": "loadWilayaSnapshot",
+          "receiver": "",
+          "file": "backend/internal/courier/snapshot.go",
+          "line": 27,
+          "calls": []
+        },
+        {
+          "name": "loadCommuneSnapshot",
+          "receiver": "",
+          "file": "backend/internal/courier/snapshot.go",
+          "line": 35,
+          "calls": []
+        },
+        {
+          "name": "wilayas",
+          "receiver": "snapshotSource",
+          "file": "backend/internal/courier/snapshot.go",
+          "line": 51,
+          "calls": []
+        }
+      ]
+    },
+    {
+      "package": "internal/db",
+      "go_loc": 196,
+      "deps": [],
+      "functions": [
+        {
+          "name": "Open",
+          "receiver": "",
+          "file": "backend/internal/db/db.go",
+          "line": 17,
+          "calls": []
+        },
+        {
+          "name": "migrationApplied",
+          "receiver": "",
+          "file": "backend/internal/db/db.go",
+          "line": 92,
+          "calls": []
+        },
+        {
+          "name": "splitStatements",
+          "receiver": "",
+          "file": "backend/internal/db/db.go",
+          "line": 103,
+          "calls": []
+        },
+        {
+          "name": "Migrate",
+          "receiver": "",
+          "file": "backend/internal/db/db.go",
+          "line": 35,
+          "calls": [
+            "migrationApplied",
+            "splitStatements"
+          ]
+        },
+        {
+          "name": "MigratePlugins",
+          "receiver": "",
+          "file": "backend/internal/db/plugin_migrations.go",
+          "line": 20,
+          "calls": [
+            "splitStatements"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "internal/auth",
+      "go_loc": 136,
+      "deps": [],
+      "functions": [
+        {
+          "name": "HashPassword",
+          "receiver": "",
+          "file": "backend/internal/auth/password.go",
+          "line": 26,
+          "calls": []
+        },
+        {
+          "name": "VerifyPassword",
+          "receiver": "",
+          "file": "backend/internal/auth/password.go",
+          "line": 39,
+          "calls": []
+        },
+        {
+          "name": "DummyHash",
+          "receiver": "",
+          "file": "backend/internal/auth/password.go",
+          "line": 102,
+          "calls": []
+        },
+        {
+          "name": "VerifyDummy",
+          "receiver": "",
+          "file": "backend/internal/auth/password.go",
+          "line": 107,
+          "calls": [
+            "DummyHash",
+            "VerifyPassword"
+          ]
+        },
+        {
+          "name": "NewToken",
+          "receiver": "",
+          "file": "backend/internal/auth/token.go",
+          "line": 14,
+          "calls": []
+        },
+        {
+          "name": "HashToken",
+          "receiver": "",
+          "file": "backend/internal/auth/token.go",
+          "line": 24,
+          "calls": []
+        }
+      ]
+    },
+    {
+      "package": "internal/ids",
+      "go_loc": 15,
+      "deps": [],
+      "functions": [
+        {
+          "name": "New",
+          "receiver": "",
+          "file": "backend/internal/ids/ids.go",
+          "line": 9,
+          "calls": []
+        }
+      ]
+    },
+    {
+      "package": "internal/orderstatus",
+      "go_loc": 30,
+      "deps": [],
+      "functions": [
+        {
+          "name": "Known",
+          "receiver": "",
+          "file": "backend/internal/orderstatus/orderstatus.go",
+          "line": 23,
+          "calls": []
+        },
+        {
+          "name": "CanTransition",
+          "receiver": "",
+          "file": "backend/internal/orderstatus/orderstatus.go",
+          "line": 28,
+          "calls": []
+        }
+      ]
+    },
+    {
+      "package": "internal/secrets",
+      "go_loc": 70,
+      "deps": [],
+      "functions": [
+        {
+          "name": "New",
+          "receiver": "",
+          "file": "backend/internal/secrets/box.go",
+          "line": 25,
+          "calls": []
+        },
+        {
+          "name": "Encrypt",
+          "receiver": "b Box",
+          "file": "backend/internal/secrets/box.go",
+          "line": 29,
+          "calls": []
+        },
+        {
+          "name": "Decrypt",
+          "receiver": "b Box",
+          "file": "backend/internal/secrets/box.go",
+          "line": 46,
+          "calls": []
+        }
+      ]
+    },
+    {
+      "package": "internal/plugins",
+      "go_loc": 925,
+      "deps": [
+        "internal/secrets",
+        "internal/store"
+      ],
+      "functions": [
+        {
+          "name": "IsAdmin",
+          "receiver": "c *Context",
+          "file": "backend/internal/plugins/plugin.go",
+          "line": 176,
+          "calls": []
+        },
+        {
+          "name": "writeJSON",
+          "receiver": "",
+          "file": "backend/internal/plugins/plugin.go",
+          "line": 244,
+          "calls": []
+        },
+        {
+          "name": "JSON",
+          "receiver": "c *Context",
+          "file": "backend/internal/plugins/plugin.go",
+          "line": 180,
+          "calls": [
+            "writeJSON"
+          ]
+        },
+        {
+          "name": "Problem",
+          "receiver": "c *Context",
+          "file": "backend/internal/plugins/plugin.go",
+          "line": 188,
+          "calls": [
+            "writeJSON"
+          ]
+        },
+        {
+          "name": "Error",
+          "receiver": "c *Context",
+          "file": "backend/internal/plugins/plugin.go",
+          "line": 184,
+          "calls": [
+            "Problem"
+          ]
+        },
+        {
+          "name": "Settings",
+          "receiver": "c *Context",
+          "file": "backend/internal/plugins/plugin.go",
+          "line": 196,
+          "calls": []
+        },
+        {
+          "name": "NewProblem",
+          "receiver": "",
+          "file": "backend/internal/plugins/plugin.go",
+          "line": 207,
+          "calls": []
+        },
+        {
+          "name": "Get",
+          "receiver": "r *Registry",
+          "file": "backend/internal/plugins/registry.go",
+          "line": 130,
+          "calls": []
+        },
+        {
+          "name": "DecodeBody",
+          "receiver": "",
+          "file": "backend/internal/plugins/plugin.go",
+          "line": 211,
+          "calls": [
+            "Get",
+            "NewProblem"
+          ]
+        },
+        {
+          "name": "NewRegistry",
+          "receiver": "",
+          "file": "backend/internal/plugins/registry.go",
+          "line": 20,
+          "calls": []
+        },
+        {
+          "name": "validMethod",
+          "receiver": "",
+          "file": "backend/internal/plugins/registry.go",
+          "line": 508,
+          "calls": []
+        },
+        {
+          "name": "validateCategories",
+          "receiver": "",
+          "file": "backend/internal/plugins/registry.go",
+          "line": 433,
+          "calls": []
+        },
+        {
+          "name": "validateProductType",
+          "receiver": "",
+          "file": "backend/internal/plugins/registry.go",
+          "line": 407,
+          "calls": []
+        },
+        {
+          "name": "validateSettings",
+          "receiver": "",
+          "file": "backend/internal/plugins/registry.go",
+          "line": 479,
+          "calls": []
+        },
+        {
+          "name": "validateStorefrontPages",
+          "receiver": "",
+          "file": "backend/internal/plugins/registry.go",
+          "line": 453,
+          "calls": []
+        },
+        {
+          "name": "Register",
+          "receiver": "r *Registry",
+          "file": "backend/internal/plugins/registry.go",
+          "line": 27,
+          "calls": [
+            "validMethod",
+            "validateCategories",
+            "validateProductType",
+            "validateSettings",
+            "validateStorefrontPages"
+          ]
+        },
+        {
+          "name": "All",
+          "receiver": "r *Registry",
+          "file": "backend/internal/plugins/registry.go",
+          "line": 124,
+          "calls": []
+        },
+        {
+          "name": "ValidateDependencies",
+          "receiver": "r *Registry",
+          "file": "backend/internal/plugins/registry.go",
+          "line": 137,
+          "calls": []
+        },
+        {
+          "name": "SetStates",
+          "receiver": "r *Registry",
+          "file": "backend/internal/plugins/registry.go",
+          "line": 183,
+          "calls": []
+        },
+        {
+          "name": "SetEnabled",
+          "receiver": "r *Registry",
+          "file": "backend/internal/plugins/registry.go",
+          "line": 195,
+          "calls": []
+        },
+        {
+          "name": "enabledLocked",
+          "receiver": "r *Registry",
+          "file": "backend/internal/plugins/registry.go",
+          "line": 214,
+          "calls": []
+        },
+        {
+          "name": "Enabled",
+          "receiver": "r *Registry",
+          "file": "backend/internal/plugins/registry.go",
+          "line": 207,
+          "calls": [
+            "enabledLocked"
+          ]
+        },
+        {
+          "name": "effectiveEnabledLocked",
+          "receiver": "r *Registry",
+          "file": "backend/internal/plugins/registry.go",
+          "line": 235,
+          "calls": [
+            "enabledLocked"
+          ]
+        },
+        {
+          "name": "EffectiveEnabled",
+          "receiver": "r *Registry",
+          "file": "backend/internal/plugins/registry.go",
+          "line": 228,
+          "calls": [
+            "effectiveEnabledLocked"
+          ]
+        },
+        {
+          "name": "dependentsLocked",
+          "receiver": "r *Registry",
+          "file": "backend/internal/plugins/registry.go",
+          "line": 266,
+          "calls": []
+        },
+        {
+          "name": "Dependents",
+          "receiver": "r *Registry",
+          "file": "backend/internal/plugins/registry.go",
+          "line": 259,
+          "calls": [
+            "dependentsLocked"
+          ]
+        },
+        {
+          "name": "EnabledDependents",
+          "receiver": "r *Registry",
+          "file": "backend/internal/plugins/registry.go",
+          "line": 291,
+          "calls": [
+            "dependentsLocked",
+            "enabledLocked"
+          ]
+        },
+        {
+          "name": "blockedByLocked",
+          "receiver": "r *Registry",
+          "file": "backend/internal/plugins/registry.go",
+          "line": 313,
+          "calls": [
+            "enabledLocked"
+          ]
+        },
+        {
+          "name": "BlockedBy",
+          "receiver": "r *Registry",
+          "file": "backend/internal/plugins/registry.go",
+          "line": 306,
+          "calls": [
+            "blockedByLocked"
+          ]
+        },
+        {
+          "name": "Manifests",
+          "receiver": "r *Registry",
+          "file": "backend/internal/plugins/registry.go",
+          "line": 334,
+          "calls": []
+        },
+        {
+          "name": "Migrations",
+          "receiver": "r *Registry",
+          "file": "backend/internal/plugins/registry.go",
+          "line": 347,
+          "calls": []
+        },
+        {
+          "name": "ProductType",
+          "receiver": "r *Registry",
+          "file": "backend/internal/plugins/registry.go",
+          "line": 364,
+          "calls": []
+        },
+        {
+          "name": "CheckoutHook",
+          "receiver": "r *Registry",
+          "file": "backend/internal/plugins/registry.go",
+          "line": 372,
+          "calls": []
+        },
+        {
+          "name": "OrderStatusHooks",
+          "receiver": "r *Registry",
+          "file": "backend/internal/plugins/registry.go",
+          "line": 381,
+          "calls": []
+        },
+        {
+          "name": "EnrichProduct",
+          "receiver": "r *Registry",
+          "file": "backend/internal/plugins/registry.go",
+          "line": 391,
+          "calls": []
+        },
+        {
+          "name": "SettingsWithTime",
+          "receiver": "e *Env",
+          "file": "backend/internal/plugins/settings.go",
+          "line": 21,
+          "calls": []
+        },
+        {
+          "name": "Settings",
+          "receiver": "e *Env",
+          "file": "backend/internal/plugins/settings.go",
+          "line": 16,
+          "calls": [
+            "SettingsWithTime"
+          ]
+        },
+        {
+          "name": "EncodeSettings",
+          "receiver": "e *Env",
+          "file": "backend/internal/plugins/settings.go",
+          "line": 44,
+          "calls": []
+        },
+        {
+          "name": "MergeSettings",
+          "receiver": "",
+          "file": "backend/internal/plugins/settings.go",
+          "line": 58,
+          "calls": []
+        },
+        {
+          "name": "MaskSettings",
+          "receiver": "",
+          "file": "backend/internal/plugins/settings.go",
+          "line": 131,
+          "calls": []
+        },
+        {
+          "name": "SettingsComplete",
+          "receiver": "",
+          "file": "backend/internal/plugins/settings.go",
+          "line": 151,
+          "calls": []
+        }
+      ]
+    },
+    {
+      "package": "internal/orderintake",
+      "go_loc": 617,
+      "deps": [
+        "internal/ids",
+        "internal/orderstatus",
+        "internal/plugins",
+        "internal/store"
+      ],
+      "functions": [
+        {
+          "name": "normalizeOptions",
+          "receiver": "",
+          "file": "backend/internal/orderintake/lines.go",
+          "line": 54,
+          "calls": []
+        },
+        {
+          "name": "optionsKey",
+          "receiver": "",
+          "file": "backend/internal/orderintake/lines.go",
+          "line": 65,
+          "calls": []
+        },
+        {
+          "name": "BuildLines",
+          "receiver": "",
+          "file": "backend/internal/orderintake/lines.go",
+          "line": 20,
+          "calls": [
+            "normalizeOptions",
+            "optionsKey"
+          ]
+        },
+        {
+          "name": "OptionSchema",
+          "receiver": "",
+          "file": "backend/internal/orderintake/options.go",
+          "line": 11,
+          "calls": []
+        },
+        {
+          "name": "selectedOptionFields",
+          "receiver": "",
+          "file": "backend/internal/orderintake/options.go",
+          "line": 23,
+          "calls": []
+        },
+        {
+          "name": "optionLabel",
+          "receiver": "",
+          "file": "backend/internal/orderintake/options.go",
+          "line": 67,
+          "calls": []
+        },
+        {
+          "name": "New",
+          "receiver": "",
+          "file": "backend/internal/orderintake/orderintake.go",
+          "line": 35,
+          "calls": []
+        },
+        {
+          "name": "CheckoutChannel",
+          "receiver": "",
+          "file": "backend/internal/orderintake/orderintake.go",
+          "line": 102,
+          "calls": []
+        },
+        {
+          "name": "CounterChannel",
+          "receiver": "",
+          "file": "backend/internal/orderintake/orderintake.go",
+          "line": 120,
+          "calls": []
+        },
+        {
+          "name": "refuseFields",
+          "receiver": "",
+          "file": "backend/internal/orderintake/problems.go",
+          "line": 21,
+          "calls": []
+        },
+        {
+          "name": "shippingCents",
+          "receiver": "c Channel",
+          "file": "backend/internal/orderintake/orderintake.go",
+          "line": 410,
+          "calls": []
+        },
+        {
+          "name": "Place",
+          "receiver": "in *Intake",
+          "file": "backend/internal/orderintake/orderintake.go",
+          "line": 144,
+          "calls": [
+            "New",
+            "OptionSchema",
+            "optionLabel",
+            "refuseFields",
+            "selectedOptionFields",
+            "shippingCents"
+          ]
+        },
+        {
+          "name": "refuse",
+          "receiver": "",
+          "file": "backend/internal/orderintake/problems.go",
+          "line": 17,
+          "calls": []
+        },
+        {
+          "name": "ChangeStatus",
+          "receiver": "in *Intake",
+          "file": "backend/internal/orderintake/orderintake.go",
+          "line": 335,
+          "calls": [
+            "New",
+            "refuse",
+            "refuseFields"
+          ]
+        },
+        {
+          "name": "Error",
+          "receiver": "p *Problem",
+          "file": "backend/internal/orderintake/problems.go",
+          "line": 13,
+          "calls": []
+        },
+        {
+          "name": "ShippingCents",
+          "receiver": "",
+          "file": "backend/internal/orderintake/shipping.go",
+          "line": 13,
+          "calls": []
+        },
+        {
+          "name": "NoShipping",
+          "receiver": "",
+          "file": "backend/internal/orderintake/shipping.go",
+          "line": 21,
+          "calls": []
+        }
+      ]
+    },
+    {
+      "package": "internal/productrules",
+      "go_loc": 213,
+      "deps": [
+        "internal/plugins"
+      ],
+      "functions": [
+        {
+          "name": "NormalizeAttributes",
+          "receiver": "",
+          "file": "backend/internal/productrules/attributes.go",
+          "line": 50,
+          "calls": []
+        },
+        {
+          "name": "PlainText",
+          "receiver": "",
+          "file": "backend/internal/productrules/productrules.go",
+          "line": 74,
+          "calls": []
+        },
+        {
+          "name": "validOptionValue",
+          "receiver": "",
+          "file": "backend/internal/productrules/attributes.go",
+          "line": 127,
+          "calls": [
+            "PlainText"
+          ]
+        },
+        {
+          "name": "ValidateAttributes",
+          "receiver": "",
+          "file": "backend/internal/productrules/attributes.go",
+          "line": 75,
+          "calls": [
+            "validOptionValue"
+          ]
+        },
+        {
+          "name": "ValidName",
+          "receiver": "",
+          "file": "backend/internal/productrules/productrules.go",
+          "line": 36,
+          "calls": []
+        },
+        {
+          "name": "ValidPrice",
+          "receiver": "",
+          "file": "backend/internal/productrules/productrules.go",
+          "line": 42,
+          "calls": []
+        },
+        {
+          "name": "ValidStock",
+          "receiver": "",
+          "file": "backend/internal/productrules/productrules.go",
+          "line": 47,
+          "calls": []
+        },
+        {
+          "name": "ValidImageID",
+          "receiver": "",
+          "file": "backend/internal/productrules/productrules.go",
+          "line": 52,
+          "calls": []
+        },
+        {
+          "name": "ValidImagePath",
+          "receiver": "",
+          "file": "backend/internal/productrules/productrules.go",
+          "line": 59,
+          "calls": [
+            "ValidImageID"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "internal/storefront",
+      "go_loc": 347,
+      "deps": [],
+      "functions": [
+        {
+          "name": "Default",
+          "receiver": "",
+          "file": "backend/internal/storefront/theme.go",
+          "line": 64,
+          "calls": []
+        },
+        {
+          "name": "normalizePalette",
+          "receiver": "",
+          "file": "backend/internal/storefront/theme.go",
+          "line": 157,
+          "calls": []
+        },
+        {
+          "name": "Normalize",
+          "receiver": "",
+          "file": "backend/internal/storefront/theme.go",
+          "line": 124,
+          "calls": [
+            "normalizePalette"
+          ]
+        },
+        {
+          "name": "Parse",
+          "receiver": "",
+          "file": "backend/internal/storefront/theme.go",
+          "line": 111,
+          "calls": [
+            "Default",
+            "Normalize"
+          ]
+        },
+        {
+          "name": "Encode",
+          "receiver": "",
+          "file": "backend/internal/storefront/theme.go",
+          "line": 167,
+          "calls": []
+        },
+        {
+          "name": "contains",
+          "receiver": "",
+          "file": "backend/internal/storefront/theme.go",
+          "line": 332,
+          "calls": []
+        },
+        {
+          "name": "hasControl",
+          "receiver": "",
+          "file": "backend/internal/storefront/theme.go",
+          "line": 320,
+          "calls": []
+        },
+        {
+          "name": "validImagePath",
+          "receiver": "",
+          "file": "backend/internal/storefront/theme.go",
+          "line": 313,
+          "calls": []
+        },
+        {
+          "name": "luminance",
+          "receiver": "",
+          "file": "backend/internal/storefront/theme.go",
+          "line": 295,
+          "calls": []
+        },
+        {
+          "name": "ContrastRatio",
+          "receiver": "",
+          "file": "backend/internal/storefront/theme.go",
+          "line": 282,
+          "calls": [
+            "luminance"
+          ]
+        },
+        {
+          "name": "validatePalette",
+          "receiver": "",
+          "file": "backend/internal/storefront/theme.go",
+          "line": 247,
+          "calls": [
+            "ContrastRatio"
+          ]
+        },
+        {
+          "name": "Validate",
+          "receiver": "",
+          "file": "backend/internal/storefront/theme.go",
+          "line": 176,
+          "calls": [
+            "contains",
+            "hasControl",
+            "validImagePath",
+            "validatePalette"
+          ]
+        },
+        {
+          "name": "ParseLenient",
+          "receiver": "",
+          "file": "backend/internal/storefront/theme.go",
+          "line": 341,
+          "calls": [
+            "Default",
+            "Parse"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "internal/httpapi",
+      "go_loc": 4641,
+      "deps": [
+        "internal/auth",
+        "internal/config",
+        "internal/courier",
+        "internal/ids",
+        "internal/orderintake",
+        "internal/orderstatus",
+        "internal/plugins",
+        "internal/productrules",
+        "internal/store",
+        "internal/storefront"
+      ],
+      "functions": [
+        {
+          "name": "newReadCache",
+          "receiver": "",
+          "file": "backend/internal/httpapi/cache.go",
+          "line": 35,
+          "calls": []
+        },
+        {
+          "name": "get",
+          "receiver": "c *readCache",
+          "file": "backend/internal/httpapi/cache.go",
+          "line": 42,
+          "calls": []
+        },
+        {
+          "name": "put",
+          "receiver": "c *readCache",
+          "file": "backend/internal/httpapi/cache.go",
+          "line": 57,
+          "calls": []
+        },
+        {
+          "name": "clear",
+          "receiver": "c *readCache",
+          "file": "backend/internal/httpapi/cache.go",
+          "line": 83,
+          "calls": []
+        },
+        {
+          "name": "size",
+          "receiver": "c *readCache",
+          "file": "backend/internal/httpapi/cache.go",
+          "line": 90,
+          "calls": []
+        },
+        {
+          "name": "WriteHeader",
+          "receiver": "w *cacheRecorder",
+          "file": "backend/internal/httpapi/cache.go",
+          "line": 104,
+          "calls": []
+        },
+        {
+          "name": "WriteHeader",
+          "receiver": "w *statusWriter",
+          "file": "backend/internal/httpapi/middleware.go",
+          "line": 74,
+          "calls": []
+        },
+        {
+          "name": "Write",
+          "receiver": "w *cacheRecorder",
+          "file": "backend/internal/httpapi/cache.go",
+          "line": 113,
+          "calls": [
+            "WriteHeader"
+          ]
+        },
+        {
+          "name": "Write",
+          "receiver": "w *statusWriter",
+          "file": "backend/internal/httpapi/middleware.go",
+          "line": 83,
+          "calls": [
+            "WriteHeader"
+          ]
+        },
+        {
+          "name": "requestID",
+          "receiver": "",
+          "file": "backend/internal/httpapi/middleware.go",
+          "line": 33,
+          "calls": []
+        },
+        {
+          "name": "cacheRead",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/cache.go",
+          "line": 125,
+          "calls": [
+            "Write",
+            "WriteHeader",
+            "get",
+            "put",
+            "requestID"
+          ]
+        },
+        {
+          "name": "invalidateReadCacheOnWrite",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/cache.go",
+          "line": 166,
+          "calls": [
+            "clear"
+          ]
+        },
+        {
+          "name": "sweepLocked",
+          "receiver": "c *captchaStore",
+          "file": "backend/internal/httpapi/captcha.go",
+          "line": 134,
+          "calls": []
+        },
+        {
+          "name": "cleanupLoop",
+          "receiver": "c *captchaStore",
+          "file": "backend/internal/httpapi/captcha.go",
+          "line": 119,
+          "calls": [
+            "sweepLocked"
+          ]
+        },
+        {
+          "name": "cleanup",
+          "receiver": "l *rateLimiter",
+          "file": "backend/internal/httpapi/ratelimit.go",
+          "line": 90,
+          "calls": []
+        },
+        {
+          "name": "cleanupLoop",
+          "receiver": "l *rateLimiter",
+          "file": "backend/internal/httpapi/ratelimit.go",
+          "line": 77,
+          "calls": [
+            "cleanup"
+          ]
+        },
+        {
+          "name": "newCaptchaStore",
+          "receiver": "",
+          "file": "backend/internal/httpapi/captcha.go",
+          "line": 43,
+          "calls": [
+            "cleanupLoop"
+          ]
+        },
+        {
+          "name": "currentAuth",
+          "receiver": "",
+          "file": "backend/internal/httpapi/middleware.go",
+          "line": 311,
+          "calls": []
+        },
+        {
+          "name": "newRateLimiter",
+          "receiver": "",
+          "file": "backend/internal/httpapi/ratelimit.go",
+          "line": 27,
+          "calls": [
+            "cleanupLoop"
+          ]
+        },
+        {
+          "name": "Handler",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/router.go",
+          "line": 82,
+          "calls": []
+        },
+        {
+          "name": "problem",
+          "receiver": "",
+          "file": "backend/internal/httpapi/respond.go",
+          "line": 26,
+          "calls": []
+        },
+        {
+          "name": "writeJSON",
+          "receiver": "",
+          "file": "backend/internal/httpapi/respond.go",
+          "line": 44,
+          "calls": [
+            "WriteHeader"
+          ]
+        },
+        {
+          "name": "writeProblem",
+          "receiver": "",
+          "file": "backend/internal/httpapi/respond.go",
+          "line": 55,
+          "calls": [
+            "writeJSON"
+          ]
+        },
+        {
+          "name": "writeError",
+          "receiver": "",
+          "file": "backend/internal/httpapi/respond.go",
+          "line": 63,
+          "calls": [
+            "problem",
+            "writeProblem"
+          ]
+        },
+        {
+          "name": "pluginHandler",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/router.go",
+          "line": 209,
+          "calls": [
+            "Handler",
+            "currentAuth",
+            "writeError"
+          ]
+        },
+        {
+          "name": "mountPluginRoutes",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/router.go",
+          "line": 183,
+          "calls": [
+            "pluginHandler"
+          ]
+        },
+        {
+          "name": "allow",
+          "receiver": "l *rateLimiter",
+          "file": "backend/internal/httpapi/ratelimit.go",
+          "line": 38,
+          "calls": []
+        },
+        {
+          "name": "clientIP",
+          "receiver": "",
+          "file": "backend/internal/httpapi/respond.go",
+          "line": 120,
+          "calls": []
+        },
+        {
+          "name": "rateLimit",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/ratelimit.go",
+          "line": 104,
+          "calls": [
+            "allow",
+            "clientIP",
+            "writeError"
+          ]
+        },
+        {
+          "name": "routes",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/router.go",
+          "line": 95,
+          "calls": [
+            "cacheRead",
+            "mountPluginRoutes",
+            "rateLimit",
+            "writeError"
+          ]
+        },
+        {
+          "name": "New",
+          "receiver": "",
+          "file": "backend/internal/httpapi/router.go",
+          "line": 36,
+          "calls": [
+            "currentAuth",
+            "newCaptchaStore",
+            "newRateLimiter",
+            "newReadCache",
+            "routes"
+          ]
+        },
+        {
+          "name": "drawCaptchaGlyph",
+          "receiver": "",
+          "file": "backend/internal/httpapi/captcha.go",
+          "line": 235,
+          "calls": []
+        },
+        {
+          "name": "absInt",
+          "receiver": "",
+          "file": "backend/internal/httpapi/captcha.go",
+          "line": 268,
+          "calls": []
+        },
+        {
+          "name": "drawCaptchaLine",
+          "receiver": "",
+          "file": "backend/internal/httpapi/captcha.go",
+          "line": 250,
+          "calls": [
+            "absInt"
+          ]
+        },
+        {
+          "name": "captchaImage",
+          "receiver": "",
+          "file": "backend/internal/httpapi/captcha.go",
+          "line": 181,
+          "calls": [
+            "drawCaptchaGlyph",
+            "drawCaptchaLine"
+          ]
+        },
+        {
+          "name": "evictOldestLocked",
+          "receiver": "c *captchaStore",
+          "file": "backend/internal/httpapi/captcha.go",
+          "line": 142,
+          "calls": []
+        },
+        {
+          "name": "randomCaptchaCode",
+          "receiver": "",
+          "file": "backend/internal/httpapi/captcha.go",
+          "line": 160,
+          "calls": []
+        },
+        {
+          "name": "randomCaptchaToken",
+          "receiver": "",
+          "file": "backend/internal/httpapi/captcha.go",
+          "line": 173,
+          "calls": []
+        },
+        {
+          "name": "issue",
+          "receiver": "c *captchaStore",
+          "file": "backend/internal/httpapi/captcha.go",
+          "line": 53,
+          "calls": [
+            "New",
+            "captchaImage",
+            "evictOldestLocked",
+            "randomCaptchaCode",
+            "randomCaptchaToken",
+            "sweepLocked"
+          ]
+        },
+        {
+          "name": "verify",
+          "receiver": "c *captchaStore",
+          "file": "backend/internal/httpapi/captcha.go",
+          "line": 85,
+          "calls": []
+        },
+        {
+          "name": "close",
+          "receiver": "c *captchaStore",
+          "file": "backend/internal/httpapi/captcha.go",
+          "line": 156,
+          "calls": []
+        },
+        {
+          "name": "captchaErrorMessage",
+          "receiver": "",
+          "file": "backend/internal/httpapi/captcha.go",
+          "line": 310,
+          "calls": []
+        },
+        {
+          "name": "handleCheckoutChallenge",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/captcha.go",
+          "line": 321,
+          "calls": [
+            "clientIP",
+            "issue",
+            "writeError",
+            "writeJSON"
+          ]
+        },
+        {
+          "name": "nonNil",
+          "receiver": "",
+          "file": "backend/internal/httpapi/dto.go",
+          "line": 260,
+          "calls": []
+        },
+        {
+          "name": "nonNilStringListMap",
+          "receiver": "",
+          "file": "backend/internal/httpapi/dto.go",
+          "line": 125,
+          "calls": []
+        },
+        {
+          "name": "productDTOFromStore",
+          "receiver": "",
+          "file": "backend/internal/httpapi/dto.go",
+          "line": 58,
+          "calls": [
+            "nonNil",
+            "nonNilStringListMap"
+          ]
+        },
+        {
+          "name": "optionSchema",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/product_options.go",
+          "line": 13,
+          "calls": []
+        },
+        {
+          "name": "decorateProduct",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/dto.go",
+          "line": 112,
+          "calls": [
+            "optionSchema"
+          ]
+        },
+        {
+          "name": "toProduct",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/dto.go",
+          "line": 95,
+          "calls": [
+            "decorateProduct",
+            "productDTOFromStore"
+          ]
+        },
+        {
+          "name": "toProducts",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/dto.go",
+          "line": 103,
+          "calls": [
+            "decorateProduct",
+            "productDTOFromStore"
+          ]
+        },
+        {
+          "name": "toUser",
+          "receiver": "",
+          "file": "backend/internal/httpapi/dto.go",
+          "line": 139,
+          "calls": []
+        },
+        {
+          "name": "nonNilStringMap",
+          "receiver": "",
+          "file": "backend/internal/httpapi/dto.go",
+          "line": 267,
+          "calls": []
+        },
+        {
+          "name": "toOrderItems",
+          "receiver": "",
+          "file": "backend/internal/httpapi/dto.go",
+          "line": 240,
+          "calls": [
+            "nonNilStringMap"
+          ]
+        },
+        {
+          "name": "toOrder",
+          "receiver": "",
+          "file": "backend/internal/httpapi/dto.go",
+          "line": 196,
+          "calls": [
+            "toOrderItems"
+          ]
+        },
+        {
+          "name": "fmtTime",
+          "receiver": "",
+          "file": "backend/internal/httpapi/dto.go",
+          "line": 274,
+          "calls": []
+        },
+        {
+          "name": "problemFields",
+          "receiver": "",
+          "file": "backend/internal/httpapi/respond.go",
+          "line": 30,
+          "calls": []
+        },
+        {
+          "name": "runeLen",
+          "receiver": "",
+          "file": "backend/internal/httpapi/validate.go",
+          "line": 13,
+          "calls": []
+        },
+        {
+          "name": "handleAdminOrders",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/handlers_admin.go",
+          "line": 19,
+          "calls": [
+            "problemFields",
+            "runeLen",
+            "toOrder",
+            "writeError",
+            "writeJSON",
+            "writeProblem"
+          ]
+        },
+        {
+          "name": "writeIntakeError",
+          "receiver": "",
+          "file": "backend/internal/httpapi/respond.go",
+          "line": 69,
+          "calls": [
+            "problemFields",
+            "writeError",
+            "writeProblem"
+          ]
+        },
+        {
+          "name": "handleOrderStatus",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/handlers_admin.go",
+          "line": 60,
+          "calls": [
+            "currentAuth",
+            "toOrder",
+            "writeIntakeError",
+            "writeJSON",
+            "writeProblem"
+          ]
+        },
+        {
+          "name": "handleCustomers",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/handlers_admin.go",
+          "line": 93,
+          "calls": [
+            "writeError",
+            "writeJSON"
+          ]
+        },
+        {
+          "name": "handleAdminTeam",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/handlers_admin.go",
+          "line": 127,
+          "calls": [
+            "writeError",
+            "writeJSON"
+          ]
+        },
+        {
+          "name": "handleUpdateTeamRole",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/handlers_admin.go",
+          "line": 149,
+          "calls": [
+            "New",
+            "currentAuth",
+            "problemFields",
+            "writeError",
+            "writeJSON",
+            "writeProblem"
+          ]
+        },
+        {
+          "name": "knownPreset",
+          "receiver": "",
+          "file": "backend/internal/httpapi/presets.go",
+          "line": 7,
+          "calls": []
+        },
+        {
+          "name": "handleGetPreferences",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/handlers_admin.go",
+          "line": 220,
+          "calls": [
+            "currentAuth",
+            "knownPreset",
+            "writeJSON"
+          ]
+        },
+        {
+          "name": "handlePutPreferences",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/handlers_admin.go",
+          "line": 233,
+          "calls": [
+            "New",
+            "currentAuth",
+            "knownPreset",
+            "problemFields",
+            "writeError",
+            "writeJSON",
+            "writeProblem"
+          ]
+        },
+        {
+          "name": "handleAdminProducts",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/handlers_admin_products.go",
+          "line": 68,
+          "calls": [
+            "toProducts",
+            "writeError",
+            "writeJSON"
+          ]
+        },
+        {
+          "name": "Error",
+          "receiver": "p *apiProblem",
+          "file": "backend/internal/httpapi/respond.go",
+          "line": 22,
+          "calls": []
+        },
+        {
+          "name": "isUniqueViolation",
+          "receiver": "",
+          "file": "backend/internal/httpapi/handlers_auth.go",
+          "line": 240,
+          "calls": [
+            "Error"
+          ]
+        },
+        {
+          "name": "normalizeProductAttributes",
+          "receiver": "",
+          "file": "backend/internal/httpapi/product_options.go",
+          "line": 103,
+          "calls": []
+        },
+        {
+          "name": "parseSaleWindow",
+          "receiver": "",
+          "file": "backend/internal/httpapi/handlers_admin_products.go",
+          "line": 497,
+          "calls": []
+        },
+        {
+          "name": "slugTaken",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/handlers_admin_products.go",
+          "line": 486,
+          "calls": []
+        },
+        {
+          "name": "trimAll",
+          "receiver": "",
+          "file": "backend/internal/httpapi/validate.go",
+          "line": 83,
+          "calls": []
+        },
+        {
+          "name": "validSlug",
+          "receiver": "",
+          "file": "backend/internal/httpapi/validate.go",
+          "line": 28,
+          "calls": []
+        },
+        {
+          "name": "validateProduct",
+          "receiver": "",
+          "file": "backend/internal/httpapi/handlers_admin_products.go",
+          "line": 558,
+          "calls": [
+            "runeLen",
+            "validSlug"
+          ]
+        },
+        {
+          "name": "attributeFields",
+          "receiver": "",
+          "file": "backend/internal/httpapi/product_options.go",
+          "line": 74,
+          "calls": []
+        },
+        {
+          "name": "optionKeyFields",
+          "receiver": "",
+          "file": "backend/internal/httpapi/product_options.go",
+          "line": 60,
+          "calls": []
+        },
+        {
+          "name": "productOptionFields",
+          "receiver": "",
+          "file": "backend/internal/httpapi/product_options.go",
+          "line": 48,
+          "calls": [
+            "attributeFields",
+            "optionKeyFields"
+          ]
+        },
+        {
+          "name": "validateProductAttributes",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/product_options.go",
+          "line": 20,
+          "calls": [
+            "productOptionFields"
+          ]
+        },
+        {
+          "name": "handleCreateProduct",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/handlers_admin_products.go",
+          "line": 80,
+          "calls": [
+            "New",
+            "currentAuth",
+            "isUniqueViolation",
+            "normalizeProductAttributes",
+            "parseSaleWindow",
+            "problemFields",
+            "slugTaken",
+            "toProduct",
+            "trimAll",
+            "validateProduct",
+            "validateProductAttributes",
+            "writeError",
+            "writeJSON",
+            "writeProblem"
+          ]
+        },
+        {
+          "name": "hasAny",
+          "receiver": "",
+          "file": "backend/internal/httpapi/handlers_admin_products.go",
+          "line": 549,
+          "calls": []
+        },
+        {
+          "name": "filterFieldProblems",
+          "receiver": "",
+          "file": "backend/internal/httpapi/handlers_admin_products.go",
+          "line": 534,
+          "calls": [
+            "hasAny"
+          ]
+        },
+        {
+          "name": "handleUpdateProduct",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/handlers_admin_products.go",
+          "line": 186,
+          "calls": [
+            "Error",
+            "New",
+            "currentAuth",
+            "filterFieldProblems",
+            "hasAny",
+            "isUniqueViolation",
+            "normalizeProductAttributes",
+            "problemFields",
+            "requestID",
+            "slugTaken",
+            "toProduct",
+            "trimAll",
+            "validateProduct",
+            "validateProductAttributes",
+            "writeError",
+            "writeJSON",
+            "writeProblem"
+          ]
+        },
+        {
+          "name": "handleArchiveProduct",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/handlers_admin_products.go",
+          "line": 450,
+          "calls": [
+            "New",
+            "WriteHeader",
+            "currentAuth",
+            "writeError"
+          ]
+        },
+        {
+          "name": "normalizedAlgerianMobile",
+          "receiver": "",
+          "file": "backend/internal/httpapi/validate.go",
+          "line": 39,
+          "calls": []
+        },
+        {
+          "name": "validAlgerianMobile",
+          "receiver": "",
+          "file": "backend/internal/httpapi/validate.go",
+          "line": 67,
+          "calls": [
+            "normalizedAlgerianMobile"
+          ]
+        },
+        {
+          "name": "handleCounterSale",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/handlers_admin_sales.go",
+          "line": 28,
+          "calls": [
+            "Error",
+            "currentAuth",
+            "problemFields",
+            "requestID",
+            "runeLen",
+            "toOrder",
+            "validAlgerianMobile",
+            "writeError",
+            "writeJSON",
+            "writeProblem"
+          ]
+        },
+        {
+          "name": "newSession",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/handlers_auth.go",
+          "line": 218,
+          "calls": [
+            "New",
+            "clientIP"
+          ]
+        },
+        {
+          "name": "setSessionCookie",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/middleware.go",
+          "line": 220,
+          "calls": []
+        },
+        {
+          "name": "validEmail",
+          "receiver": "",
+          "file": "backend/internal/httpapi/validate.go",
+          "line": 17,
+          "calls": []
+        },
+        {
+          "name": "handleRegister",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/handlers_auth.go",
+          "line": 21,
+          "calls": [
+            "New",
+            "isUniqueViolation",
+            "newSession",
+            "problemFields",
+            "runeLen",
+            "setSessionCookie",
+            "toUser",
+            "validEmail",
+            "writeError",
+            "writeJSON",
+            "writeProblem"
+          ]
+        },
+        {
+          "name": "handleLogin",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/handlers_auth.go",
+          "line": 106,
+          "calls": [
+            "newSession",
+            "problemFields",
+            "runeLen",
+            "setSessionCookie",
+            "toUser",
+            "validEmail",
+            "writeError",
+            "writeJSON",
+            "writeProblem"
+          ]
+        },
+        {
+          "name": "clearSessionCookie",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/middleware.go",
+          "line": 233,
+          "calls": []
+        },
+        {
+          "name": "handleLogout",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/handlers_auth.go",
+          "line": 170,
+          "calls": [
+            "WriteHeader",
+            "clearSessionCookie",
+            "writeError"
+          ]
+        },
+        {
+          "name": "handleMe",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/handlers_auth.go",
+          "line": 181,
+          "calls": [
+            "currentAuth",
+            "toUser",
+            "writeError",
+            "writeJSON"
+          ]
+        },
+        {
+          "name": "handleAccountOrders",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/handlers_auth.go",
+          "line": 191,
+          "calls": [
+            "currentAuth",
+            "toOrder",
+            "writeError",
+            "writeJSON"
+          ]
+        },
+        {
+          "name": "handleCategories",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/handlers_catalog.go",
+          "line": 14,
+          "calls": [
+            "writeError",
+            "writeJSON"
+          ]
+        },
+        {
+          "name": "handleProducts",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/handlers_catalog.go",
+          "line": 41,
+          "calls": [
+            "runeLen",
+            "toProducts",
+            "writeError",
+            "writeJSON"
+          ]
+        },
+        {
+          "name": "handleProduct",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/handlers_catalog.go",
+          "line": 66,
+          "calls": [
+            "toProduct",
+            "toProducts",
+            "writeError",
+            "writeJSON"
+          ]
+        },
+        {
+          "name": "optionalUser",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/middleware.go",
+          "line": 318,
+          "calls": []
+        },
+        {
+          "name": "resolveDestination",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/handlers_shipping.go",
+          "line": 69,
+          "calls": [
+            "problem",
+            "problemFields"
+          ]
+        },
+        {
+          "name": "close",
+          "receiver": "l *rateLimiter",
+          "file": "backend/internal/httpapi/ratelimit.go",
+          "line": 100,
+          "calls": []
+        },
+        {
+          "name": "Close",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/router.go",
+          "line": 86,
+          "calls": [
+            "close"
+          ]
+        },
+        {
+          "name": "verifyTurnstile",
+          "receiver": "",
+          "file": "backend/internal/httpapi/turnstile.go",
+          "line": 25,
+          "calls": [
+            "Close"
+          ]
+        },
+        {
+          "name": "handleCheckout",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/handlers_checkout.go",
+          "line": 46,
+          "calls": [
+            "captchaErrorMessage",
+            "clientIP",
+            "optionalUser",
+            "problemFields",
+            "requestID",
+            "resolveDestination",
+            "runeLen",
+            "toOrder",
+            "validAlgerianMobile",
+            "validEmail",
+            "verify",
+            "verifyTurnstile",
+            "writeError",
+            "writeIntakeError",
+            "writeJSON",
+            "writeProblem"
+          ]
+        },
+        {
+          "name": "handleOrderByToken",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/handlers_checkout.go",
+          "line": 223,
+          "calls": [
+            "toOrder",
+            "writeError",
+            "writeJSON"
+          ]
+        },
+        {
+          "name": "newCSRFToken",
+          "receiver": "",
+          "file": "backend/internal/httpapi/handlers_client.go",
+          "line": 64,
+          "calls": []
+        },
+        {
+          "name": "validCSRFToken",
+          "receiver": "",
+          "file": "backend/internal/httpapi/handlers_client.go",
+          "line": 72,
+          "calls": []
+        },
+        {
+          "name": "handleCSRF",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/handlers_client.go",
+          "line": 20,
+          "calls": [
+            "newCSRFToken",
+            "validCSRFToken",
+            "writeError",
+            "writeJSON"
+          ]
+        },
+        {
+          "name": "handleHealth",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/handlers_client.go",
+          "line": 54,
+          "calls": [
+            "writeJSON"
+          ]
+        },
+        {
+          "name": "handlePluginManifests",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/handlers_framework.go",
+          "line": 47,
+          "calls": [
+            "writeJSON"
+          ]
+        },
+        {
+          "name": "pluginSettings",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/handlers_framework.go",
+          "line": 307,
+          "calls": []
+        },
+        {
+          "name": "adminPluginDTO",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/handlers_framework.go",
+          "line": 76,
+          "calls": [
+            "pluginSettings"
+          ]
+        },
+        {
+          "name": "handleAdminPlugins",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/handlers_framework.go",
+          "line": 68,
+          "calls": [
+            "adminPluginDTO",
+            "writeJSON"
+          ]
+        },
+        {
+          "name": "pluginFromPath",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/handlers_framework.go",
+          "line": 299,
+          "calls": []
+        },
+        {
+          "name": "pluginNames",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/handlers_framework.go",
+          "line": 177,
+          "calls": []
+        },
+        {
+          "name": "handlePluginState",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/handlers_framework.go",
+          "line": 103,
+          "calls": [
+            "New",
+            "adminPluginDTO",
+            "currentAuth",
+            "pluginFromPath",
+            "pluginNames",
+            "problemFields",
+            "writeError",
+            "writeJSON",
+            "writeProblem"
+          ]
+        },
+        {
+          "name": "handleGetPluginSettings",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/handlers_framework.go",
+          "line": 190,
+          "calls": [
+            "pluginFromPath",
+            "pluginSettings",
+            "writeError",
+            "writeJSON"
+          ]
+        },
+        {
+          "name": "changedSettingKeys",
+          "receiver": "",
+          "file": "backend/internal/httpapi/handlers_framework.go",
+          "line": 311,
+          "calls": []
+        },
+        {
+          "name": "handlePutPluginSettings",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/handlers_framework.go",
+          "line": 220,
+          "calls": [
+            "New",
+            "changedSettingKeys",
+            "currentAuth",
+            "pluginFromPath",
+            "pluginSettings",
+            "problemFields",
+            "requestID",
+            "writeError",
+            "writeJSON",
+            "writeProblem"
+          ]
+        },
+        {
+          "name": "walkThemeFields",
+          "receiver": "",
+          "file": "backend/internal/httpapi/handlers_framework.go",
+          "line": 329,
+          "calls": []
+        },
+        {
+          "name": "changedThemeFields",
+          "receiver": "",
+          "file": "backend/internal/httpapi/handlers_framework.go",
+          "line": 322,
+          "calls": [
+            "walkThemeFields"
+          ]
+        },
+        {
+          "name": "loadTheme",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/handlers_framework.go",
+          "line": 353,
+          "calls": []
+        },
+        {
+          "name": "handleStorefrontTheme",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/handlers_framework.go",
+          "line": 366,
+          "calls": [
+            "loadTheme",
+            "writeError",
+            "writeJSON"
+          ]
+        },
+        {
+          "name": "handleAdminStorefrontTheme",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/handlers_framework.go",
+          "line": 375,
+          "calls": [
+            "loadTheme",
+            "writeError",
+            "writeJSON"
+          ]
+        },
+        {
+          "name": "handlePutStorefrontTheme",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/handlers_framework.go",
+          "line": 387,
+          "calls": [
+            "New",
+            "changedThemeFields",
+            "currentAuth",
+            "loadTheme",
+            "problemFields",
+            "writeError",
+            "writeJSON",
+            "writeProblem"
+          ]
+        },
+        {
+          "name": "handleAdminProductImage",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/handlers_images.go",
+          "line": 21,
+          "calls": [
+            "Close",
+            "New",
+            "currentAuth",
+            "writeError",
+            "writeJSON"
+          ]
+        },
+        {
+          "name": "handleProductImage",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/handlers_images.go",
+          "line": 95,
+          "calls": [
+            "Write",
+            "WriteHeader",
+            "writeError"
+          ]
+        },
+        {
+          "name": "handleMetrics",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/handlers_metrics.go",
+          "line": 71,
+          "calls": [
+            "problemFields",
+            "writeError",
+            "writeJSON",
+            "writeProblem"
+          ]
+        },
+        {
+          "name": "writeDeliveryMapError",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/handlers_shipping.go",
+          "line": 308,
+          "calls": [
+            "requestID",
+            "writeError"
+          ]
+        },
+        {
+          "name": "handleShippingWilayas",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/handlers_shipping.go",
+          "line": 27,
+          "calls": [
+            "writeDeliveryMapError",
+            "writeJSON"
+          ]
+        },
+        {
+          "name": "parseWilayaCode",
+          "receiver": "",
+          "file": "backend/internal/httpapi/handlers_shipping.go",
+          "line": 357,
+          "calls": [
+            "problemFields"
+          ]
+        },
+        {
+          "name": "handleShippingCommunes",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/handlers_shipping.go",
+          "line": 36,
+          "calls": [
+            "parseWilayaCode",
+            "writeDeliveryMapError",
+            "writeJSON",
+            "writeProblem"
+          ]
+        },
+        {
+          "name": "handleShippingDesks",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/handlers_shipping.go",
+          "line": 50,
+          "calls": [
+            "parseWilayaCode",
+            "writeDeliveryMapError",
+            "writeJSON",
+            "writeProblem"
+          ]
+        },
+        {
+          "name": "truncateRunes",
+          "receiver": "",
+          "file": "backend/internal/httpapi/validate.go",
+          "line": 72,
+          "calls": []
+        },
+        {
+          "name": "writeCourierError",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/handlers_shipping.go",
+          "line": 326,
+          "calls": [
+            "problemFields",
+            "requestID",
+            "truncateRunes",
+            "writeError",
+            "writeProblem"
+          ]
+        },
+        {
+          "name": "courierCall",
+          "receiver": "",
+          "file": "backend/internal/httpapi/handlers_shipping.go",
+          "line": 316,
+          "calls": [
+            "writeCourierError"
+          ]
+        },
+        {
+          "name": "currentUserID",
+          "receiver": "",
+          "file": "backend/internal/httpapi/handlers_shipping.go",
+          "line": 375,
+          "calls": [
+            "currentAuth"
+          ]
+        },
+        {
+          "name": "orderProductList",
+          "receiver": "",
+          "file": "backend/internal/httpapi/handlers_shipping.go",
+          "line": 367,
+          "calls": [
+            "truncateRunes"
+          ]
+        },
+        {
+          "name": "handleCreateShipment",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/handlers_shipping.go",
+          "line": 116,
+          "calls": [
+            "New",
+            "courierCall",
+            "currentUserID",
+            "normalizedAlgerianMobile",
+            "orderProductList",
+            "problem",
+            "problemFields",
+            "runeLen",
+            "toOrder",
+            "truncateRunes",
+            "writeError",
+            "writeJSON",
+            "writeProblem"
+          ]
+        },
+        {
+          "name": "handleRefreshTracking",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/handlers_shipping.go",
+          "line": 239,
+          "calls": [
+            "New",
+            "courierCall",
+            "currentUserID",
+            "problem",
+            "toOrder",
+            "writeError",
+            "writeJSON",
+            "writeProblem"
+          ]
+        },
+        {
+          "name": "securityHeaders",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/middleware.go",
+          "line": 38,
+          "calls": []
+        },
+        {
+          "name": "withRequestID",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/middleware.go",
+          "line": 52,
+          "calls": []
+        },
+        {
+          "name": "redactedPath",
+          "receiver": "",
+          "file": "backend/internal/httpapi/middleware.go",
+          "line": 113,
+          "calls": []
+        },
+        {
+          "name": "logRequests",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/middleware.go",
+          "line": 90,
+          "calls": [
+            "clientIP",
+            "redactedPath",
+            "requestID"
+          ]
+        },
+        {
+          "name": "recoverPanic",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/middleware.go",
+          "line": 120,
+          "calls": [
+            "Error",
+            "redactedPath",
+            "requestID",
+            "writeError"
+          ]
+        },
+        {
+          "name": "limitBody",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/middleware.go",
+          "line": 139,
+          "calls": []
+        },
+        {
+          "name": "requireChallengeHeader",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/middleware.go",
+          "line": 152,
+          "calls": [
+            "writeError"
+          ]
+        },
+        {
+          "name": "isLocalDevelopmentOrigin",
+          "receiver": "",
+          "file": "backend/internal/httpapi/middleware.go",
+          "line": 207,
+          "calls": []
+        },
+        {
+          "name": "enforceCSRF",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/middleware.go",
+          "line": 169,
+          "calls": [
+            "isLocalDevelopmentOrigin",
+            "writeError"
+          ]
+        },
+        {
+          "name": "requireUser",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/middleware.go",
+          "line": 246,
+          "calls": [
+            "clearSessionCookie",
+            "writeError"
+          ]
+        },
+        {
+          "name": "requireAdmin",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/middleware.go",
+          "line": 279,
+          "calls": [
+            "writeError"
+          ]
+        },
+        {
+          "name": "requireStaff",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/middleware.go",
+          "line": 296,
+          "calls": [
+            "writeError"
+          ]
+        },
+        {
+          "name": "adminMutationLimit",
+          "receiver": "s *Server",
+          "file": "backend/internal/httpapi/ratelimit.go",
+          "line": 122,
+          "calls": [
+            "allow",
+            "clientIP",
+            "writeError"
+          ]
+        },
+        {
+          "name": "decodeJSON",
+          "receiver": "",
+          "file": "backend/internal/httpapi/respond.go",
+          "line": 78,
+          "calls": [
+            "Error",
+            "problem",
+            "problemFields"
+          ]
+        },
+        {
+          "name": "validPhone",
+          "receiver": "",
+          "file": "backend/internal/httpapi/validate.go",
+          "line": 32,
+          "calls": []
+        }
+      ]
+    },
+    {
+      "package": "internal/plugins/ai",
+      "go_loc": 689,
+      "deps": [
+        "internal/ids",
+        "internal/plugins",
+        "internal/store"
+      ],
+      "functions": [
+        {
+          "name": "New",
+          "receiver": "",
+          "file": "backend/internal/plugins/ai/ai.go",
+          "line": 44,
+          "calls": []
+        },
+        {
+          "name": "Manifest",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/ai/ai.go",
+          "line": 48,
+          "calls": []
+        },
+        {
+          "name": "ValidateSettings",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/ai/ai.go",
+          "line": 97,
+          "calls": []
+        },
+        {
+          "name": "Migrations",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/ai/ai.go",
+          "line": 113,
+          "calls": []
+        },
+        {
+          "name": "Routes",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/ai/ai.go",
+          "line": 129,
+          "calls": []
+        },
+        {
+          "name": "Error",
+          "receiver": "e *UpstreamError",
+          "file": "backend/internal/plugins/ai/client.go",
+          "line": 35,
+          "calls": []
+        },
+        {
+          "name": "analysisInstruction",
+          "receiver": "",
+          "file": "backend/internal/plugins/ai/prompts.go",
+          "line": 11,
+          "calls": []
+        },
+        {
+          "name": "formatDZD",
+          "receiver": "",
+          "file": "backend/internal/plugins/ai/prompts.go",
+          "line": 129,
+          "calls": []
+        },
+        {
+          "name": "buildProductPrompt",
+          "receiver": "",
+          "file": "backend/internal/plugins/ai/prompts.go",
+          "line": 82,
+          "calls": [
+            "analysisInstruction",
+            "formatDZD"
+          ]
+        },
+        {
+          "name": "buildStorePrompt",
+          "receiver": "",
+          "file": "backend/internal/plugins/ai/prompts.go",
+          "line": 22,
+          "calls": [
+            "analysisInstruction",
+            "formatDZD"
+          ]
+        },
+        {
+          "name": "complete",
+          "receiver": "c *client",
+          "file": "backend/internal/plugins/ai/client.go",
+          "line": 138,
+          "calls": [
+            "Error"
+          ]
+        },
+        {
+          "name": "enabledFromSettings",
+          "receiver": "",
+          "file": "backend/internal/plugins/ai/client.go",
+          "line": 109,
+          "calls": []
+        },
+        {
+          "name": "configFromSettings",
+          "receiver": "",
+          "file": "backend/internal/plugins/ai/client.go",
+          "line": 90,
+          "calls": [
+            "enabledFromSettings"
+          ]
+        },
+        {
+          "name": "Detail",
+          "receiver": "e *UpstreamError",
+          "file": "backend/internal/plugins/ai/client.go",
+          "line": 49,
+          "calls": []
+        },
+        {
+          "name": "StatusClass",
+          "receiver": "e *UpstreamError",
+          "file": "backend/internal/plugins/ai/client.go",
+          "line": 42,
+          "calls": []
+        },
+        {
+          "name": "logWarn",
+          "receiver": "",
+          "file": "backend/internal/plugins/ai/ai.go",
+          "line": 333,
+          "calls": []
+        },
+        {
+          "name": "logUpstreamFailure",
+          "receiver": "",
+          "file": "backend/internal/plugins/ai/ai.go",
+          "line": 340,
+          "calls": [
+            "Detail",
+            "StatusClass",
+            "logWarn"
+          ]
+        },
+        {
+          "name": "newClient",
+          "receiver": "",
+          "file": "backend/internal/plugins/ai/client.go",
+          "line": 60,
+          "calls": []
+        },
+        {
+          "name": "handleAnalyze",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/ai/ai.go",
+          "line": 151,
+          "calls": [
+            "Error",
+            "New",
+            "buildProductPrompt",
+            "buildStorePrompt",
+            "complete",
+            "configFromSettings",
+            "logUpstreamFailure",
+            "logWarn",
+            "newClient"
+          ]
+        },
+        {
+          "name": "handleRuns",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/ai/ai.go",
+          "line": 291,
+          "calls": [
+            "Error",
+            "logWarn"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "internal/plugins/codemode",
+      "go_loc": 2050,
+      "deps": [
+        "internal/ids",
+        "internal/orderstatus",
+        "internal/plugins",
+        "internal/productrules",
+        "internal/store",
+        "internal/storefront"
+      ],
+      "functions": [
+        {
+          "name": "New",
+          "receiver": "",
+          "file": "backend/internal/plugins/codemode/codemode.go",
+          "line": 42,
+          "calls": []
+        },
+        {
+          "name": "insertActionAudit",
+          "receiver": "",
+          "file": "backend/internal/plugins/codemode/apply.go",
+          "line": 305,
+          "calls": [
+            "New"
+          ]
+        },
+        {
+          "name": "logWarn",
+          "receiver": "",
+          "file": "backend/internal/plugins/codemode/codemode.go",
+          "line": 630,
+          "calls": []
+        },
+        {
+          "name": "productFingerprint",
+          "receiver": "",
+          "file": "backend/internal/plugins/codemode/plan.go",
+          "line": 658,
+          "calls": []
+        },
+        {
+          "name": "applyOrderStatus",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/codemode/apply.go",
+          "line": 236,
+          "calls": [
+            "New",
+            "insertActionAudit",
+            "logWarn",
+            "productFingerprint"
+          ]
+        },
+        {
+          "name": "applyProductArchive",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/codemode/apply.go",
+          "line": 141,
+          "calls": [
+            "New",
+            "insertActionAudit",
+            "logWarn",
+            "productFingerprint"
+          ]
+        },
+        {
+          "name": "Manifest",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/codemode/codemode.go",
+          "line": 50,
+          "calls": []
+        },
+        {
+          "name": "normalizeAttributes",
+          "receiver": "",
+          "file": "backend/internal/plugins/codemode/plan.go",
+          "line": 553,
+          "calls": [
+            "New"
+          ]
+        },
+        {
+          "name": "validateProductAttributes",
+          "receiver": "",
+          "file": "backend/internal/plugins/codemode/plan.go",
+          "line": 566,
+          "calls": [
+            "New"
+          ]
+        },
+        {
+          "name": "validateProductDraft",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/codemode/plan.go",
+          "line": 487,
+          "calls": [
+            "Manifest",
+            "New",
+            "normalizeAttributes",
+            "validateProductAttributes"
+          ]
+        },
+        {
+          "name": "applyProductCreate",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/codemode/apply.go",
+          "line": 177,
+          "calls": [
+            "New",
+            "insertActionAudit",
+            "logWarn",
+            "validateProductDraft"
+          ]
+        },
+        {
+          "name": "isNull",
+          "receiver": "",
+          "file": "backend/internal/plugins/codemode/plan.go",
+          "line": 266,
+          "calls": []
+        },
+        {
+          "name": "rawObject",
+          "receiver": "",
+          "file": "backend/internal/plugins/codemode/plan.go",
+          "line": 255,
+          "calls": [
+            "New"
+          ]
+        },
+        {
+          "name": "parseProductPatch",
+          "receiver": "",
+          "file": "backend/internal/plugins/codemode/plan.go",
+          "line": 422,
+          "calls": [
+            "New",
+            "isNull",
+            "rawObject"
+          ]
+        },
+        {
+          "name": "applyProductUpdate",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/codemode/apply.go",
+          "line": 78,
+          "calls": [
+            "New",
+            "insertActionAudit",
+            "logWarn",
+            "parseProductPatch",
+            "productFingerprint"
+          ]
+        },
+        {
+          "name": "firstFieldMessage",
+          "receiver": "",
+          "file": "backend/internal/plugins/codemode/plan.go",
+          "line": 712,
+          "calls": []
+        },
+        {
+          "name": "themeObject",
+          "receiver": "",
+          "file": "backend/internal/plugins/codemode/plan.go",
+          "line": 409,
+          "calls": [
+            "rawObject"
+          ]
+        },
+        {
+          "name": "applyThemePatch",
+          "receiver": "",
+          "file": "backend/internal/plugins/codemode/plan.go",
+          "line": 335,
+          "calls": [
+            "New",
+            "firstFieldMessage",
+            "isNull",
+            "rawObject",
+            "themeObject"
+          ]
+        },
+        {
+          "name": "applyThemeUpdate",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/codemode/apply.go",
+          "line": 50,
+          "calls": [
+            "New",
+            "applyThemePatch",
+            "insertActionAudit",
+            "logWarn"
+          ]
+        },
+        {
+          "name": "applyAction",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/codemode/apply.go",
+          "line": 20,
+          "calls": [
+            "applyOrderStatus",
+            "applyProductArchive",
+            "applyProductCreate",
+            "applyProductUpdate",
+            "applyThemeUpdate"
+          ]
+        },
+        {
+          "name": "Error",
+          "receiver": "e *UpstreamError",
+          "file": "backend/internal/plugins/codemode/client.go",
+          "line": 35,
+          "calls": []
+        },
+        {
+          "name": "StatusClass",
+          "receiver": "e *UpstreamError",
+          "file": "backend/internal/plugins/codemode/client.go",
+          "line": 42,
+          "calls": []
+        },
+        {
+          "name": "Detail",
+          "receiver": "e *UpstreamError",
+          "file": "backend/internal/plugins/codemode/client.go",
+          "line": 49,
+          "calls": []
+        },
+        {
+          "name": "enabledFromSettings",
+          "receiver": "",
+          "file": "backend/internal/plugins/codemode/client.go",
+          "line": 78,
+          "calls": []
+        },
+        {
+          "name": "configFromSettings",
+          "receiver": "",
+          "file": "backend/internal/plugins/codemode/client.go",
+          "line": 58,
+          "calls": [
+            "enabledFromSettings"
+          ]
+        },
+        {
+          "name": "newClient",
+          "receiver": "",
+          "file": "backend/internal/plugins/codemode/client.go",
+          "line": 94,
+          "calls": []
+        },
+        {
+          "name": "Error",
+          "receiver": "e *invalidPlanError",
+          "file": "backend/internal/plugins/codemode/plan.go",
+          "line": 126,
+          "calls": []
+        },
+        {
+          "name": "plan",
+          "receiver": "c *client",
+          "file": "backend/internal/plugins/codemode/client.go",
+          "line": 138,
+          "calls": [
+            "Error"
+          ]
+        },
+        {
+          "name": "ValidateSettings",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/codemode/codemode.go",
+          "line": 87,
+          "calls": []
+        },
+        {
+          "name": "Migrations",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/codemode/codemode.go",
+          "line": 105,
+          "calls": []
+        },
+        {
+          "name": "Routes",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/codemode/codemode.go",
+          "line": 126,
+          "calls": []
+        },
+        {
+          "name": "parseAction",
+          "receiver": "",
+          "file": "backend/internal/plugins/codemode/plan.go",
+          "line": 191,
+          "calls": [
+            "New",
+            "rawObject"
+          ]
+        },
+        {
+          "name": "parsePlan",
+          "receiver": "",
+          "file": "backend/internal/plugins/codemode/plan.go",
+          "line": 152,
+          "calls": [
+            "New",
+            "parseAction"
+          ]
+        },
+        {
+          "name": "handlePlans",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/codemode/codemode.go",
+          "line": 145,
+          "calls": [
+            "Error",
+            "logWarn",
+            "parsePlan"
+          ]
+        },
+        {
+          "name": "recentOrders",
+          "receiver": "",
+          "file": "backend/internal/plugins/codemode/codemode.go",
+          "line": 196,
+          "calls": []
+        },
+        {
+          "name": "buildPrompt",
+          "receiver": "",
+          "file": "backend/internal/plugins/codemode/prompt.go",
+          "line": 76,
+          "calls": []
+        },
+        {
+          "name": "configFor",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/codemode/codemode.go",
+          "line": 539,
+          "calls": [
+            "Error",
+            "configFromSettings",
+            "logWarn"
+          ]
+        },
+        {
+          "name": "encodePlan",
+          "receiver": "",
+          "file": "backend/internal/plugins/codemode/plan.go",
+          "line": 144,
+          "calls": []
+        },
+        {
+          "name": "loadTheme",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/codemode/codemode.go",
+          "line": 561,
+          "calls": []
+        },
+        {
+          "name": "logUpstreamFailure",
+          "receiver": "",
+          "file": "backend/internal/plugins/codemode/codemode.go",
+          "line": 637,
+          "calls": [
+            "Detail",
+            "StatusClass",
+            "logWarn"
+          ]
+        },
+        {
+          "name": "newPlanID",
+          "receiver": "",
+          "file": "backend/internal/plugins/codemode/plan.go",
+          "line": 132,
+          "calls": [
+            "New"
+          ]
+        },
+        {
+          "name": "invalidPlan",
+          "receiver": "",
+          "file": "backend/internal/plugins/codemode/plan.go",
+          "line": 128,
+          "calls": []
+        },
+        {
+          "name": "planBaseline",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/codemode/plan.go",
+          "line": 672,
+          "calls": [
+            "invalidPlan",
+            "productFingerprint"
+          ]
+        },
+        {
+          "name": "planDTO",
+          "receiver": "",
+          "file": "backend/internal/plugins/codemode/plan.go",
+          "line": 134,
+          "calls": []
+        },
+        {
+          "name": "promptPlugins",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/codemode/prompt.go",
+          "line": 49,
+          "calls": []
+        },
+        {
+          "name": "validatePlanReferences",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/codemode/plan.go",
+          "line": 589,
+          "calls": [
+            "New",
+            "invalidPlan"
+          ]
+        },
+        {
+          "name": "validatePlanShape",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/codemode/plan.go",
+          "line": 270,
+          "calls": [
+            "Error",
+            "applyThemePatch",
+            "invalidPlan",
+            "parseProductPatch",
+            "validateProductDraft"
+          ]
+        },
+        {
+          "name": "handlePreview",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/codemode/codemode.go",
+          "line": 219,
+          "calls": [
+            "Error",
+            "buildPrompt",
+            "configFor",
+            "encodePlan",
+            "loadTheme",
+            "logUpstreamFailure",
+            "logWarn",
+            "newClient",
+            "newPlanID",
+            "parsePlan",
+            "plan",
+            "planBaseline",
+            "planDTO",
+            "promptPlugins",
+            "recentOrders",
+            "validatePlanReferences",
+            "validatePlanShape"
+          ]
+        },
+        {
+          "name": "claimPlan",
+          "receiver": "",
+          "file": "backend/internal/plugins/codemode/codemode.go",
+          "line": 616,
+          "calls": []
+        },
+        {
+          "name": "encodeResults",
+          "receiver": "",
+          "file": "backend/internal/plugins/codemode/plan.go",
+          "line": 722,
+          "calls": []
+        },
+        {
+          "name": "ensureEnabled",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/codemode/codemode.go",
+          "line": 523,
+          "calls": [
+            "Error",
+            "enabledFromSettings",
+            "logWarn"
+          ]
+        },
+        {
+          "name": "failPlan",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/codemode/codemode.go",
+          "line": 606,
+          "calls": [
+            "encodeResults",
+            "logWarn"
+          ]
+        },
+        {
+          "name": "loadPlanRecord",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/codemode/codemode.go",
+          "line": 596,
+          "calls": []
+        },
+        {
+          "name": "loadThemeTx",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/codemode/codemode.go",
+          "line": 580,
+          "calls": []
+        },
+        {
+          "name": "handleApply",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/codemode/codemode.go",
+          "line": 351,
+          "calls": [
+            "Error",
+            "applyAction",
+            "claimPlan",
+            "encodeResults",
+            "ensureEnabled",
+            "failPlan",
+            "loadPlanRecord",
+            "loadTheme",
+            "loadThemeTx",
+            "logWarn",
+            "parsePlan",
+            "planDTO",
+            "validatePlanReferences",
+            "validatePlanShape"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "internal/plugins/oils",
+      "go_loc": 71,
+      "deps": [
+        "internal/plugins"
+      ],
+      "functions": [
+        {
+          "name": "New",
+          "receiver": "",
+          "file": "backend/internal/plugins/oils/oils.go",
+          "line": 14,
+          "calls": []
+        },
+        {
+          "name": "Manifest",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/oils/oils.go",
+          "line": 18,
+          "calls": []
+        },
+        {
+          "name": "Routes",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/oils/oils.go",
+          "line": 69,
+          "calls": []
+        }
+      ]
+    },
+    {
+      "package": "internal/plugins/pcparts",
+      "go_loc": 152,
+      "deps": [
+        "internal/plugins"
+      ],
+      "functions": [
+        {
+          "name": "New",
+          "receiver": "",
+          "file": "backend/internal/plugins/pcparts/pcparts.go",
+          "line": 17,
+          "calls": []
+        },
+        {
+          "name": "Manifest",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/pcparts/pcparts.go",
+          "line": 21,
+          "calls": []
+        },
+        {
+          "name": "Routes",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/pcparts/pcparts.go",
+          "line": 150,
+          "calls": []
+        }
+      ]
+    },
+    {
+      "package": "internal/plugins/pcbuilder",
+      "go_loc": 223,
+      "deps": [
+        "internal/plugins",
+        "internal/plugins/pcparts",
+        "internal/store"
+      ],
+      "functions": [
+        {
+          "name": "toPartsProduct",
+          "receiver": "",
+          "file": "backend/internal/plugins/pcbuilder/parts.go",
+          "line": 150,
+          "calls": []
+        },
+        {
+          "name": "buildPartsResponse",
+          "receiver": "",
+          "file": "backend/internal/plugins/pcbuilder/parts.go",
+          "line": 92,
+          "calls": [
+            "toPartsProduct"
+          ]
+        },
+        {
+          "name": "handleParts",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/pcbuilder/parts.go",
+          "line": 54,
+          "calls": [
+            "buildPartsResponse"
+          ]
+        },
+        {
+          "name": "New",
+          "receiver": "",
+          "file": "backend/internal/plugins/pcbuilder/pcbuilder.go",
+          "line": 18,
+          "calls": []
+        },
+        {
+          "name": "Manifest",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/pcbuilder/pcbuilder.go",
+          "line": 22,
+          "calls": []
+        },
+        {
+          "name": "Routes",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/pcbuilder/pcbuilder.go",
+          "line": 36,
+          "calls": []
+        }
+      ]
+    },
+    {
+      "package": "internal/plugins/phone",
+      "go_loc": 758,
+      "deps": [
+        "internal/ids",
+        "internal/plugins",
+        "internal/store"
+      ],
+      "functions": [
+        {
+          "name": "countDevices",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/phone/devices.go",
+          "line": 250,
+          "calls": []
+        },
+        {
+          "name": "phoneProductProblem",
+          "receiver": "",
+          "file": "backend/internal/plugins/phone/devices.go",
+          "line": 304,
+          "calls": []
+        },
+        {
+          "name": "VariantLabel",
+          "receiver": "",
+          "file": "backend/internal/plugins/phone/variant.go",
+          "line": 28,
+          "calls": []
+        },
+        {
+          "name": "scanDevice",
+          "receiver": "",
+          "file": "backend/internal/plugins/phone/devices.go",
+          "line": 266,
+          "calls": [
+            "VariantLabel"
+          ]
+        },
+        {
+          "name": "queryDevices",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/phone/devices.go",
+          "line": 232,
+          "calls": [
+            "scanDevice"
+          ]
+        },
+        {
+          "name": "writeInternal",
+          "receiver": "",
+          "file": "backend/internal/plugins/phone/devices.go",
+          "line": 309,
+          "calls": []
+        },
+        {
+          "name": "handleListDevices",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/phone/devices.go",
+          "line": 56,
+          "calls": [
+            "countDevices",
+            "phoneProductProblem",
+            "queryDevices",
+            "writeInternal"
+          ]
+        },
+        {
+          "name": "New",
+          "receiver": "",
+          "file": "backend/internal/plugins/phone/phone.go",
+          "line": 52,
+          "calls": []
+        },
+        {
+          "name": "ValidIMEI",
+          "receiver": "",
+          "file": "backend/internal/plugins/phone/variant.go",
+          "line": 40,
+          "calls": []
+        },
+        {
+          "name": "VariantKey",
+          "receiver": "",
+          "file": "backend/internal/plugins/phone/variant.go",
+          "line": 17,
+          "calls": []
+        },
+        {
+          "name": "allowedOption",
+          "receiver": "",
+          "file": "backend/internal/plugins/phone/variant.go",
+          "line": 61,
+          "calls": []
+        },
+        {
+          "name": "imeiExists",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/phone/devices.go",
+          "line": 294,
+          "calls": []
+        },
+        {
+          "name": "syncProductStock",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/phone/devices.go",
+          "line": 284,
+          "calls": []
+        },
+        {
+          "name": "handleCreateDevice",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/phone/devices.go",
+          "line": 91,
+          "calls": [
+            "New",
+            "ValidIMEI",
+            "VariantKey",
+            "VariantLabel",
+            "allowedOption",
+            "imeiExists",
+            "phoneProductProblem",
+            "syncProductStock",
+            "writeInternal"
+          ]
+        },
+        {
+          "name": "handleDeleteDevice",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/phone/devices.go",
+          "line": 174,
+          "calls": [
+            "syncProductStock",
+            "writeInternal"
+          ]
+        },
+        {
+          "name": "handleOrderDevices",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/phone/devices.go",
+          "line": 219,
+          "calls": [
+            "queryDevices",
+            "writeInternal"
+          ]
+        },
+        {
+          "name": "ValidateCheckoutLine",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/phone/hooks.go",
+          "line": 15,
+          "calls": [
+            "allowedOption"
+          ]
+        },
+        {
+          "name": "OnOrderCreated",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/phone/hooks.go",
+          "line": 51,
+          "calls": []
+        },
+        {
+          "name": "OnOrderStatusChanged",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/phone/hooks.go",
+          "line": 96,
+          "calls": []
+        },
+        {
+          "name": "EnrichProduct",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/phone/hooks.go",
+          "line": 120,
+          "calls": []
+        },
+        {
+          "name": "legacyConfigs",
+          "receiver": "",
+          "file": "backend/internal/plugins/phone/phone.go",
+          "line": 142,
+          "calls": []
+        },
+        {
+          "name": "repairLegacyAttributes",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/phone/phone.go",
+          "line": 82,
+          "calls": [
+            "legacyConfigs"
+          ]
+        },
+        {
+          "name": "Init",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/phone/phone.go",
+          "line": 56,
+          "calls": [
+            "repairLegacyAttributes"
+          ]
+        },
+        {
+          "name": "Manifest",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/phone/phone.go",
+          "line": 159,
+          "calls": []
+        },
+        {
+          "name": "Routes",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/phone/phone.go",
+          "line": 195,
+          "calls": []
+        },
+        {
+          "name": "Migrations",
+          "receiver": "p *Plugin",
+          "file": "backend/internal/plugins/phone/phone.go",
+          "line": 204,
+          "calls": []
+        }
+      ]
+    },
+    {
+      "package": "internal/seed",
+      "go_loc": 746,
+      "deps": [
+        "internal/auth",
+        "internal/ids",
+        "internal/store"
+      ],
+      "functions": [
+        {
+          "name": "seedPluginCatalog",
+          "receiver": "",
+          "file": "backend/internal/seed/plugins.go",
+          "line": 69,
+          "calls": []
+        },
+        {
+          "name": "seedCatalog",
+          "receiver": "",
+          "file": "backend/internal/seed/seed.go",
+          "line": 177,
+          "calls": []
+        },
+        {
+          "name": "seedOrders",
+          "receiver": "",
+          "file": "backend/internal/seed/seed.go",
+          "line": 367,
+          "calls": []
+        },
+        {
+          "name": "seedUsers",
+          "receiver": "",
+          "file": "backend/internal/seed/seed.go",
+          "line": 269,
+          "calls": []
+        },
+        {
+          "name": "Run",
+          "receiver": "",
+          "file": "backend/internal/seed/seed.go",
+          "line": 32,
+          "calls": [
+            "seedCatalog",
+            "seedOrders",
+            "seedPluginCatalog",
+            "seedUsers"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "cmd/api",
+      "go_loc": 195,
+      "deps": [
+        "internal/auditbatch",
+        "internal/config",
+        "internal/courier",
+        "internal/db",
+        "internal/httpapi",
+        "internal/plugins",
+        "internal/plugins/ai",
+        "internal/plugins/codemode",
+        "internal/plugins/oils",
+        "internal/plugins/pcbuilder",
+        "internal/plugins/pcparts",
+        "internal/plugins/phone",
+        "internal/seed",
+        "internal/store"
+      ],
+      "functions": [
+        {
+          "name": "main",
+          "receiver": "",
+          "file": "backend/cmd/api/main.go",
+          "line": 29,
+          "calls": []
+        }
+      ]
+    },
+    {
+      "package": "migrations",
+      "go_loc": 8,
+      "deps": [],
+      "functions": []
+    }
+  ]
+}

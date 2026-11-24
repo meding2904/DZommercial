@@ -319,9 +319,32 @@ impl App {
 }
 
 /// Validate an `OpenExternal` target and return the normalised URL.
+///
+/// The accept/reject decision mirrors the Go condition in
+/// `desktop/main.go:257-259`, including the errors `net/url` raises before that
+/// condition runs. `url::Url` implements the WHATWG parser, which is more
+/// permissive than Go's RFC 3986 parser: it strips or percent-encodes control
+/// bytes, keeps invalid escapes, treats a backslash as a path separator and
+/// collapses extra slashes. Those cases are rejected explicitly below.
 pub fn validate_external_url(raw_url: &str) -> Result<String, &'static str> {
-    let (scheme, _) = raw_url.split_once("://").ok_or(INVALID_EXTERNAL_URL)?;
+    // net/url: "invalid control character in URL".
+    if raw_url.bytes().any(|byte| byte < 0x20 || byte == 0x7f) {
+        return Err(INVALID_EXTERNAL_URL);
+    }
+
+    let (scheme, rest) = raw_url.split_once("://").ok_or(INVALID_EXTERNAL_URL)?;
     if !scheme.eq_ignore_ascii_case("http") && !scheme.eq_ignore_ascii_case("https") {
+        return Err(INVALID_EXTERNAL_URL);
+    }
+
+    // net/url rejects an empty authority (`https:///x`), a backslash in the
+    // authority (`https://example.com\evil`) and percent escapes in the host
+    // (`exa%6dple.com`). The WHATWG parser would collapse or decode all three.
+    let authority = rest.split(['/', '?', '#']).next().unwrap_or_default();
+    if authority.is_empty() || authority.contains(['\\', '%']) {
+        return Err(INVALID_EXTERNAL_URL);
+    }
+    if !go_escapes_valid(rest) {
         return Err(INVALID_EXTERNAL_URL);
     }
 
@@ -342,6 +365,36 @@ pub fn validate_external_url(raw_url: &str) -> Result<String, &'static str> {
         return Err(INVALID_EXTERNAL_URL);
     }
     Ok(parsed.to_string())
+}
+
+/// `net/url` validates percent escapes in the path and fragment but leaves the
+/// raw query alone, so `https://example.com/p?q=%zz` parses in Go.
+fn go_escapes_valid(rest: &str) -> bool {
+    let (before_fragment, fragment) = rest.split_once('#').unwrap_or((rest, ""));
+    let (before_query, _) = before_fragment
+        .split_once('?')
+        .unwrap_or((before_fragment, ""));
+    let path_start = before_query.find('/').unwrap_or(before_query.len());
+    escapes_valid(&before_query[path_start..]) && escapes_valid(fragment)
+}
+
+fn escapes_valid(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    let mut index = 0;
+    while index < bytes.len() {
+        if bytes[index] == b'%' {
+            if index + 2 >= bytes.len()
+                || !bytes[index + 1].is_ascii_hexdigit()
+                || !bytes[index + 2].is_ascii_hexdigit()
+            {
+                return false;
+            }
+            index += 3;
+        } else {
+            index += 1;
+        }
+    }
+    true
 }
 
 fn authority_has_userinfo(raw_url: &str) -> bool {
@@ -452,6 +505,24 @@ mod tests {
         for (raw, expected) in cases {
             assert_eq!(validate_external_url(raw).unwrap(), expected, "{raw}");
         }
+    }
+
+    #[test]
+    fn external_urls_follow_the_go_parser_edges() {
+        for raw in [
+            "https://example.com/%zz",
+            "https://example.com/#%zz",
+            "https://example.com/\u{1}",
+            "https://example.com/\u{7f}",
+            "https:///example.com",
+            "http:////example.com",
+            "https://exa%6dple.com/",
+            "https://example.com\\evil",
+        ] {
+            assert!(validate_external_url(raw).is_err(), "{raw:?} was accepted");
+        }
+        // Go's net/url does not validate escapes in the raw query.
+        assert!(validate_external_url("https://example.com/p?q=%zz").is_ok());
     }
 
     #[test]

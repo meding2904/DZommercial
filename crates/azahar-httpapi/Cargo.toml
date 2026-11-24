@@ -15,6 +15,7 @@ azahar-ids.workspace = true
 azahar-orderintake.workspace = true
 azahar-orderstatus.workspace = true
 azahar-plugin-phone.workspace = true
+azahar-plugin-pcbuilder.workspace = true
 azahar-plugins.workspace = true
 azahar-productrules.workspace = true
 azahar-store.workspace = true

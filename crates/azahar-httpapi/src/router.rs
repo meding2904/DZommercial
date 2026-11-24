@@ -29,6 +29,7 @@ use crate::handlers_framework;
 use crate::handlers_images;
 use crate::handlers_metrics;
 use crate::handlers_orders;
+use crate::handlers_plugins;
 use crate::handlers_shipping;
 use crate::middleware;
 use crate::respond::{ApiProblem, problem};
@@ -188,6 +189,10 @@ pub fn build_router(state: AppState, sessions: SessionManagerLayer<LibsqlSession
         .merge(credential_routes)
         .merge(signed_in_routes)
         .merge(admin_routes)
+        .merge(handlers_plugins::public_plugin_routes())
+        .merge(handlers_plugins::admin_plugin_routes(state.clone()))
+        .merge(crate::handlers_checkout::checkout_routes())
+        .merge(crate::handlers_shipments::shipment_routes())
         .fallback(not_found)
         .method_not_allowed_fallback(method_not_allowed)
         .with_state(state.clone())

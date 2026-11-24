@@ -12,8 +12,9 @@ use axum::extract::{Path, RawQuery, State};
 use axum::response::Response;
 use azahar_auth::{hash_token, new_token};
 use azahar_ids::new as new_id;
-use azahar_orderintake::{Intake, IntakeError, NoopHooks};
+use azahar_orderintake::{Intake, IntakeError};
 use azahar_orderstatus::known as known_status;
+use azahar_plugin_phone::PhoneHooks;
 use azahar_store::orders::AdminOrderFilter;
 use azahar_store::{AuditEntry, StoreError};
 use chrono::Utc;
@@ -48,7 +49,7 @@ fn intake(state: &AppState) -> Intake {
     Intake::new(
         state.store.clone(),
         state.plugins.clone(),
-        Arc::new(NoopHooks),
+        Arc::new(PhoneHooks::new()),
     )
 }
 

@@ -3,17 +3,21 @@
 #![forbid(unsafe_code)]
 
 pub mod cache;
+pub mod captcha;
 pub mod dto;
 pub mod extract;
 pub mod handlers_admin;
 pub mod handlers_admin_products;
 pub mod handlers_auth;
 pub mod handlers_catalog;
+pub mod handlers_checkout;
 pub mod handlers_client;
 pub mod handlers_framework;
 pub mod handlers_images;
 pub mod handlers_metrics;
 pub mod handlers_orders;
+pub mod handlers_plugins;
+pub mod handlers_shipments;
 pub mod handlers_shipping;
 pub mod middleware;
 pub mod ratelimit;
@@ -23,6 +27,7 @@ pub mod server;
 pub mod session_layer;
 pub mod session_store;
 pub mod state;
+pub mod turnstile;
 pub mod validate;
 
 pub use dto::{

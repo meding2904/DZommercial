@@ -123,6 +123,17 @@ async fn fixture_with(configure: impl FnOnce(&mut Registry)) -> Fixture {
         .expect("open in-memory database");
     let store = Arc::new(Store::new(database).expect("store"));
     azahar_db::migrate(store.conn()).await.expect("migrate");
+    let phone_migrations: Vec<_> = azahar_plugins::Plugin::migrations(&azahar_plugin_phone::new())
+        .into_iter()
+        .map(|migration| azahar_db::PluginMigration {
+            plugin_id: "phone".to_string(),
+            version: migration.version,
+            sql: migration.sql,
+        })
+        .collect();
+    azahar_db::migrate_plugins(store.conn(), phone_migrations)
+        .await
+        .expect("phone migrations");
     seed(&store).await;
 
     let mut registry = Registry::new();
@@ -1213,6 +1224,16 @@ async fn preferences_validate_and_audit() {
 async fn counter_sale_records_a_delivered_pickup_and_moves_stock() {
     let fixture = fixture().await;
     let staff = login(&fixture.app, STAFF_EMAIL).await;
+    fixture
+        .store
+        .conn()
+        .execute(
+            "INSERT INTO phone_devices (id, product_id, variant_key, config, color, imei, status, order_id, order_item_id, created_at, updated_at)
+             VALUES ('phn_counter', 'p_phone', '', '12 GB RAM + 256 GB', 'Midnight', '356938035640003', 'in_stock', '', '', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')",
+            (),
+        )
+        .await
+        .expect("seed phone device");
 
     let (status, _, body) = body_json(
         send(

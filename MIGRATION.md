@@ -411,17 +411,17 @@ Differences are only acceptable when behaviour is unobservable at the HTTP/API b
 - [x] `internal/orderintake.normalizeOptions` — `backend/internal/orderintake/lines.go:54`
 - [x] `internal/orderintake.optionsKey` — `backend/internal/orderintake/lines.go:65`
 - [x] `internal/orderintake.BuildLines` — `backend/internal/orderintake/lines.go:20`
-- [ ] `internal/orderintake.OptionSchema` — `backend/internal/orderintake/options.go:11`
-- [ ] `internal/orderintake.selectedOptionFields` — `backend/internal/orderintake/options.go:23`
-- [ ] `internal/orderintake.optionLabel` — `backend/internal/orderintake/options.go:67`
-- [ ] `internal/orderintake.New` — `backend/internal/orderintake/orderintake.go:35`
-- [ ] `internal/orderintake.CheckoutChannel` — `backend/internal/orderintake/orderintake.go:102`
-- [ ] `internal/orderintake.CounterChannel` — `backend/internal/orderintake/orderintake.go:120`
+- [x] `internal/orderintake.OptionSchema` — `backend/internal/orderintake/options.go:11`
+- [x] `internal/orderintake.selectedOptionFields` — `backend/internal/orderintake/options.go:23`
+- [x] `internal/orderintake.optionLabel` — `backend/internal/orderintake/options.go:67`
+- [x] `internal/orderintake.New` — `backend/internal/orderintake/orderintake.go:35`
+- [x] `internal/orderintake.CheckoutChannel` — `backend/internal/orderintake/orderintake.go:102`
+- [x] `internal/orderintake.CounterChannel` — `backend/internal/orderintake/orderintake.go:120`
 - [x] `internal/orderintake.refuseFields` — `backend/internal/orderintake/problems.go:21`
-- [ ] `internal/orderintake.shippingCents` *(method)* — `backend/internal/orderintake/orderintake.go:410`
-- [ ] `internal/orderintake.Place` *(method)* — `backend/internal/orderintake/orderintake.go:144`
+- [x] `internal/orderintake.shippingCents` *(method)* — `backend/internal/orderintake/orderintake.go:410`
+- [x] `internal/orderintake.Place` *(method)* — `backend/internal/orderintake/orderintake.go:144`
 - [x] `internal/orderintake.refuse` — `backend/internal/orderintake/problems.go:17`
-- [ ] `internal/orderintake.ChangeStatus` *(method)* — `backend/internal/orderintake/orderintake.go:335`
+- [x] `internal/orderintake.ChangeStatus` *(method)* — `backend/internal/orderintake/orderintake.go:335`
 - [x] `internal/orderintake.Error` *(method)* — `backend/internal/orderintake/problems.go:13`
 - [x] `internal/orderintake.ShippingCents` — `backend/internal/orderintake/shipping.go:13`
 - [x] `internal/orderintake.NoShipping` — `backend/internal/orderintake/shipping.go:21`
@@ -456,160 +456,160 @@ Differences are only acceptable when behaviour is unobservable at the HTTP/API b
 
 ### `internal/httpapi` (156 functions)
 
-- [ ] `internal/httpapi.newReadCache` — `backend/internal/httpapi/cache.go:35`
-- [ ] `internal/httpapi.get` *(method)* — `backend/internal/httpapi/cache.go:42`
-- [ ] `internal/httpapi.put` *(method)* — `backend/internal/httpapi/cache.go:57`
-- [ ] `internal/httpapi.clear` *(method)* — `backend/internal/httpapi/cache.go:83`
-- [ ] `internal/httpapi.size` *(method)* — `backend/internal/httpapi/cache.go:90`
-- [ ] `internal/httpapi.WriteHeader` *(method)* — `backend/internal/httpapi/cache.go:104`
-- [ ] `internal/httpapi.WriteHeader` *(method)* — `backend/internal/httpapi/middleware.go:74`
-- [ ] `internal/httpapi.Write` *(method)* — `backend/internal/httpapi/cache.go:113`
-- [ ] `internal/httpapi.Write` *(method)* — `backend/internal/httpapi/middleware.go:83`
-- [ ] `internal/httpapi.requestID` — `backend/internal/httpapi/middleware.go:33`
-- [ ] `internal/httpapi.cacheRead` *(method)* — `backend/internal/httpapi/cache.go:125`
-- [ ] `internal/httpapi.invalidateReadCacheOnWrite` *(method)* — `backend/internal/httpapi/cache.go:166`
-- [ ] `internal/httpapi.sweepLocked` *(method)* — `backend/internal/httpapi/captcha.go:134`
-- [ ] `internal/httpapi.cleanupLoop` *(method)* — `backend/internal/httpapi/captcha.go:119`
-- [ ] `internal/httpapi.cleanup` *(method)* — `backend/internal/httpapi/ratelimit.go:90`
-- [ ] `internal/httpapi.cleanupLoop` *(method)* — `backend/internal/httpapi/ratelimit.go:77`
-- [ ] `internal/httpapi.newCaptchaStore` — `backend/internal/httpapi/captcha.go:43`
-- [ ] `internal/httpapi.currentAuth` — `backend/internal/httpapi/middleware.go:311`
-- [ ] `internal/httpapi.newRateLimiter` — `backend/internal/httpapi/ratelimit.go:27`
-- [ ] `internal/httpapi.Handler` *(method)* — `backend/internal/httpapi/router.go:82`
+- [x] `internal/httpapi.newReadCache` — `backend/internal/httpapi/cache.go:35`
+- [x] `internal/httpapi.get` *(method)* — `backend/internal/httpapi/cache.go:42`
+- [x] `internal/httpapi.put` *(method)* — `backend/internal/httpapi/cache.go:57`
+- [x] `internal/httpapi.clear` *(method)* — `backend/internal/httpapi/cache.go:83`
+- [x] `internal/httpapi.size` *(method)* — `backend/internal/httpapi/cache.go:90`
+- [x] `internal/httpapi.WriteHeader` *(method)* — `backend/internal/httpapi/cache.go:104`
+- [x] `internal/httpapi.WriteHeader` *(method)* — `backend/internal/httpapi/middleware.go:74`
+- [x] `internal/httpapi.Write` *(method)* — `backend/internal/httpapi/cache.go:113`
+- [x] `internal/httpapi.Write` *(method)* — `backend/internal/httpapi/middleware.go:83`
+- [x] `internal/httpapi.requestID` — `backend/internal/httpapi/middleware.go:33`
+- [x] `internal/httpapi.cacheRead` *(method)* — `backend/internal/httpapi/cache.go:125`
+- [x] `internal/httpapi.invalidateReadCacheOnWrite` *(method)* — `backend/internal/httpapi/cache.go:166`
+- [x] `internal/httpapi.sweepLocked` *(method)* — `backend/internal/httpapi/captcha.go:134`
+- [x] `internal/httpapi.cleanupLoop` *(method)* — `backend/internal/httpapi/captcha.go:119`
+- [x] `internal/httpapi.cleanup` *(method)* — `backend/internal/httpapi/ratelimit.go:90`
+- [x] `internal/httpapi.cleanupLoop` *(method)* — `backend/internal/httpapi/ratelimit.go:77`
+- [x] `internal/httpapi.newCaptchaStore` — `backend/internal/httpapi/captcha.go:43`
+- [x] `internal/httpapi.currentAuth` — `backend/internal/httpapi/middleware.go:311`
+- [x] `internal/httpapi.newRateLimiter` — `backend/internal/httpapi/ratelimit.go:27`
+- [x] `internal/httpapi.Handler` *(method)* — `backend/internal/httpapi/router.go:82`
 - [x] `internal/httpapi.problem` — `backend/internal/httpapi/respond.go:26`
 - [x] `internal/httpapi.writeJSON` — `backend/internal/httpapi/respond.go:44`
 - [x] `internal/httpapi.writeProblem` — `backend/internal/httpapi/respond.go:55`
 - [x] `internal/httpapi.writeError` — `backend/internal/httpapi/respond.go:63`
 - [ ] `internal/httpapi.pluginHandler` *(method)* — `backend/internal/httpapi/router.go:209`
 - [ ] `internal/httpapi.mountPluginRoutes` *(method)* — `backend/internal/httpapi/router.go:183`
-- [ ] `internal/httpapi.allow` *(method)* — `backend/internal/httpapi/ratelimit.go:38`
+- [x] `internal/httpapi.allow` *(method)* — `backend/internal/httpapi/ratelimit.go:38`
 - [x] `internal/httpapi.clientIP` — `backend/internal/httpapi/respond.go:120`
-- [ ] `internal/httpapi.rateLimit` *(method)* — `backend/internal/httpapi/ratelimit.go:104`
-- [ ] `internal/httpapi.routes` *(method)* — `backend/internal/httpapi/router.go:95`
-- [ ] `internal/httpapi.New` — `backend/internal/httpapi/router.go:36`
-- [ ] `internal/httpapi.drawCaptchaGlyph` — `backend/internal/httpapi/captcha.go:235`
-- [ ] `internal/httpapi.absInt` — `backend/internal/httpapi/captcha.go:268`
-- [ ] `internal/httpapi.drawCaptchaLine` — `backend/internal/httpapi/captcha.go:250`
-- [ ] `internal/httpapi.captchaImage` — `backend/internal/httpapi/captcha.go:181`
-- [ ] `internal/httpapi.evictOldestLocked` *(method)* — `backend/internal/httpapi/captcha.go:142`
-- [ ] `internal/httpapi.randomCaptchaCode` — `backend/internal/httpapi/captcha.go:160`
-- [ ] `internal/httpapi.randomCaptchaToken` — `backend/internal/httpapi/captcha.go:173`
-- [ ] `internal/httpapi.issue` *(method)* — `backend/internal/httpapi/captcha.go:53`
-- [ ] `internal/httpapi.verify` *(method)* — `backend/internal/httpapi/captcha.go:85`
+- [x] `internal/httpapi.rateLimit` *(method)* — `backend/internal/httpapi/ratelimit.go:104`
+- [x] `internal/httpapi.routes` *(method)* — `backend/internal/httpapi/router.go:95`
+- [x] `internal/httpapi.New` — `backend/internal/httpapi/router.go:36`
+- [x] `internal/httpapi.drawCaptchaGlyph` — `backend/internal/httpapi/captcha.go:235`
+- [x] `internal/httpapi.absInt` — `backend/internal/httpapi/captcha.go:268`
+- [x] `internal/httpapi.drawCaptchaLine` — `backend/internal/httpapi/captcha.go:250`
+- [x] `internal/httpapi.captchaImage` — `backend/internal/httpapi/captcha.go:181`
+- [x] `internal/httpapi.evictOldestLocked` *(method)* — `backend/internal/httpapi/captcha.go:142`
+- [x] `internal/httpapi.randomCaptchaCode` — `backend/internal/httpapi/captcha.go:160`
+- [x] `internal/httpapi.randomCaptchaToken` — `backend/internal/httpapi/captcha.go:173`
+- [x] `internal/httpapi.issue` *(method)* — `backend/internal/httpapi/captcha.go:53`
+- [x] `internal/httpapi.verify` *(method)* — `backend/internal/httpapi/captcha.go:85`
 - [ ] `internal/httpapi.close` *(method)* — `backend/internal/httpapi/captcha.go:156`
-- [ ] `internal/httpapi.captchaErrorMessage` — `backend/internal/httpapi/captcha.go:310`
-- [ ] `internal/httpapi.handleCheckoutChallenge` *(method)* — `backend/internal/httpapi/captcha.go:321`
-- [ ] `internal/httpapi.nonNil` — `backend/internal/httpapi/dto.go:260`
-- [ ] `internal/httpapi.nonNilStringListMap` — `backend/internal/httpapi/dto.go:125`
-- [ ] `internal/httpapi.productDTOFromStore` — `backend/internal/httpapi/dto.go:58`
-- [ ] `internal/httpapi.optionSchema` *(method)* — `backend/internal/httpapi/product_options.go:13`
-- [ ] `internal/httpapi.decorateProduct` *(method)* — `backend/internal/httpapi/dto.go:112`
-- [ ] `internal/httpapi.toProduct` *(method)* — `backend/internal/httpapi/dto.go:95`
-- [ ] `internal/httpapi.toProducts` *(method)* — `backend/internal/httpapi/dto.go:103`
-- [ ] `internal/httpapi.toUser` — `backend/internal/httpapi/dto.go:139`
-- [ ] `internal/httpapi.nonNilStringMap` — `backend/internal/httpapi/dto.go:267`
-- [ ] `internal/httpapi.toOrderItems` — `backend/internal/httpapi/dto.go:240`
-- [ ] `internal/httpapi.toOrder` — `backend/internal/httpapi/dto.go:196`
-- [ ] `internal/httpapi.fmtTime` — `backend/internal/httpapi/dto.go:274`
+- [x] `internal/httpapi.captchaErrorMessage` — `backend/internal/httpapi/captcha.go:310`
+- [x] `internal/httpapi.handleCheckoutChallenge` *(method)* — `backend/internal/httpapi/captcha.go:321`
+- [x] `internal/httpapi.nonNil` — `backend/internal/httpapi/dto.go:260`
+- [x] `internal/httpapi.nonNilStringListMap` — `backend/internal/httpapi/dto.go:125`
+- [x] `internal/httpapi.productDTOFromStore` — `backend/internal/httpapi/dto.go:58`
+- [x] `internal/httpapi.optionSchema` *(method)* — `backend/internal/httpapi/product_options.go:13`
+- [x] `internal/httpapi.decorateProduct` *(method)* — `backend/internal/httpapi/dto.go:112`
+- [x] `internal/httpapi.toProduct` *(method)* — `backend/internal/httpapi/dto.go:95`
+- [x] `internal/httpapi.toProducts` *(method)* — `backend/internal/httpapi/dto.go:103`
+- [x] `internal/httpapi.toUser` — `backend/internal/httpapi/dto.go:139`
+- [x] `internal/httpapi.nonNilStringMap` — `backend/internal/httpapi/dto.go:267`
+- [x] `internal/httpapi.toOrderItems` — `backend/internal/httpapi/dto.go:240`
+- [x] `internal/httpapi.toOrder` — `backend/internal/httpapi/dto.go:196`
+- [x] `internal/httpapi.fmtTime` — `backend/internal/httpapi/dto.go:274`
 - [x] `internal/httpapi.problemFields` — `backend/internal/httpapi/respond.go:30`
 - [x] `internal/httpapi.runeLen` — `backend/internal/httpapi/validate.go:13`
-- [ ] `internal/httpapi.handleAdminOrders` *(method)* — `backend/internal/httpapi/handlers_admin.go:19`
-- [ ] `internal/httpapi.writeIntakeError` — `backend/internal/httpapi/respond.go:69`
-- [ ] `internal/httpapi.handleOrderStatus` *(method)* — `backend/internal/httpapi/handlers_admin.go:60`
-- [ ] `internal/httpapi.handleCustomers` *(method)* — `backend/internal/httpapi/handlers_admin.go:93`
-- [ ] `internal/httpapi.handleAdminTeam` *(method)* — `backend/internal/httpapi/handlers_admin.go:127`
-- [ ] `internal/httpapi.handleUpdateTeamRole` *(method)* — `backend/internal/httpapi/handlers_admin.go:149`
-- [ ] `internal/httpapi.knownPreset` — `backend/internal/httpapi/presets.go:7`
-- [ ] `internal/httpapi.handleGetPreferences` *(method)* — `backend/internal/httpapi/handlers_admin.go:220`
-- [ ] `internal/httpapi.handlePutPreferences` *(method)* — `backend/internal/httpapi/handlers_admin.go:233`
-- [ ] `internal/httpapi.handleAdminProducts` *(method)* — `backend/internal/httpapi/handlers_admin_products.go:68`
-- [ ] `internal/httpapi.Error` *(method)* — `backend/internal/httpapi/respond.go:22`
-- [ ] `internal/httpapi.isUniqueViolation` — `backend/internal/httpapi/handlers_auth.go:240`
-- [ ] `internal/httpapi.normalizeProductAttributes` — `backend/internal/httpapi/product_options.go:103`
-- [ ] `internal/httpapi.parseSaleWindow` — `backend/internal/httpapi/handlers_admin_products.go:497`
-- [ ] `internal/httpapi.slugTaken` *(method)* — `backend/internal/httpapi/handlers_admin_products.go:486`
+- [x] `internal/httpapi.handleAdminOrders` *(method)* — `backend/internal/httpapi/handlers_admin.go:19`
+- [x] `internal/httpapi.writeIntakeError` — `backend/internal/httpapi/respond.go:69`
+- [x] `internal/httpapi.handleOrderStatus` *(method)* — `backend/internal/httpapi/handlers_admin.go:60`
+- [x] `internal/httpapi.handleCustomers` *(method)* — `backend/internal/httpapi/handlers_admin.go:93`
+- [x] `internal/httpapi.handleAdminTeam` *(method)* — `backend/internal/httpapi/handlers_admin.go:127`
+- [x] `internal/httpapi.handleUpdateTeamRole` *(method)* — `backend/internal/httpapi/handlers_admin.go:149`
+- [x] `internal/httpapi.knownPreset` — `backend/internal/httpapi/presets.go:7`
+- [x] `internal/httpapi.handleGetPreferences` *(method)* — `backend/internal/httpapi/handlers_admin.go:220`
+- [x] `internal/httpapi.handlePutPreferences` *(method)* — `backend/internal/httpapi/handlers_admin.go:233`
+- [x] `internal/httpapi.handleAdminProducts` *(method)* — `backend/internal/httpapi/handlers_admin_products.go:68`
+- [x] `internal/httpapi.Error` *(method)* — `backend/internal/httpapi/respond.go:22`
+- [x] `internal/httpapi.isUniqueViolation` — `backend/internal/httpapi/handlers_auth.go:240`
+- [x] `internal/httpapi.normalizeProductAttributes` — `backend/internal/httpapi/product_options.go:103`
+- [x] `internal/httpapi.parseSaleWindow` — `backend/internal/httpapi/handlers_admin_products.go:497`
+- [x] `internal/httpapi.slugTaken` *(method)* — `backend/internal/httpapi/handlers_admin_products.go:486`
 - [x] `internal/httpapi.trimAll` — `backend/internal/httpapi/validate.go:83`
 - [x] `internal/httpapi.validSlug` — `backend/internal/httpapi/validate.go:28`
-- [ ] `internal/httpapi.validateProduct` — `backend/internal/httpapi/handlers_admin_products.go:558`
-- [ ] `internal/httpapi.attributeFields` — `backend/internal/httpapi/product_options.go:74`
-- [ ] `internal/httpapi.optionKeyFields` — `backend/internal/httpapi/product_options.go:60`
-- [ ] `internal/httpapi.productOptionFields` — `backend/internal/httpapi/product_options.go:48`
-- [ ] `internal/httpapi.validateProductAttributes` *(method)* — `backend/internal/httpapi/product_options.go:20`
-- [ ] `internal/httpapi.handleCreateProduct` *(method)* — `backend/internal/httpapi/handlers_admin_products.go:80`
-- [ ] `internal/httpapi.hasAny` — `backend/internal/httpapi/handlers_admin_products.go:549`
-- [ ] `internal/httpapi.filterFieldProblems` — `backend/internal/httpapi/handlers_admin_products.go:534`
-- [ ] `internal/httpapi.handleUpdateProduct` *(method)* — `backend/internal/httpapi/handlers_admin_products.go:186`
-- [ ] `internal/httpapi.handleArchiveProduct` *(method)* — `backend/internal/httpapi/handlers_admin_products.go:450`
+- [x] `internal/httpapi.validateProduct` — `backend/internal/httpapi/handlers_admin_products.go:558`
+- [x] `internal/httpapi.attributeFields` — `backend/internal/httpapi/product_options.go:74`
+- [x] `internal/httpapi.optionKeyFields` — `backend/internal/httpapi/product_options.go:60`
+- [x] `internal/httpapi.productOptionFields` — `backend/internal/httpapi/product_options.go:48`
+- [x] `internal/httpapi.validateProductAttributes` *(method)* — `backend/internal/httpapi/product_options.go:20`
+- [x] `internal/httpapi.handleCreateProduct` *(method)* — `backend/internal/httpapi/handlers_admin_products.go:80`
+- [x] `internal/httpapi.hasAny` — `backend/internal/httpapi/handlers_admin_products.go:549`
+- [x] `internal/httpapi.filterFieldProblems` — `backend/internal/httpapi/handlers_admin_products.go:534`
+- [x] `internal/httpapi.handleUpdateProduct` *(method)* — `backend/internal/httpapi/handlers_admin_products.go:186`
+- [x] `internal/httpapi.handleArchiveProduct` *(method)* — `backend/internal/httpapi/handlers_admin_products.go:450`
 - [x] `internal/httpapi.normalizedAlgerianMobile` — `backend/internal/httpapi/validate.go:39`
 - [x] `internal/httpapi.validAlgerianMobile` — `backend/internal/httpapi/validate.go:67`
-- [ ] `internal/httpapi.handleCounterSale` *(method)* — `backend/internal/httpapi/handlers_admin_sales.go:28`
-- [ ] `internal/httpapi.newSession` *(method)* — `backend/internal/httpapi/handlers_auth.go:218`
-- [ ] `internal/httpapi.setSessionCookie` *(method)* — `backend/internal/httpapi/middleware.go:220`
+- [x] `internal/httpapi.handleCounterSale` *(method)* — `backend/internal/httpapi/handlers_admin_sales.go:28`
+- [x] `internal/httpapi.newSession` *(method)* — `backend/internal/httpapi/handlers_auth.go:218`
+- [x] `internal/httpapi.setSessionCookie` *(method)* — `backend/internal/httpapi/middleware.go:220`
 - [x] `internal/httpapi.validEmail` — `backend/internal/httpapi/validate.go:17`
-- [ ] `internal/httpapi.handleRegister` *(method)* — `backend/internal/httpapi/handlers_auth.go:21`
-- [ ] `internal/httpapi.handleLogin` *(method)* — `backend/internal/httpapi/handlers_auth.go:106`
-- [ ] `internal/httpapi.clearSessionCookie` *(method)* — `backend/internal/httpapi/middleware.go:233`
-- [ ] `internal/httpapi.handleLogout` *(method)* — `backend/internal/httpapi/handlers_auth.go:170`
-- [ ] `internal/httpapi.handleMe` *(method)* — `backend/internal/httpapi/handlers_auth.go:181`
-- [ ] `internal/httpapi.handleAccountOrders` *(method)* — `backend/internal/httpapi/handlers_auth.go:191`
-- [ ] `internal/httpapi.handleCategories` *(method)* — `backend/internal/httpapi/handlers_catalog.go:14`
-- [ ] `internal/httpapi.handleProducts` *(method)* — `backend/internal/httpapi/handlers_catalog.go:41`
-- [ ] `internal/httpapi.handleProduct` *(method)* — `backend/internal/httpapi/handlers_catalog.go:66`
-- [ ] `internal/httpapi.optionalUser` *(method)* — `backend/internal/httpapi/middleware.go:318`
-- [ ] `internal/httpapi.resolveDestination` *(method)* — `backend/internal/httpapi/handlers_shipping.go:69`
+- [x] `internal/httpapi.handleRegister` *(method)* — `backend/internal/httpapi/handlers_auth.go:21`
+- [x] `internal/httpapi.handleLogin` *(method)* — `backend/internal/httpapi/handlers_auth.go:106`
+- [x] `internal/httpapi.clearSessionCookie` *(method)* — `backend/internal/httpapi/middleware.go:233`
+- [x] `internal/httpapi.handleLogout` *(method)* — `backend/internal/httpapi/handlers_auth.go:170`
+- [x] `internal/httpapi.handleMe` *(method)* — `backend/internal/httpapi/handlers_auth.go:181`
+- [x] `internal/httpapi.handleAccountOrders` *(method)* — `backend/internal/httpapi/handlers_auth.go:191`
+- [x] `internal/httpapi.handleCategories` *(method)* — `backend/internal/httpapi/handlers_catalog.go:14`
+- [x] `internal/httpapi.handleProducts` *(method)* — `backend/internal/httpapi/handlers_catalog.go:41`
+- [x] `internal/httpapi.handleProduct` *(method)* — `backend/internal/httpapi/handlers_catalog.go:66`
+- [x] `internal/httpapi.optionalUser` *(method)* — `backend/internal/httpapi/middleware.go:318`
+- [x] `internal/httpapi.resolveDestination` *(method)* — `backend/internal/httpapi/handlers_shipping.go:69`
 - [ ] `internal/httpapi.close` *(method)* — `backend/internal/httpapi/ratelimit.go:100`
 - [ ] `internal/httpapi.Close` *(method)* — `backend/internal/httpapi/router.go:86`
-- [ ] `internal/httpapi.verifyTurnstile` — `backend/internal/httpapi/turnstile.go:25`
-- [ ] `internal/httpapi.handleCheckout` *(method)* — `backend/internal/httpapi/handlers_checkout.go:46`
-- [ ] `internal/httpapi.handleOrderByToken` *(method)* — `backend/internal/httpapi/handlers_checkout.go:223`
-- [ ] `internal/httpapi.newCSRFToken` — `backend/internal/httpapi/handlers_client.go:64`
-- [ ] `internal/httpapi.validCSRFToken` — `backend/internal/httpapi/handlers_client.go:72`
-- [ ] `internal/httpapi.handleCSRF` *(method)* — `backend/internal/httpapi/handlers_client.go:20`
-- [ ] `internal/httpapi.handleHealth` *(method)* — `backend/internal/httpapi/handlers_client.go:54`
-- [ ] `internal/httpapi.handlePluginManifests` *(method)* — `backend/internal/httpapi/handlers_framework.go:47`
-- [ ] `internal/httpapi.pluginSettings` *(method)* — `backend/internal/httpapi/handlers_framework.go:307`
-- [ ] `internal/httpapi.adminPluginDTO` *(method)* — `backend/internal/httpapi/handlers_framework.go:76`
-- [ ] `internal/httpapi.handleAdminPlugins` *(method)* — `backend/internal/httpapi/handlers_framework.go:68`
-- [ ] `internal/httpapi.pluginFromPath` *(method)* — `backend/internal/httpapi/handlers_framework.go:299`
-- [ ] `internal/httpapi.pluginNames` *(method)* — `backend/internal/httpapi/handlers_framework.go:177`
-- [ ] `internal/httpapi.handlePluginState` *(method)* — `backend/internal/httpapi/handlers_framework.go:103`
-- [ ] `internal/httpapi.handleGetPluginSettings` *(method)* — `backend/internal/httpapi/handlers_framework.go:190`
-- [ ] `internal/httpapi.changedSettingKeys` — `backend/internal/httpapi/handlers_framework.go:311`
-- [ ] `internal/httpapi.handlePutPluginSettings` *(method)* — `backend/internal/httpapi/handlers_framework.go:220`
-- [ ] `internal/httpapi.walkThemeFields` — `backend/internal/httpapi/handlers_framework.go:329`
-- [ ] `internal/httpapi.changedThemeFields` — `backend/internal/httpapi/handlers_framework.go:322`
-- [ ] `internal/httpapi.loadTheme` *(method)* — `backend/internal/httpapi/handlers_framework.go:353`
-- [ ] `internal/httpapi.handleStorefrontTheme` *(method)* — `backend/internal/httpapi/handlers_framework.go:366`
-- [ ] `internal/httpapi.handleAdminStorefrontTheme` *(method)* — `backend/internal/httpapi/handlers_framework.go:375`
-- [ ] `internal/httpapi.handlePutStorefrontTheme` *(method)* — `backend/internal/httpapi/handlers_framework.go:387`
-- [ ] `internal/httpapi.handleAdminProductImage` *(method)* — `backend/internal/httpapi/handlers_images.go:21`
-- [ ] `internal/httpapi.handleProductImage` *(method)* — `backend/internal/httpapi/handlers_images.go:95`
-- [ ] `internal/httpapi.handleMetrics` *(method)* — `backend/internal/httpapi/handlers_metrics.go:71`
-- [ ] `internal/httpapi.writeDeliveryMapError` *(method)* — `backend/internal/httpapi/handlers_shipping.go:308`
-- [ ] `internal/httpapi.handleShippingWilayas` *(method)* — `backend/internal/httpapi/handlers_shipping.go:27`
-- [ ] `internal/httpapi.parseWilayaCode` — `backend/internal/httpapi/handlers_shipping.go:357`
-- [ ] `internal/httpapi.handleShippingCommunes` *(method)* — `backend/internal/httpapi/handlers_shipping.go:36`
-- [ ] `internal/httpapi.handleShippingDesks` *(method)* — `backend/internal/httpapi/handlers_shipping.go:50`
+- [x] `internal/httpapi.verifyTurnstile` — `backend/internal/httpapi/turnstile.go:25`
+- [x] `internal/httpapi.handleCheckout` *(method)* — `backend/internal/httpapi/handlers_checkout.go:46`
+- [x] `internal/httpapi.handleOrderByToken` *(method)* — `backend/internal/httpapi/handlers_checkout.go:223`
+- [x] `internal/httpapi.newCSRFToken` — `backend/internal/httpapi/handlers_client.go:64`
+- [x] `internal/httpapi.validCSRFToken` — `backend/internal/httpapi/handlers_client.go:72`
+- [x] `internal/httpapi.handleCSRF` *(method)* — `backend/internal/httpapi/handlers_client.go:20`
+- [x] `internal/httpapi.handleHealth` *(method)* — `backend/internal/httpapi/handlers_client.go:54`
+- [x] `internal/httpapi.handlePluginManifests` *(method)* — `backend/internal/httpapi/handlers_framework.go:47`
+- [x] `internal/httpapi.pluginSettings` *(method)* — `backend/internal/httpapi/handlers_framework.go:307`
+- [x] `internal/httpapi.adminPluginDTO` *(method)* — `backend/internal/httpapi/handlers_framework.go:76`
+- [x] `internal/httpapi.handleAdminPlugins` *(method)* — `backend/internal/httpapi/handlers_framework.go:68`
+- [x] `internal/httpapi.pluginFromPath` *(method)* — `backend/internal/httpapi/handlers_framework.go:299`
+- [x] `internal/httpapi.pluginNames` *(method)* — `backend/internal/httpapi/handlers_framework.go:177`
+- [x] `internal/httpapi.handlePluginState` *(method)* — `backend/internal/httpapi/handlers_framework.go:103`
+- [x] `internal/httpapi.handleGetPluginSettings` *(method)* — `backend/internal/httpapi/handlers_framework.go:190`
+- [x] `internal/httpapi.changedSettingKeys` — `backend/internal/httpapi/handlers_framework.go:311`
+- [x] `internal/httpapi.handlePutPluginSettings` *(method)* — `backend/internal/httpapi/handlers_framework.go:220`
+- [x] `internal/httpapi.walkThemeFields` — `backend/internal/httpapi/handlers_framework.go:329`
+- [x] `internal/httpapi.changedThemeFields` — `backend/internal/httpapi/handlers_framework.go:322`
+- [x] `internal/httpapi.loadTheme` *(method)* — `backend/internal/httpapi/handlers_framework.go:353`
+- [x] `internal/httpapi.handleStorefrontTheme` *(method)* — `backend/internal/httpapi/handlers_framework.go:366`
+- [x] `internal/httpapi.handleAdminStorefrontTheme` *(method)* — `backend/internal/httpapi/handlers_framework.go:375`
+- [x] `internal/httpapi.handlePutStorefrontTheme` *(method)* — `backend/internal/httpapi/handlers_framework.go:387`
+- [x] `internal/httpapi.handleAdminProductImage` *(method)* — `backend/internal/httpapi/handlers_images.go:21`
+- [x] `internal/httpapi.handleProductImage` *(method)* — `backend/internal/httpapi/handlers_images.go:95`
+- [x] `internal/httpapi.handleMetrics` *(method)* — `backend/internal/httpapi/handlers_metrics.go:71`
+- [x] `internal/httpapi.writeDeliveryMapError` *(method)* — `backend/internal/httpapi/handlers_shipping.go:308`
+- [x] `internal/httpapi.handleShippingWilayas` *(method)* — `backend/internal/httpapi/handlers_shipping.go:27`
+- [x] `internal/httpapi.parseWilayaCode` — `backend/internal/httpapi/handlers_shipping.go:357`
+- [x] `internal/httpapi.handleShippingCommunes` *(method)* — `backend/internal/httpapi/handlers_shipping.go:36`
+- [x] `internal/httpapi.handleShippingDesks` *(method)* — `backend/internal/httpapi/handlers_shipping.go:50`
 - [x] `internal/httpapi.truncateRunes` — `backend/internal/httpapi/validate.go:72`
-- [ ] `internal/httpapi.writeCourierError` *(method)* — `backend/internal/httpapi/handlers_shipping.go:326`
-- [ ] `internal/httpapi.courierCall` — `backend/internal/httpapi/handlers_shipping.go:316`
-- [ ] `internal/httpapi.currentUserID` — `backend/internal/httpapi/handlers_shipping.go:375`
-- [ ] `internal/httpapi.orderProductList` — `backend/internal/httpapi/handlers_shipping.go:367`
-- [ ] `internal/httpapi.handleCreateShipment` *(method)* — `backend/internal/httpapi/handlers_shipping.go:116`
-- [ ] `internal/httpapi.handleRefreshTracking` *(method)* — `backend/internal/httpapi/handlers_shipping.go:239`
-- [ ] `internal/httpapi.securityHeaders` *(method)* — `backend/internal/httpapi/middleware.go:38`
-- [ ] `internal/httpapi.withRequestID` *(method)* — `backend/internal/httpapi/middleware.go:52`
+- [x] `internal/httpapi.writeCourierError` *(method)* — `backend/internal/httpapi/handlers_shipping.go:326`
+- [x] `internal/httpapi.courierCall` — `backend/internal/httpapi/handlers_shipping.go:316`
+- [x] `internal/httpapi.currentUserID` — `backend/internal/httpapi/handlers_shipping.go:375`
+- [x] `internal/httpapi.orderProductList` — `backend/internal/httpapi/handlers_shipping.go:367`
+- [x] `internal/httpapi.handleCreateShipment` *(method)* — `backend/internal/httpapi/handlers_shipping.go:116`
+- [x] `internal/httpapi.handleRefreshTracking` *(method)* — `backend/internal/httpapi/handlers_shipping.go:239`
+- [x] `internal/httpapi.securityHeaders` *(method)* — `backend/internal/httpapi/middleware.go:38`
+- [x] `internal/httpapi.withRequestID` *(method)* — `backend/internal/httpapi/middleware.go:52`
 - [ ] `internal/httpapi.redactedPath` — `backend/internal/httpapi/middleware.go:113`
 - [ ] `internal/httpapi.logRequests` *(method)* — `backend/internal/httpapi/middleware.go:90`
 - [ ] `internal/httpapi.recoverPanic` *(method)* — `backend/internal/httpapi/middleware.go:120`
-- [ ] `internal/httpapi.limitBody` *(method)* — `backend/internal/httpapi/middleware.go:139`
-- [ ] `internal/httpapi.requireChallengeHeader` *(method)* — `backend/internal/httpapi/middleware.go:152`
-- [ ] `internal/httpapi.isLocalDevelopmentOrigin` — `backend/internal/httpapi/middleware.go:207`
-- [ ] `internal/httpapi.enforceCSRF` *(method)* — `backend/internal/httpapi/middleware.go:169`
-- [ ] `internal/httpapi.requireUser` *(method)* — `backend/internal/httpapi/middleware.go:246`
-- [ ] `internal/httpapi.requireAdmin` *(method)* — `backend/internal/httpapi/middleware.go:279`
-- [ ] `internal/httpapi.requireStaff` *(method)* — `backend/internal/httpapi/middleware.go:296`
-- [ ] `internal/httpapi.adminMutationLimit` *(method)* — `backend/internal/httpapi/ratelimit.go:122`
+- [x] `internal/httpapi.limitBody` *(method)* — `backend/internal/httpapi/middleware.go:139`
+- [x] `internal/httpapi.requireChallengeHeader` *(method)* — `backend/internal/httpapi/middleware.go:152`
+- [x] `internal/httpapi.isLocalDevelopmentOrigin` — `backend/internal/httpapi/middleware.go:207`
+- [x] `internal/httpapi.enforceCSRF` *(method)* — `backend/internal/httpapi/middleware.go:169`
+- [x] `internal/httpapi.requireUser` *(method)* — `backend/internal/httpapi/middleware.go:246`
+- [x] `internal/httpapi.requireAdmin` *(method)* — `backend/internal/httpapi/middleware.go:279`
+- [x] `internal/httpapi.requireStaff` *(method)* — `backend/internal/httpapi/middleware.go:296`
+- [x] `internal/httpapi.adminMutationLimit` *(method)* — `backend/internal/httpapi/ratelimit.go:122`
 - [x] `internal/httpapi.decodeJSON` — `backend/internal/httpapi/respond.go:78`
 - [x] `internal/httpapi.validPhone` — `backend/internal/httpapi/validate.go:32`
 
@@ -696,53 +696,53 @@ Differences are only acceptable when behaviour is unobservable at the HTTP/API b
 
 ### `internal/plugins/oils` (3 functions)
 
-- [ ] `internal/plugins/oils.New` — `backend/internal/plugins/oils/oils.go:14`
-- [ ] `internal/plugins/oils.Manifest` *(method)* — `backend/internal/plugins/oils/oils.go:18`
-- [ ] `internal/plugins/oils.Routes` *(method)* — `backend/internal/plugins/oils/oils.go:69`
+- [x] `internal/plugins/oils.New` — `backend/internal/plugins/oils/oils.go:14`
+- [x] `internal/plugins/oils.Manifest` *(method)* — `backend/internal/plugins/oils/oils.go:18`
+- [x] `internal/plugins/oils.Routes` *(method)* — `backend/internal/plugins/oils/oils.go:69`
 
 ### `internal/plugins/pcparts` (3 functions)
 
-- [ ] `internal/plugins/pcparts.New` — `backend/internal/plugins/pcparts/pcparts.go:17`
-- [ ] `internal/plugins/pcparts.Manifest` *(method)* — `backend/internal/plugins/pcparts/pcparts.go:21`
-- [ ] `internal/plugins/pcparts.Routes` *(method)* — `backend/internal/plugins/pcparts/pcparts.go:150`
+- [x] `internal/plugins/pcparts.New` — `backend/internal/plugins/pcparts/pcparts.go:17`
+- [x] `internal/plugins/pcparts.Manifest` *(method)* — `backend/internal/plugins/pcparts/pcparts.go:21`
+- [x] `internal/plugins/pcparts.Routes` *(method)* — `backend/internal/plugins/pcparts/pcparts.go:150`
 
 ### `internal/plugins/pcbuilder` (6 functions)
 
 - [x] `internal/plugins/pcbuilder.toPartsProduct` — `backend/internal/plugins/pcbuilder/parts.go:150`
 - [x] `internal/plugins/pcbuilder.buildPartsResponse` — `backend/internal/plugins/pcbuilder/parts.go:92`
-- [ ] `internal/plugins/pcbuilder.handleParts` *(method)* — `backend/internal/plugins/pcbuilder/parts.go:54`
+- [x] `internal/plugins/pcbuilder.handleParts` *(method)* — `backend/internal/plugins/pcbuilder/parts.go:54`
 - [x] `internal/plugins/pcbuilder.New` — `backend/internal/plugins/pcbuilder/pcbuilder.go:18`
 - [x] `internal/plugins/pcbuilder.Manifest` *(method)* — `backend/internal/plugins/pcbuilder/pcbuilder.go:22`
 - [x] `internal/plugins/pcbuilder.Routes` *(method)* — `backend/internal/plugins/pcbuilder/pcbuilder.go:36`
 
 ### `internal/plugins/phone` (26 functions)
 
-- [ ] `internal/plugins/phone.countDevices` *(method)* — `backend/internal/plugins/phone/devices.go:250`
-- [ ] `internal/plugins/phone.phoneProductProblem` — `backend/internal/plugins/phone/devices.go:304`
-- [ ] `internal/plugins/phone.VariantLabel` — `backend/internal/plugins/phone/variant.go:28`
-- [ ] `internal/plugins/phone.scanDevice` — `backend/internal/plugins/phone/devices.go:266`
-- [ ] `internal/plugins/phone.queryDevices` *(method)* — `backend/internal/plugins/phone/devices.go:232`
-- [ ] `internal/plugins/phone.writeInternal` — `backend/internal/plugins/phone/devices.go:309`
-- [ ] `internal/plugins/phone.handleListDevices` *(method)* — `backend/internal/plugins/phone/devices.go:56`
-- [ ] `internal/plugins/phone.New` — `backend/internal/plugins/phone/phone.go:52`
-- [ ] `internal/plugins/phone.ValidIMEI` — `backend/internal/plugins/phone/variant.go:40`
-- [ ] `internal/plugins/phone.VariantKey` — `backend/internal/plugins/phone/variant.go:17`
-- [ ] `internal/plugins/phone.allowedOption` — `backend/internal/plugins/phone/variant.go:61`
-- [ ] `internal/plugins/phone.imeiExists` *(method)* — `backend/internal/plugins/phone/devices.go:294`
-- [ ] `internal/plugins/phone.syncProductStock` *(method)* — `backend/internal/plugins/phone/devices.go:284`
-- [ ] `internal/plugins/phone.handleCreateDevice` *(method)* — `backend/internal/plugins/phone/devices.go:91`
-- [ ] `internal/plugins/phone.handleDeleteDevice` *(method)* — `backend/internal/plugins/phone/devices.go:174`
-- [ ] `internal/plugins/phone.handleOrderDevices` *(method)* — `backend/internal/plugins/phone/devices.go:219`
-- [ ] `internal/plugins/phone.ValidateCheckoutLine` *(method)* — `backend/internal/plugins/phone/hooks.go:15`
-- [ ] `internal/plugins/phone.OnOrderCreated` *(method)* — `backend/internal/plugins/phone/hooks.go:51`
-- [ ] `internal/plugins/phone.OnOrderStatusChanged` *(method)* — `backend/internal/plugins/phone/hooks.go:96`
-- [ ] `internal/plugins/phone.EnrichProduct` *(method)* — `backend/internal/plugins/phone/hooks.go:120`
-- [ ] `internal/plugins/phone.legacyConfigs` — `backend/internal/plugins/phone/phone.go:142`
-- [ ] `internal/plugins/phone.repairLegacyAttributes` *(method)* — `backend/internal/plugins/phone/phone.go:82`
-- [ ] `internal/plugins/phone.Init` *(method)* — `backend/internal/plugins/phone/phone.go:56`
-- [ ] `internal/plugins/phone.Manifest` *(method)* — `backend/internal/plugins/phone/phone.go:159`
-- [ ] `internal/plugins/phone.Routes` *(method)* — `backend/internal/plugins/phone/phone.go:195`
-- [ ] `internal/plugins/phone.Migrations` *(method)* — `backend/internal/plugins/phone/phone.go:204`
+- [x] `internal/plugins/phone.countDevices` *(method)* — `backend/internal/plugins/phone/devices.go:250`
+- [x] `internal/plugins/phone.phoneProductProblem` — `backend/internal/plugins/phone/devices.go:304`
+- [x] `internal/plugins/phone.VariantLabel` — `backend/internal/plugins/phone/variant.go:28`
+- [x] `internal/plugins/phone.scanDevice` — `backend/internal/plugins/phone/devices.go:266`
+- [x] `internal/plugins/phone.queryDevices` *(method)* — `backend/internal/plugins/phone/devices.go:232`
+- [x] `internal/plugins/phone.writeInternal` — `backend/internal/plugins/phone/devices.go:309`
+- [x] `internal/plugins/phone.handleListDevices` *(method)* — `backend/internal/plugins/phone/devices.go:56`
+- [x] `internal/plugins/phone.New` — `backend/internal/plugins/phone/phone.go:52`
+- [x] `internal/plugins/phone.ValidIMEI` — `backend/internal/plugins/phone/variant.go:40`
+- [x] `internal/plugins/phone.VariantKey` — `backend/internal/plugins/phone/variant.go:17`
+- [x] `internal/plugins/phone.allowedOption` — `backend/internal/plugins/phone/variant.go:61`
+- [x] `internal/plugins/phone.imeiExists` *(method)* — `backend/internal/plugins/phone/devices.go:294`
+- [x] `internal/plugins/phone.syncProductStock` *(method)* — `backend/internal/plugins/phone/devices.go:284`
+- [x] `internal/plugins/phone.handleCreateDevice` *(method)* — `backend/internal/plugins/phone/devices.go:91`
+- [x] `internal/plugins/phone.handleDeleteDevice` *(method)* — `backend/internal/plugins/phone/devices.go:174`
+- [x] `internal/plugins/phone.handleOrderDevices` *(method)* — `backend/internal/plugins/phone/devices.go:219`
+- [x] `internal/plugins/phone.ValidateCheckoutLine` *(method)* — `backend/internal/plugins/phone/hooks.go:15`
+- [x] `internal/plugins/phone.OnOrderCreated` *(method)* — `backend/internal/plugins/phone/hooks.go:51`
+- [x] `internal/plugins/phone.OnOrderStatusChanged` *(method)* — `backend/internal/plugins/phone/hooks.go:96`
+- [x] `internal/plugins/phone.EnrichProduct` *(method)* — `backend/internal/plugins/phone/hooks.go:120`
+- [x] `internal/plugins/phone.legacyConfigs` — `backend/internal/plugins/phone/phone.go:142`
+- [x] `internal/plugins/phone.repairLegacyAttributes` *(method)* — `backend/internal/plugins/phone/phone.go:82`
+- [x] `internal/plugins/phone.Init` *(method)* — `backend/internal/plugins/phone/phone.go:56`
+- [x] `internal/plugins/phone.Manifest` *(method)* — `backend/internal/plugins/phone/phone.go:159`
+- [x] `internal/plugins/phone.Routes` *(method)* — `backend/internal/plugins/phone/phone.go:195`
+- [x] `internal/plugins/phone.Migrations` *(method)* — `backend/internal/plugins/phone/phone.go:204`
 
 ### `internal/seed` (5 functions)
 
@@ -754,7 +754,7 @@ Differences are only acceptable when behaviour is unobservable at the HTTP/API b
 
 ### `cmd/api` (1 functions)
 
-- [ ] `cmd/api.main` — `backend/cmd/api/main.go:29`
+- [x] `cmd/api.main` — `backend/cmd/api/main.go:29`
 
 ### `cmd/oracle-ids-auth` (2 functions)
 

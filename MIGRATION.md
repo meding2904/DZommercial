@@ -777,92 +777,92 @@ Differences are only acceptable when behaviour is unobservable at the HTTP/API b
 
 ### `desktop/internal/api` (86 functions)
 
-- [ ] `desktop/internal/api.envEnabled` — `desktop/internal/api/session.go:231`
-- [ ] `desktop/internal/api.canonicalOrigin` — `desktop/internal/api/urls.go:160`
-- [ ] `desktop/internal/api.containsControl` — `desktop/internal/api/urls.go:211`
-- [ ] `desktop/internal/api.newError` — `desktop/internal/api/types.go:72`
-- [ ] `desktop/internal/api.validationError` — `desktop/internal/api/types.go:81`
-- [ ] `desktop/internal/api.invalidAPIURL` — `desktop/internal/api/urls.go:70`
-- [ ] `desktop/internal/api.normalizeAPIURL` — `desktop/internal/api/urls.go:15`
-- [ ] `desktop/internal/api.sessionScope` — `desktop/internal/api/session.go:98`
-- [ ] `desktop/internal/api.defaultSecretStore` — `desktop/internal/api/session.go:214`
-- [ ] `desktop/internal/api.deviceHash` — `desktop/internal/api/client.go:104`
-- [ ] `desktop/internal/api.Load` *(method)* — `desktop/internal/api/session.go:43`
-- [ ] `desktop/internal/api.validCookieValue` — `desktop/internal/api/session.go:263`
-- [ ] `desktop/internal/api.Load` *(method)* — `desktop/internal/api/session.go:114`
-- [ ] `desktop/internal/api.Load` *(method)* — `desktop/internal/api/session.go:153`
-- [ ] `desktop/internal/api.Load` *(method)* — `desktop/internal/api/session.go:184`
-- [ ] `desktop/internal/api.loadSession` *(method)* — `desktop/internal/api/session.go:276`
-- [ ] `desktop/internal/api.normalizeHost` — `desktop/internal/api/urls.go:119`
-- [ ] `desktop/internal/api.parseHostIP` — `desktop/internal/api/urls.go:153`
-- [ ] `desktop/internal/api.isLoopbackHost` — `desktop/internal/api/urls.go:130`
-- [ ] `desktop/internal/api.isLocalHost` — `desktop/internal/api/urls.go:139`
-- [ ] `desktop/internal/api.validateTransportAddress` — `desktop/internal/api/urls.go:123`
-- [ ] `desktop/internal/api.apiHost` — `desktop/internal/api/urls.go:83`
-- [ ] `desktop/internal/api.decodeSetting` — `desktop/internal/api/client.go:204`
-- [ ] `desktop/internal/api.loadLegacySettings` — `desktop/internal/api/client.go:184`
-- [ ] `desktop/internal/api.invalidOrigin` — `desktop/internal/api/urls.go:74`
-- [ ] `desktop/internal/api.normalizeOrigin` — `desktop/internal/api/urls.go:45`
-- [ ] `desktop/internal/api.writePrivateFile` — `desktop/internal/api/session.go:390`
-- [ ] `desktop/internal/api.saveSettings` *(method)* — `desktop/internal/api/client.go:212`
-- [ ] `desktop/internal/api.loadSettings` *(method)* — `desktop/internal/api/client.go:109`
-- [ ] `desktop/internal/api.newClientWithStoreFactory` — `desktop/internal/api/client.go:60`
-- [ ] `desktop/internal/api.NewClient` — `desktop/internal/api/client.go:47`
-- [ ] `desktop/internal/api.newClientWithSecrets` — `desktop/internal/api/client.go:54`
-- [ ] `desktop/internal/api.settingsConsentAllowed` — `desktop/internal/api/urls.go:111`
-- [ ] `desktop/internal/api.Info` *(method)* — `desktop/internal/api/client.go:220`
-- [ ] `desktop/internal/api.clearImageCacheLocked` *(method)* — `desktop/internal/api/client.go:394`
-- [ ] `desktop/internal/api.networkConsentError` — `desktop/internal/api/urls.go:252`
-- [ ] `desktop/internal/api.consentHostForUpdate` — `desktop/internal/api/urls.go:94`
-- [ ] `desktop/internal/api.Delete` *(method)* — `desktop/internal/api/session.go:80`
-- [ ] `desktop/internal/api.Delete` *(method)* — `desktop/internal/api/session.go:141`
-- [ ] `desktop/internal/api.Delete` *(method)* — `desktop/internal/api/session.go:171`
-- [ ] `desktop/internal/api.Delete` *(method)* — `desktop/internal/api/session.go:203`
-- [ ] `desktop/internal/api.deleteStoredSession` *(method)* — `desktop/internal/api/session.go:344`
-- [ ] `desktop/internal/api.cookieFromSetCookie` — `desktop/internal/api/session.go:249`
-- [ ] `desktop/internal/api.Save` *(method)* — `desktop/internal/api/session.go:62`
-- [ ] `desktop/internal/api.Save` *(method)* — `desktop/internal/api/session.go:133`
-- [ ] `desktop/internal/api.Save` *(method)* — `desktop/internal/api/session.go:167`
-- [ ] `desktop/internal/api.Save` *(method)* — `desktop/internal/api/session.go:193`
-- [ ] `desktop/internal/api.persistSession` *(method)* — `desktop/internal/api/session.go:326`
-- [ ] `desktop/internal/api.absorbCookies` *(method)* — `desktop/internal/api/session.go:289`
-- [ ] `desktop/internal/api.isTimeout` — `desktop/internal/api/request.go:352`
-- [ ] `desktop/internal/api.networkFailure` — `desktop/internal/api/request.go:344`
-- [ ] `desktop/internal/api.active` *(method)* — `desktop/internal/api/session.go:245`
-- [ ] `desktop/internal/api.requestHeadersLocked` *(method)* — `desktop/internal/api/request.go:213`
-- [ ] `desktop/internal/api.responseTooLarge` — `desktop/internal/api/request.go:336`
-- [ ] `desktop/internal/api.settingsChangedError` — `desktop/internal/api/request.go:340`
-- [ ] `desktop/internal/api.execute` *(method)* — `desktop/internal/api/request.go:168`
-- [ ] `desktop/internal/api.invalidPath` — `desktop/internal/api/urls.go:207`
-- [ ] `desktop/internal/api.validateAPIPath` — `desktop/internal/api/urls.go:171`
-- [ ] `desktop/internal/api.targetURL` *(method)* — `desktop/internal/api/urls.go:220`
-- [ ] `desktop/internal/api.Health` *(method)* — `desktop/internal/api/health.go:39`
-- [ ] `desktop/internal/api.resolveOrigin` *(method)* — `desktop/internal/api/client.go:361`
-- [ ] `desktop/internal/api.settingsResult` *(method)* — `desktop/internal/api/client.go:314`
-- [ ] `desktop/internal/api.UpdateSettings` *(method)* — `desktop/internal/api/client.go:239`
-- [ ] `desktop/internal/api.WindowBounds` *(method)* — `desktop/internal/api/client.go:333`
-- [ ] `desktop/internal/api.SaveWindowBounds` *(method)* — `desktop/internal/api/client.go:347`
-- [ ] `desktop/internal/api.firewallGuide` — `desktop/internal/api/firewall.go:9`
-- [ ] `desktop/internal/api.FirewallGuide` *(method)* — `desktop/internal/api/firewall.go:5`
-- [ ] `desktop/internal/api.ensureOrigin` *(method)* — `desktop/internal/api/health.go:8`
-- [ ] `desktop/internal/api.invalidImage` — `desktop/internal/api/image.go:109`
-- [ ] `desktop/internal/api.storeImage` *(method)* — `desktop/internal/api/image.go:77`
-- [ ] `desktop/internal/api.image` *(method)* — `desktop/internal/api/image.go:32`
-- [ ] `desktop/internal/api.Image` *(method)* — `desktop/internal/api/image.go:24`
-- [ ] `desktop/internal/api.isCSRFEndpoint` — `desktop/internal/api/request.go:60`
-- [ ] `desktop/internal/api.clearCSRF` *(method)* — `desktop/internal/api/session.go:373`
-- [ ] `desktop/internal/api.decodeJSON` — `desktop/internal/api/request.go:325`
-- [ ] `desktop/internal/api.encodeRequestBody` — `desktop/internal/api/request.go:151`
-- [ ] `desktop/internal/api.activeCSRF` *(method)* — `desktop/internal/api/session.go:353`
-- [ ] `desktop/internal/api.storeCSRF` *(method)* — `desktop/internal/api/session.go:362`
-- [ ] `desktop/internal/api.ensureCSRF` *(method)* — `desktop/internal/api/request.go:247`
-- [ ] `desktop/internal/api.errorCode` — `desktop/internal/api/request.go:313`
-- [ ] `desktop/internal/api.errorFromResult` — `desktop/internal/api/request.go:287`
-- [ ] `desktop/internal/api.request` *(method)* — `desktop/internal/api/request.go:75`
-- [ ] `desktop/internal/api.Request` *(method)* — `desktop/internal/api/request.go:49`
-- [ ] `desktop/internal/api.ClearSession` *(method)* — `desktop/internal/api/session.go:379`
-- [ ] `desktop/internal/api.Error` *(method)* — `desktop/internal/api/types.go:43`
-- [ ] `desktop/internal/api.validateServerAddress` — `desktop/internal/api/urls.go:78`
+- [x] `desktop/internal/api.envEnabled` — `desktop/internal/api/session.go:231`
+- [x] `desktop/internal/api.canonicalOrigin` — `desktop/internal/api/urls.go:160`
+- [x] `desktop/internal/api.containsControl` — `desktop/internal/api/urls.go:211`
+- [x] `desktop/internal/api.newError` — `desktop/internal/api/types.go:72`
+- [x] `desktop/internal/api.validationError` — `desktop/internal/api/types.go:81`
+- [x] `desktop/internal/api.invalidAPIURL` — `desktop/internal/api/urls.go:70`
+- [x] `desktop/internal/api.normalizeAPIURL` — `desktop/internal/api/urls.go:15`
+- [x] `desktop/internal/api.sessionScope` — `desktop/internal/api/session.go:98`
+- [x] `desktop/internal/api.defaultSecretStore` — `desktop/internal/api/session.go:214`
+- [x] `desktop/internal/api.deviceHash` — `desktop/internal/api/client.go:104`
+- [x] `desktop/internal/api.Load` *(method)* — `desktop/internal/api/session.go:43`
+- [x] `desktop/internal/api.validCookieValue` — `desktop/internal/api/session.go:263`
+- [x] `desktop/internal/api.Load` *(method)* — `desktop/internal/api/session.go:114`
+- [x] `desktop/internal/api.Load` *(method)* — `desktop/internal/api/session.go:153`
+- [x] `desktop/internal/api.Load` *(method)* — `desktop/internal/api/session.go:184`
+- [x] `desktop/internal/api.loadSession` *(method)* — `desktop/internal/api/session.go:276`
+- [x] `desktop/internal/api.normalizeHost` — `desktop/internal/api/urls.go:119`
+- [x] `desktop/internal/api.parseHostIP` — `desktop/internal/api/urls.go:153`
+- [x] `desktop/internal/api.isLoopbackHost` — `desktop/internal/api/urls.go:130`
+- [x] `desktop/internal/api.isLocalHost` — `desktop/internal/api/urls.go:139`
+- [x] `desktop/internal/api.validateTransportAddress` — `desktop/internal/api/urls.go:123`
+- [x] `desktop/internal/api.apiHost` — `desktop/internal/api/urls.go:83`
+- [x] `desktop/internal/api.decodeSetting` — `desktop/internal/api/client.go:204`
+- [x] `desktop/internal/api.loadLegacySettings` — `desktop/internal/api/client.go:184`
+- [x] `desktop/internal/api.invalidOrigin` — `desktop/internal/api/urls.go:74`
+- [x] `desktop/internal/api.normalizeOrigin` — `desktop/internal/api/urls.go:45`
+- [x] `desktop/internal/api.writePrivateFile` — `desktop/internal/api/session.go:390`
+- [x] `desktop/internal/api.saveSettings` *(method)* — `desktop/internal/api/client.go:212`
+- [x] `desktop/internal/api.loadSettings` *(method)* — `desktop/internal/api/client.go:109`
+- [x] `desktop/internal/api.newClientWithStoreFactory` — `desktop/internal/api/client.go:60`
+- [x] `desktop/internal/api.NewClient` — `desktop/internal/api/client.go:47`
+- [x] `desktop/internal/api.newClientWithSecrets` — `desktop/internal/api/client.go:54`
+- [x] `desktop/internal/api.settingsConsentAllowed` — `desktop/internal/api/urls.go:111`
+- [x] `desktop/internal/api.Info` *(method)* — `desktop/internal/api/client.go:220`
+- [x] `desktop/internal/api.clearImageCacheLocked` *(method)* — `desktop/internal/api/client.go:394`
+- [x] `desktop/internal/api.networkConsentError` — `desktop/internal/api/urls.go:252`
+- [x] `desktop/internal/api.consentHostForUpdate` — `desktop/internal/api/urls.go:94`
+- [x] `desktop/internal/api.Delete` *(method)* — `desktop/internal/api/session.go:80`
+- [x] `desktop/internal/api.Delete` *(method)* — `desktop/internal/api/session.go:141`
+- [x] `desktop/internal/api.Delete` *(method)* — `desktop/internal/api/session.go:171`
+- [x] `desktop/internal/api.Delete` *(method)* — `desktop/internal/api/session.go:203`
+- [x] `desktop/internal/api.deleteStoredSession` *(method)* — `desktop/internal/api/session.go:344`
+- [x] `desktop/internal/api.cookieFromSetCookie` — `desktop/internal/api/session.go:249`
+- [x] `desktop/internal/api.Save` *(method)* — `desktop/internal/api/session.go:62`
+- [x] `desktop/internal/api.Save` *(method)* — `desktop/internal/api/session.go:133`
+- [x] `desktop/internal/api.Save` *(method)* — `desktop/internal/api/session.go:167`
+- [x] `desktop/internal/api.Save` *(method)* — `desktop/internal/api/session.go:193`
+- [x] `desktop/internal/api.persistSession` *(method)* — `desktop/internal/api/session.go:326`
+- [x] `desktop/internal/api.absorbCookies` *(method)* — `desktop/internal/api/session.go:289`
+- [x] `desktop/internal/api.isTimeout` — `desktop/internal/api/request.go:352`
+- [x] `desktop/internal/api.networkFailure` — `desktop/internal/api/request.go:344`
+- [x] `desktop/internal/api.active` *(method)* — `desktop/internal/api/session.go:245`
+- [x] `desktop/internal/api.requestHeadersLocked` *(method)* — `desktop/internal/api/request.go:213`
+- [x] `desktop/internal/api.responseTooLarge` — `desktop/internal/api/request.go:336`
+- [x] `desktop/internal/api.settingsChangedError` — `desktop/internal/api/request.go:340`
+- [x] `desktop/internal/api.execute` *(method)* — `desktop/internal/api/request.go:168`
+- [x] `desktop/internal/api.invalidPath` — `desktop/internal/api/urls.go:207`
+- [x] `desktop/internal/api.validateAPIPath` — `desktop/internal/api/urls.go:171`
+- [x] `desktop/internal/api.targetURL` *(method)* — `desktop/internal/api/urls.go:220`
+- [x] `desktop/internal/api.Health` *(method)* — `desktop/internal/api/health.go:39`
+- [x] `desktop/internal/api.resolveOrigin` *(method)* — `desktop/internal/api/client.go:361`
+- [x] `desktop/internal/api.settingsResult` *(method)* — `desktop/internal/api/client.go:314`
+- [x] `desktop/internal/api.UpdateSettings` *(method)* — `desktop/internal/api/client.go:239`
+- [x] `desktop/internal/api.WindowBounds` *(method)* — `desktop/internal/api/client.go:333`
+- [x] `desktop/internal/api.SaveWindowBounds` *(method)* — `desktop/internal/api/client.go:347`
+- [x] `desktop/internal/api.firewallGuide` — `desktop/internal/api/firewall.go:9`
+- [x] `desktop/internal/api.FirewallGuide` *(method)* — `desktop/internal/api/firewall.go:5`
+- [x] `desktop/internal/api.ensureOrigin` *(method)* — `desktop/internal/api/health.go:8`
+- [x] `desktop/internal/api.invalidImage` — `desktop/internal/api/image.go:109`
+- [x] `desktop/internal/api.storeImage` *(method)* — `desktop/internal/api/image.go:77`
+- [x] `desktop/internal/api.image` *(method)* — `desktop/internal/api/image.go:32`
+- [x] `desktop/internal/api.Image` *(method)* — `desktop/internal/api/image.go:24`
+- [x] `desktop/internal/api.isCSRFEndpoint` — `desktop/internal/api/request.go:60`
+- [x] `desktop/internal/api.clearCSRF` *(method)* — `desktop/internal/api/session.go:373`
+- [x] `desktop/internal/api.decodeJSON` — `desktop/internal/api/request.go:325`
+- [x] `desktop/internal/api.encodeRequestBody` — `desktop/internal/api/request.go:151`
+- [x] `desktop/internal/api.activeCSRF` *(method)* — `desktop/internal/api/session.go:353`
+- [x] `desktop/internal/api.storeCSRF` *(method)* — `desktop/internal/api/session.go:362`
+- [x] `desktop/internal/api.ensureCSRF` *(method)* — `desktop/internal/api/request.go:247`
+- [x] `desktop/internal/api.errorCode` — `desktop/internal/api/request.go:313`
+- [x] `desktop/internal/api.errorFromResult` — `desktop/internal/api/request.go:287`
+- [x] `desktop/internal/api.request` *(method)* — `desktop/internal/api/request.go:75`
+- [x] `desktop/internal/api.Request` *(method)* — `desktop/internal/api/request.go:49`
+- [x] `desktop/internal/api.ClearSession` *(method)* — `desktop/internal/api/session.go:379`
+- [x] `desktop/internal/api.Error` *(method)* — `desktop/internal/api/types.go:43`
+- [x] `desktop/internal/api.validateServerAddress` — `desktop/internal/api/urls.go:78`
 
 ### `desktop` (19 functions)
 

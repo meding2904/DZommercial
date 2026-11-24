@@ -1,0 +1,22 @@
+[package]
+name = "azahar-desktop-api"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Desktop API client, session, settings and image layer for the Azahar admin app"
+
+[dependencies]
+base64.workspace = true
+cookie = "0.18.3"
+hex.workspace = true
+keyring = "4.2.0"
+reqwest = { version = "0.12.28", default-features = false, features = ["blocking", "rustls-tls"] }
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+url.workspace = true
+
+[dev-dependencies]
+tempfile = "3"
+tokio.workspace = true

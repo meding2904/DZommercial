@@ -17,8 +17,9 @@ outputs, by a database differential, or by an HTTP-level differential.
 - Live Go-vs-Rust HTTP diff (`scripts/httpdiff/httpdiff.py --group all`) matches
   every case: health, CSRF, auth, catalogue, product, theme, shipping,
   order-by-token, account orders, admin reads/mutations, plugin manifests and
-  settings, AI runs, code-mode plans, phone devices and checkout
-  validation/challenge.
+  settings, AI runs, code-mode plans, phone devices, checkout
+  validation/challenge and a successful 201 checkout driven through the
+  deterministic-captcha oracle seam.
 
 ## Packages
 
@@ -116,9 +117,9 @@ Recorded in `MIGRATION.md`:
   Secret Service integration is not covered by the differential.
 - Desktop TLS roots use rustls/webpki rather than Go's OS trust store, and gzip
   negotiation is not enabled; enterprise CAs or gzip-only servers can differ.
-- Checkout success is covered by 39 unit/integration tests against a local
-  database, but the live HTTP diff only compares validation and challenge
-  responses because captcha codes are server-local.
+- Checkout success is covered by 39 unit/integration tests and by the live HTTP
+  diff through the deterministic-captcha seam; the seam exists only when
+  `AZAHAR_TEST_CAPTCHA_CODE` is set.
 - Phone device writes start their own transaction on the shared connection
   instead of taking the store's single-writer lock. Admin device edits are rare,
   but this should be folded into `begin_write` before using the phone API under

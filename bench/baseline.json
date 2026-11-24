@@ -1,68 +1,70 @@
 {
   "label": "go-oracle",
-  "generated_at": "2026-11-24T16:56:38Z",
+  "generated_at": "2026-11-24T18:19:24Z",
   "binary": {
-    "path": "/tmp/azahar-api",
+    "path": "/tmp/azahar-go-diff",
     "bytes": 14713389
   },
   "server": {
-    "startup_seconds": 0.102,
-    "peak_rss_after_reads_kb": 105728,
-    "peak_rss_after_reads_mb": 103.2,
-    "peak_rss_kb": 566980,
-    "peak_rss_mb": 553.7
+    "startup_seconds": 0.254,
+    "peak_rss_after_reads_kb": 102416,
+    "peak_rss_after_reads_mb": 100.0,
+    "peak_rss_kb": 554932,
+    "peak_rss_mb": 541.9
   },
   "load": {
     "read_mix": {
       "workers": 16,
       "requests": 2400,
-      "elapsed_seconds": 0.388,
-      "throughput_rps": 6190.8,
+      "elapsed_seconds": 0.402,
+      "throughput_rps": 5963.8,
       "latency_ms": {
-        "p50": 2.441,
-        "p95": 4.159,
-        "p99": 4.918,
-        "mean": 2.532,
-        "max": 6.268
+        "p50": 2.505,
+        "p95": 4.29,
+        "p99": 5.288,
+        "mean": 2.624,
+        "max": 6.573
       },
       "status_counts": {
         "200": 2400
       },
       "errors": 0,
-      "error_sample": []
+      "error_sample": [],
+      "all_succeeded": true
     },
     "login_flow": {
       "workers": 4,
-      "requests": 24,
-      "elapsed_seconds": 0.769,
-      "throughput_rps": 31.21,
+      "requests": 40,
+      "elapsed_seconds": 2.755,
+      "throughput_rps": 14.52,
       "latency_ms": {
-        "p50": 123.077,
-        "p95": 153.056,
-        "p99": 164.815,
-        "mean": 124.148,
-        "max": 164.815
+        "p50": 160.394,
+        "p95": 657.818,
+        "p99": 827.357,
+        "mean": 261.71,
+        "max": 827.357
       },
       "outcomes": {
-        "ok": 24
-      }
+        "ok": 40
+      },
+      "all_succeeded": true
     }
   },
   "hyperfine": {
     "health": {
       "command": "curl -fsS -o /dev/null http://127.0.0.1:18080/api/health",
       "runs": 10,
-      "mean_seconds": 0.0039,
-      "median_seconds": 0.0037,
-      "stddev_seconds": 0.0005,
-      "min_seconds": 0.0034,
-      "max_seconds": 0.0048
+      "mean_seconds": 0.0043,
+      "median_seconds": 0.0043,
+      "stddev_seconds": 0.0004,
+      "min_seconds": 0.0039,
+      "max_seconds": 0.0053
     }
   },
   "environment": {
     "workers": 16,
     "requests": 2400,
-    "login_requests": 24,
+    "login_requests": 40,
     "database": "http://127.0.0.1:8880"
   }
 }

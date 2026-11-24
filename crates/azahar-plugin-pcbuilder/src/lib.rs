@@ -6,7 +6,7 @@
 use std::collections::HashMap;
 
 use azahar_plugins::{Manifest, Migration, Plugin as PluginTrait, Route, StorefrontPage};
-use azahar_store::{format_optional_time, Category, Product};
+use azahar_store::{Category, Product, format_optional_time};
 use chrono::Utc;
 use serde::Serialize;
 
@@ -27,7 +27,9 @@ impl PluginTrait for Plugin {
             name: "PC builder".to_string(),
             version: "1.0.0".to_string(),
             author: "Azahar".to_string(),
-            description: "Lets a customer choose compatible PC parts and add the whole build to the bag.".to_string(),
+            description:
+                "Lets a customer choose compatible PC parts and add the whole build to the bag."
+                    .to_string(),
             dependencies: vec![PC_PARTS_PLUGIN_ID.to_string()],
             storefront_pages: vec![StorefrontPage {
                 path: "/build-your-pc".to_string(),
@@ -113,7 +115,10 @@ pub fn build_parts_response(categories: &[Category], products: &[Product]) -> Pa
         if !product.active || product.plugin_id != PC_PARTS_PLUGIN_ID {
             continue;
         }
-        grouped.entry(&product.category.slug).or_default().push(product);
+        grouped
+            .entry(&product.category.slug)
+            .or_default()
+            .push(product);
     }
 
     let mut response = PartsResponse {

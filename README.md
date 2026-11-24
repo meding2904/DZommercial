@@ -559,6 +559,95 @@ scripts/        health check, admin-gate proof of concept, load probe and screen
 The framework ships with cash on delivery only. No card details are collected. The demo
 shop, accounts and admin all run locally.
 
+## Rust port
+
+The server is being migrated from Go to Rust on the `rust-migrate` branch, one
+package at a time, while the Go tree stays runnable as the oracle. The plan,
+ordering and per-function checklist live in `MIGRATION.md`; the auth decision is
+in `docs/auth.md`.
+
+Ported and differential-clean against the Go oracle so far:
+
+- **Foundations** — `ids`, `auth` (Argon2id is byte-compatible both ways),
+  `config`, `secrets`, `orderstatus`, `storefront` theme, `courier`.
+- **Data** — the full `store` package (93 functions), `db` migrations, `seed`,
+  `productrules`, `orderintake` basket/shipping rules and `auditbatch`.
+- **HTTP** — axum server, CSRF, rate limits, health, registration/login/logout,
+  Turso-backed `tower-sessions`, public catalogue/categories/theme/plugins,
+  shipping lookup and order-by-token. The live auth surface matches the Go
+  server over HTTP, and the public endpoints match except `/api/plugins`, which
+  omits the AI and code-mode plugins that are not ported yet.
+- **Plugins** — registry/settings framework, oils, PC parts, PC builder
+  manifest and parts catalog, phone manifest/migrations.
+
+Still in progress: admin routes, checkout and order placement, phone IMEI
+handlers, AI and code-mode plugins, the desktop Wails host.
+
+### Before and after
+
+The same harness (`bench/bench.py`) ran against both builds: 16 workers × 2400
+mixed public reads with the in-process read cache, and 4 × 24 login flows, on
+the same seeded local libSQL database.
+
+| Metric | Go oracle | Rust |
+| --- | ---: | ---: |
+| Read throughput | 5,964 req/s | 6,334 req/s |
+| Read p50 / p95 / p99 | 2.50 / 4.29 / 5.29 ms | 2.34 / 4.10 / 5.00 ms |
+| Login p50 / p95 / p99 | 160.4 / 657.8 / 827.4 ms | 145.2 / 153.0 / 153.9 ms |
+| Peak RSS after reads | 100.0 MiB | 17.7 MiB |
+| Peak RSS including logins | 541.9 MiB | 273.4 MiB |
+| Release binary | 14.7 MB | 25.2 MB |
+| Startup to healthy | 0.254 s | 0.061 s |
+
+![Read, login and tail latency](docs/charts/latency.png)
+
+![Throughput](docs/charts/throughput.png)
+
+![Peak memory](docs/charts/memory.png)
+
+![Binary size](docs/charts/binary-size.png)
+
+The read path and login medians are at parity or slightly ahead, and the Rust
+server uses about a sixth of the resident memory. Both sides use the same
+Argon2id parameters (64 MiB, 3 passes, 4 lanes), so the login tail reflects CPU
+scheduling under four concurrent hashes as much as the implementation. These are
+single runs on a shared development machine, not a capacity claim. The binary is
+larger because the Rust release build keeps its symbols, as the Go build keeps
+DWARF.
+
+### Run the benchmarks
+
+```sh
+make dev-db          # local Turso/libSQL on :8880
+make bench-baseline  # builds the Go oracle and writes bench/baseline.json
+make rust-bench      # builds the Rust API and writes bench/after.json
+python3 bench/charts.py
+```
+
+`bench/README.md` documents the request counts, the cache caveat and the
+definition of every column.
+
+### Run the oracle diff tests
+
+Every ported function has a Rust test that drives the real Go function through a
+line-delimited JSON oracle under `backend/cmd/oracle-*` and compares outputs:
+
+```sh
+make dev-db
+make oracle-diff   # cargo test --workspace --tests
+```
+
+For an HTTP-level comparison, run the Go oracle on one database and the Rust
+server on another seeded database, then:
+
+```sh
+python3 scripts/httpdiff/httpdiff.py --oracle http://127.0.0.1:18080 \
+    --candidate http://127.0.0.1:18081 --group public
+```
+
+Groups are `core`, `public`, `auth`, `admin` and `all`. Generated ids,
+timestamps and session tokens are normalised before comparison.
+
 ## Upcoming
 
 - WhatsApp Business API integration for order and delivery updates. Not implemented in this

@@ -1284,9 +1284,17 @@
       ]
     },
     {
+      "package": "migrations",
+      "go_loc": 8,
+      "deps": [],
+      "functions": []
+    },
+    {
       "package": "internal/db",
       "go_loc": 196,
-      "deps": [],
+      "deps": [
+        "migrations"
+      ],
       "functions": [
         {
           "name": "Open",
@@ -4779,10 +4787,1011 @@
       ]
     },
     {
-      "package": "migrations",
-      "go_loc": 8,
+      "package": "cmd/oracle-ids-auth",
+      "go_loc": 112,
+      "deps": [
+        "internal/auth",
+        "internal/ids"
+      ],
+      "functions": [
+        {
+          "name": "handle",
+          "receiver": "",
+          "file": "backend/cmd/oracle-ids-auth/main.go",
+          "line": 35,
+          "calls": []
+        },
+        {
+          "name": "main",
+          "receiver": "",
+          "file": "backend/cmd/oracle-ids-auth/main.go",
+          "line": 74,
+          "calls": [
+            "handle"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "cmd/oracle-orderstatus-secrets",
+      "go_loc": 94,
+      "deps": [
+        "internal/orderstatus",
+        "internal/secrets"
+      ],
+      "functions": [
+        {
+          "name": "handle",
+          "receiver": "",
+          "file": "backend/cmd/oracle-orderstatus-secrets/main.go",
+          "line": 64,
+          "calls": []
+        },
+        {
+          "name": "main",
+          "receiver": "",
+          "file": "backend/cmd/oracle-orderstatus-secrets/main.go",
+          "line": 26,
+          "calls": [
+            "handle"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "desktop/internal/api",
+      "go_loc": 1763,
       "deps": [],
-      "functions": []
+      "functions": [
+        {
+          "name": "envEnabled",
+          "receiver": "",
+          "file": "desktop/internal/api/session.go",
+          "line": 231,
+          "calls": []
+        },
+        {
+          "name": "canonicalOrigin",
+          "receiver": "",
+          "file": "desktop/internal/api/urls.go",
+          "line": 160,
+          "calls": []
+        },
+        {
+          "name": "containsControl",
+          "receiver": "",
+          "file": "desktop/internal/api/urls.go",
+          "line": 211,
+          "calls": []
+        },
+        {
+          "name": "newError",
+          "receiver": "",
+          "file": "desktop/internal/api/types.go",
+          "line": 72,
+          "calls": []
+        },
+        {
+          "name": "validationError",
+          "receiver": "",
+          "file": "desktop/internal/api/types.go",
+          "line": 81,
+          "calls": [
+            "newError"
+          ]
+        },
+        {
+          "name": "invalidAPIURL",
+          "receiver": "",
+          "file": "desktop/internal/api/urls.go",
+          "line": 70,
+          "calls": [
+            "validationError"
+          ]
+        },
+        {
+          "name": "normalizeAPIURL",
+          "receiver": "",
+          "file": "desktop/internal/api/urls.go",
+          "line": 15,
+          "calls": [
+            "canonicalOrigin",
+            "containsControl",
+            "invalidAPIURL",
+            "validationError"
+          ]
+        },
+        {
+          "name": "sessionScope",
+          "receiver": "",
+          "file": "desktop/internal/api/session.go",
+          "line": 98,
+          "calls": [
+            "normalizeAPIURL"
+          ]
+        },
+        {
+          "name": "defaultSecretStore",
+          "receiver": "",
+          "file": "desktop/internal/api/session.go",
+          "line": 214,
+          "calls": [
+            "envEnabled",
+            "sessionScope"
+          ]
+        },
+        {
+          "name": "deviceHash",
+          "receiver": "",
+          "file": "desktop/internal/api/client.go",
+          "line": 104,
+          "calls": []
+        },
+        {
+          "name": "Load",
+          "receiver": "s *timeoutSecretStore",
+          "file": "desktop/internal/api/session.go",
+          "line": 43,
+          "calls": []
+        },
+        {
+          "name": "validCookieValue",
+          "receiver": "",
+          "file": "desktop/internal/api/session.go",
+          "line": 263,
+          "calls": []
+        },
+        {
+          "name": "Load",
+          "receiver": "s *fileSecretStore",
+          "file": "desktop/internal/api/session.go",
+          "line": 114,
+          "calls": [
+            "validCookieValue"
+          ]
+        },
+        {
+          "name": "Load",
+          "receiver": "s keyringSecretStore",
+          "file": "desktop/internal/api/session.go",
+          "line": 153,
+          "calls": []
+        },
+        {
+          "name": "Load",
+          "receiver": "s *fallbackSecretStore",
+          "file": "desktop/internal/api/session.go",
+          "line": 184,
+          "calls": []
+        },
+        {
+          "name": "loadSession",
+          "receiver": "c *Client",
+          "file": "desktop/internal/api/session.go",
+          "line": 276,
+          "calls": [
+            "Load",
+            "validCookieValue"
+          ]
+        },
+        {
+          "name": "normalizeHost",
+          "receiver": "",
+          "file": "desktop/internal/api/urls.go",
+          "line": 119,
+          "calls": []
+        },
+        {
+          "name": "parseHostIP",
+          "receiver": "",
+          "file": "desktop/internal/api/urls.go",
+          "line": 153,
+          "calls": []
+        },
+        {
+          "name": "isLoopbackHost",
+          "receiver": "",
+          "file": "desktop/internal/api/urls.go",
+          "line": 130,
+          "calls": [
+            "parseHostIP"
+          ]
+        },
+        {
+          "name": "isLocalHost",
+          "receiver": "",
+          "file": "desktop/internal/api/urls.go",
+          "line": 139,
+          "calls": [
+            "isLoopbackHost",
+            "parseHostIP"
+          ]
+        },
+        {
+          "name": "validateTransportAddress",
+          "receiver": "",
+          "file": "desktop/internal/api/urls.go",
+          "line": 123,
+          "calls": [
+            "isLocalHost",
+            "validationError"
+          ]
+        },
+        {
+          "name": "apiHost",
+          "receiver": "",
+          "file": "desktop/internal/api/urls.go",
+          "line": 83,
+          "calls": [
+            "invalidAPIURL",
+            "normalizeHost",
+            "validateTransportAddress"
+          ]
+        },
+        {
+          "name": "decodeSetting",
+          "receiver": "",
+          "file": "desktop/internal/api/client.go",
+          "line": 204,
+          "calls": []
+        },
+        {
+          "name": "loadLegacySettings",
+          "receiver": "",
+          "file": "desktop/internal/api/client.go",
+          "line": 184,
+          "calls": []
+        },
+        {
+          "name": "invalidOrigin",
+          "receiver": "",
+          "file": "desktop/internal/api/urls.go",
+          "line": 74,
+          "calls": [
+            "validationError"
+          ]
+        },
+        {
+          "name": "normalizeOrigin",
+          "receiver": "",
+          "file": "desktop/internal/api/urls.go",
+          "line": 45,
+          "calls": [
+            "canonicalOrigin",
+            "containsControl",
+            "invalidOrigin",
+            "validationError"
+          ]
+        },
+        {
+          "name": "writePrivateFile",
+          "receiver": "",
+          "file": "desktop/internal/api/session.go",
+          "line": 390,
+          "calls": []
+        },
+        {
+          "name": "saveSettings",
+          "receiver": "c *Client",
+          "file": "desktop/internal/api/client.go",
+          "line": 212,
+          "calls": [
+            "writePrivateFile"
+          ]
+        },
+        {
+          "name": "loadSettings",
+          "receiver": "c *Client",
+          "file": "desktop/internal/api/client.go",
+          "line": 109,
+          "calls": [
+            "apiHost",
+            "decodeSetting",
+            "isLoopbackHost",
+            "loadLegacySettings",
+            "normalizeAPIURL",
+            "normalizeHost",
+            "normalizeOrigin",
+            "saveSettings"
+          ]
+        },
+        {
+          "name": "newClientWithStoreFactory",
+          "receiver": "",
+          "file": "desktop/internal/api/client.go",
+          "line": 60,
+          "calls": [
+            "defaultSecretStore",
+            "deviceHash",
+            "loadSession",
+            "loadSettings",
+            "sessionScope"
+          ]
+        },
+        {
+          "name": "NewClient",
+          "receiver": "",
+          "file": "desktop/internal/api/client.go",
+          "line": 47,
+          "calls": [
+            "newClientWithStoreFactory"
+          ]
+        },
+        {
+          "name": "newClientWithSecrets",
+          "receiver": "",
+          "file": "desktop/internal/api/client.go",
+          "line": 54,
+          "calls": [
+            "newClientWithStoreFactory"
+          ]
+        },
+        {
+          "name": "settingsConsentAllowed",
+          "receiver": "",
+          "file": "desktop/internal/api/urls.go",
+          "line": 111,
+          "calls": [
+            "apiHost",
+            "isLoopbackHost",
+            "normalizeHost"
+          ]
+        },
+        {
+          "name": "Info",
+          "receiver": "c *Client",
+          "file": "desktop/internal/api/client.go",
+          "line": 220,
+          "calls": [
+            "settingsConsentAllowed"
+          ]
+        },
+        {
+          "name": "clearImageCacheLocked",
+          "receiver": "c *Client",
+          "file": "desktop/internal/api/client.go",
+          "line": 394,
+          "calls": []
+        },
+        {
+          "name": "networkConsentError",
+          "receiver": "",
+          "file": "desktop/internal/api/urls.go",
+          "line": 252,
+          "calls": [
+            "validationError"
+          ]
+        },
+        {
+          "name": "consentHostForUpdate",
+          "receiver": "",
+          "file": "desktop/internal/api/urls.go",
+          "line": 94,
+          "calls": [
+            "apiHost",
+            "isLoopbackHost",
+            "networkConsentError",
+            "normalizeHost"
+          ]
+        },
+        {
+          "name": "Delete",
+          "receiver": "s *timeoutSecretStore",
+          "file": "desktop/internal/api/session.go",
+          "line": 80,
+          "calls": []
+        },
+        {
+          "name": "Delete",
+          "receiver": "s *fileSecretStore",
+          "file": "desktop/internal/api/session.go",
+          "line": 141,
+          "calls": []
+        },
+        {
+          "name": "Delete",
+          "receiver": "s keyringSecretStore",
+          "file": "desktop/internal/api/session.go",
+          "line": 171,
+          "calls": []
+        },
+        {
+          "name": "Delete",
+          "receiver": "s *fallbackSecretStore",
+          "file": "desktop/internal/api/session.go",
+          "line": 203,
+          "calls": []
+        },
+        {
+          "name": "deleteStoredSession",
+          "receiver": "c *Client",
+          "file": "desktop/internal/api/session.go",
+          "line": 344,
+          "calls": [
+            "Delete"
+          ]
+        },
+        {
+          "name": "cookieFromSetCookie",
+          "receiver": "",
+          "file": "desktop/internal/api/session.go",
+          "line": 249,
+          "calls": [
+            "validCookieValue"
+          ]
+        },
+        {
+          "name": "Save",
+          "receiver": "s *timeoutSecretStore",
+          "file": "desktop/internal/api/session.go",
+          "line": 62,
+          "calls": []
+        },
+        {
+          "name": "Save",
+          "receiver": "s *fileSecretStore",
+          "file": "desktop/internal/api/session.go",
+          "line": 133,
+          "calls": [
+            "writePrivateFile"
+          ]
+        },
+        {
+          "name": "Save",
+          "receiver": "s keyringSecretStore",
+          "file": "desktop/internal/api/session.go",
+          "line": 167,
+          "calls": []
+        },
+        {
+          "name": "Save",
+          "receiver": "s *fallbackSecretStore",
+          "file": "desktop/internal/api/session.go",
+          "line": 193,
+          "calls": [
+            "Delete"
+          ]
+        },
+        {
+          "name": "persistSession",
+          "receiver": "c *Client",
+          "file": "desktop/internal/api/session.go",
+          "line": 326,
+          "calls": [
+            "Delete",
+            "Save"
+          ]
+        },
+        {
+          "name": "absorbCookies",
+          "receiver": "c *Client",
+          "file": "desktop/internal/api/session.go",
+          "line": 289,
+          "calls": [
+            "cookieFromSetCookie",
+            "persistSession"
+          ]
+        },
+        {
+          "name": "isTimeout",
+          "receiver": "",
+          "file": "desktop/internal/api/request.go",
+          "line": 352,
+          "calls": []
+        },
+        {
+          "name": "networkFailure",
+          "receiver": "",
+          "file": "desktop/internal/api/request.go",
+          "line": 344,
+          "calls": [
+            "isTimeout",
+            "newError"
+          ]
+        },
+        {
+          "name": "active",
+          "receiver": "c storedCookie",
+          "file": "desktop/internal/api/session.go",
+          "line": 245,
+          "calls": []
+        },
+        {
+          "name": "requestHeadersLocked",
+          "receiver": "c *Client",
+          "file": "desktop/internal/api/request.go",
+          "line": 213,
+          "calls": [
+            "active"
+          ]
+        },
+        {
+          "name": "responseTooLarge",
+          "receiver": "",
+          "file": "desktop/internal/api/request.go",
+          "line": 336,
+          "calls": [
+            "newError"
+          ]
+        },
+        {
+          "name": "settingsChangedError",
+          "receiver": "",
+          "file": "desktop/internal/api/request.go",
+          "line": 340,
+          "calls": [
+            "newError"
+          ]
+        },
+        {
+          "name": "execute",
+          "receiver": "c *Client",
+          "file": "desktop/internal/api/request.go",
+          "line": 168,
+          "calls": [
+            "absorbCookies",
+            "networkFailure",
+            "newError",
+            "requestHeadersLocked",
+            "responseTooLarge",
+            "settingsChangedError"
+          ]
+        },
+        {
+          "name": "invalidPath",
+          "receiver": "",
+          "file": "desktop/internal/api/urls.go",
+          "line": 207,
+          "calls": [
+            "validationError"
+          ]
+        },
+        {
+          "name": "validateAPIPath",
+          "receiver": "",
+          "file": "desktop/internal/api/urls.go",
+          "line": 171,
+          "calls": [
+            "containsControl",
+            "invalidPath"
+          ]
+        },
+        {
+          "name": "targetURL",
+          "receiver": "c *Client",
+          "file": "desktop/internal/api/urls.go",
+          "line": 220,
+          "calls": [
+            "canonicalOrigin",
+            "invalidAPIURL",
+            "invalidPath",
+            "isLoopbackHost",
+            "networkConsentError",
+            "normalizeHost",
+            "validateAPIPath",
+            "validateTransportAddress"
+          ]
+        },
+        {
+          "name": "Health",
+          "receiver": "c *Client",
+          "file": "desktop/internal/api/health.go",
+          "line": 39,
+          "calls": [
+            "execute",
+            "normalizeOrigin",
+            "targetURL"
+          ]
+        },
+        {
+          "name": "resolveOrigin",
+          "receiver": "c *Client",
+          "file": "desktop/internal/api/client.go",
+          "line": 361,
+          "calls": [
+            "Health",
+            "apiHost",
+            "isLoopbackHost"
+          ]
+        },
+        {
+          "name": "settingsResult",
+          "receiver": "c *Client",
+          "file": "desktop/internal/api/client.go",
+          "line": 314,
+          "calls": [
+            "settingsConsentAllowed"
+          ]
+        },
+        {
+          "name": "UpdateSettings",
+          "receiver": "c *Client",
+          "file": "desktop/internal/api/client.go",
+          "line": 239,
+          "calls": [
+            "clearImageCacheLocked",
+            "consentHostForUpdate",
+            "deleteStoredSession",
+            "normalizeAPIURL",
+            "normalizeOrigin",
+            "resolveOrigin",
+            "saveSettings",
+            "sessionScope",
+            "settingsResult"
+          ]
+        },
+        {
+          "name": "WindowBounds",
+          "receiver": "c *Client",
+          "file": "desktop/internal/api/client.go",
+          "line": 333,
+          "calls": []
+        },
+        {
+          "name": "SaveWindowBounds",
+          "receiver": "c *Client",
+          "file": "desktop/internal/api/client.go",
+          "line": 347,
+          "calls": [
+            "saveSettings"
+          ]
+        },
+        {
+          "name": "firewallGuide",
+          "receiver": "",
+          "file": "desktop/internal/api/firewall.go",
+          "line": 9,
+          "calls": []
+        },
+        {
+          "name": "FirewallGuide",
+          "receiver": "c *Client",
+          "file": "desktop/internal/api/firewall.go",
+          "line": 5,
+          "calls": [
+            "firewallGuide"
+          ]
+        },
+        {
+          "name": "ensureOrigin",
+          "receiver": "c *Client",
+          "file": "desktop/internal/api/health.go",
+          "line": 8,
+          "calls": [
+            "Health",
+            "apiHost",
+            "isLoopbackHost",
+            "newError",
+            "settingsChangedError"
+          ]
+        },
+        {
+          "name": "invalidImage",
+          "receiver": "",
+          "file": "desktop/internal/api/image.go",
+          "line": 109,
+          "calls": [
+            "newError"
+          ]
+        },
+        {
+          "name": "storeImage",
+          "receiver": "c *Client",
+          "file": "desktop/internal/api/image.go",
+          "line": 77,
+          "calls": []
+        },
+        {
+          "name": "image",
+          "receiver": "c *Client",
+          "file": "desktop/internal/api/image.go",
+          "line": 32,
+          "calls": [
+            "execute",
+            "invalidImage",
+            "newError",
+            "storeImage",
+            "targetURL"
+          ]
+        },
+        {
+          "name": "Image",
+          "receiver": "c *Client",
+          "file": "desktop/internal/api/image.go",
+          "line": 24,
+          "calls": [
+            "image"
+          ]
+        },
+        {
+          "name": "isCSRFEndpoint",
+          "receiver": "",
+          "file": "desktop/internal/api/request.go",
+          "line": 60,
+          "calls": [
+            "validateAPIPath"
+          ]
+        },
+        {
+          "name": "clearCSRF",
+          "receiver": "c *Client",
+          "file": "desktop/internal/api/session.go",
+          "line": 373,
+          "calls": []
+        },
+        {
+          "name": "decodeJSON",
+          "receiver": "",
+          "file": "desktop/internal/api/request.go",
+          "line": 325,
+          "calls": []
+        },
+        {
+          "name": "encodeRequestBody",
+          "receiver": "",
+          "file": "desktop/internal/api/request.go",
+          "line": 151,
+          "calls": [
+            "newError"
+          ]
+        },
+        {
+          "name": "activeCSRF",
+          "receiver": "c *Client",
+          "file": "desktop/internal/api/session.go",
+          "line": 353,
+          "calls": [
+            "active"
+          ]
+        },
+        {
+          "name": "storeCSRF",
+          "receiver": "c *Client",
+          "file": "desktop/internal/api/session.go",
+          "line": 362,
+          "calls": [
+            "active",
+            "validCookieValue"
+          ]
+        },
+        {
+          "name": "ensureCSRF",
+          "receiver": "c *Client",
+          "file": "desktop/internal/api/request.go",
+          "line": 247,
+          "calls": [
+            "activeCSRF",
+            "execute",
+            "newError",
+            "storeCSRF",
+            "targetURL",
+            "validCookieValue"
+          ]
+        },
+        {
+          "name": "errorCode",
+          "receiver": "",
+          "file": "desktop/internal/api/request.go",
+          "line": 313,
+          "calls": []
+        },
+        {
+          "name": "errorFromResult",
+          "receiver": "",
+          "file": "desktop/internal/api/request.go",
+          "line": 287,
+          "calls": []
+        },
+        {
+          "name": "request",
+          "receiver": "c *Client",
+          "file": "desktop/internal/api/request.go",
+          "line": 75,
+          "calls": [
+            "clearCSRF",
+            "decodeJSON",
+            "encodeRequestBody",
+            "ensureCSRF",
+            "ensureOrigin",
+            "errorCode",
+            "errorFromResult",
+            "execute",
+            "newError",
+            "settingsChangedError",
+            "targetURL"
+          ]
+        },
+        {
+          "name": "Request",
+          "receiver": "c *Client",
+          "file": "desktop/internal/api/request.go",
+          "line": 49,
+          "calls": [
+            "invalidPath",
+            "isCSRFEndpoint",
+            "request"
+          ]
+        },
+        {
+          "name": "ClearSession",
+          "receiver": "c *Client",
+          "file": "desktop/internal/api/session.go",
+          "line": 379,
+          "calls": [
+            "clearImageCacheLocked",
+            "deleteStoredSession"
+          ]
+        },
+        {
+          "name": "Error",
+          "receiver": "e *Error",
+          "file": "desktop/internal/api/types.go",
+          "line": 43,
+          "calls": []
+        },
+        {
+          "name": "validateServerAddress",
+          "receiver": "",
+          "file": "desktop/internal/api/urls.go",
+          "line": 78,
+          "calls": [
+            "consentHostForUpdate"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "desktop",
+      "go_loc": 269,
+      "deps": [
+        "desktop/internal/api"
+      ],
+      "functions": [
+        {
+          "name": "profileDirectory",
+          "receiver": "",
+          "file": "desktop/main.go",
+          "line": 112,
+          "calls": []
+        },
+        {
+          "name": "NewApp",
+          "receiver": "",
+          "file": "desktop/main.go",
+          "line": 100,
+          "calls": [
+            "profileDirectory"
+          ]
+        },
+        {
+          "name": "context",
+          "receiver": "a *App",
+          "file": "desktop/main.go",
+          "line": 133,
+          "calls": []
+        },
+        {
+          "name": "windowBounds",
+          "receiver": "a *App",
+          "file": "desktop/main.go",
+          "line": 224,
+          "calls": []
+        },
+        {
+          "name": "main",
+          "receiver": "",
+          "file": "desktop/main.go",
+          "line": 33,
+          "calls": [
+            "NewApp",
+            "context",
+            "windowBounds"
+          ]
+        },
+        {
+          "name": "securityHeaders",
+          "receiver": "",
+          "file": "desktop/main.go",
+          "line": 81,
+          "calls": []
+        },
+        {
+          "name": "startup",
+          "receiver": "a *App",
+          "file": "desktop/main.go",
+          "line": 127,
+          "calls": []
+        },
+        {
+          "name": "clampWindowSize",
+          "receiver": "",
+          "file": "desktop/main.go",
+          "line": 198,
+          "calls": []
+        },
+        {
+          "name": "screenPositionAllowed",
+          "receiver": "",
+          "file": "desktop/main.go",
+          "line": 151,
+          "calls": []
+        },
+        {
+          "name": "domReady",
+          "receiver": "a *App",
+          "file": "desktop/main.go",
+          "line": 139,
+          "calls": [
+            "clampWindowSize",
+            "screenPositionAllowed"
+          ]
+        },
+        {
+          "name": "beforeClose",
+          "receiver": "a *App",
+          "file": "desktop/main.go",
+          "line": 180,
+          "calls": []
+        },
+        {
+          "name": "Info",
+          "receiver": "a *App",
+          "file": "desktop/main.go",
+          "line": 228,
+          "calls": []
+        },
+        {
+          "name": "Health",
+          "receiver": "a *App",
+          "file": "desktop/main.go",
+          "line": 232,
+          "calls": []
+        },
+        {
+          "name": "Request",
+          "receiver": "a *App",
+          "file": "desktop/main.go",
+          "line": 236,
+          "calls": []
+        },
+        {
+          "name": "Image",
+          "receiver": "a *App",
+          "file": "desktop/main.go",
+          "line": 240,
+          "calls": []
+        },
+        {
+          "name": "UpdateSettings",
+          "receiver": "a *App",
+          "file": "desktop/main.go",
+          "line": 244,
+          "calls": []
+        },
+        {
+          "name": "ClearSession",
+          "receiver": "a *App",
+          "file": "desktop/main.go",
+          "line": 248,
+          "calls": []
+        },
+        {
+          "name": "FirewallGuide",
+          "receiver": "a *App",
+          "file": "desktop/main.go",
+          "line": 252,
+          "calls": []
+        },
+        {
+          "name": "OpenExternal",
+          "receiver": "a *App",
+          "file": "desktop/main.go",
+          "line": 256,
+          "calls": [
+            "context"
+          ]
+        }
+      ]
     }
   ]
 }

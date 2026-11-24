@@ -10,7 +10,7 @@ WAILS_TAG_FLAGS = $(if $(strip $(WAILS_TAGS)),-tags "$(WAILS_TAGS)")
 VERSION ?= 2.0.0
 DESKTOP_GOARCH ?= $(shell go env GOARCH)
 
-.PHONY: help dev-db dev-api dev-web check desktop-sync desktop-check desktop-deps build smoke kiri-up kiri-local kiri-down desktop desktop-build desktop-package loadtest
+.PHONY: help dev-db dev-api dev-web check desktop-sync desktop-check desktop-deps build smoke kiri-up kiri-local kiri-down desktop desktop-build desktop-package loadtest rust-check rust-test bench-baseline rust-bench oracle-diff
 
 help:
 	@echo "Azahar demo store"
@@ -26,6 +26,8 @@ help:
 	@echo "  make desktop-build  build the Wails admin binary"
 	@echo "  make desktop-package  build a Linux tarball with binary, desktop file and icon"
 	@echo "  make loadtest  run a short read probe against the API"
+	@echo "  make rust-check  fmt, clippy, and the whole Rust test suite"
+	@echo "  make rust-bench  build the Rust API and write bench/after.json"
 	@echo "  make kiri-up   build and run the three containers with Kiri"
 	@echo "  make kiri-local run host-built artifacts in Kiri containers (builder fallback)"
 	@echo "  make kiri-down stop the containers, keep the database volume"
@@ -62,6 +64,27 @@ dev-api:
 
 dev-web:
 	cd frontend && APP_ENV=development INTERNAL_API_URL=$(API_URL) pnpm dev --port 5173
+
+rust-check:
+	cargo fmt --check
+	cargo clippy --workspace --all-targets -- -D warnings
+	cargo test --workspace
+
+rust-test:
+	cargo test --workspace
+
+# Same harness and request counts as bench/after.json. The API must be able to
+# reach the database at TURSO_DATABASE_URL (make dev-db).
+bench-baseline:
+	cd backend && go build -o /tmp/azahar-api ./cmd/api
+	python3 bench/bench.py --bin /tmp/azahar-api --label go-oracle --out bench/baseline.json
+
+rust-bench:
+	cargo build --release -p azahar-api
+	python3 bench/bench.py --bin target/release/azahar-api --label rust --out bench/after.json
+
+oracle-diff:
+	cargo test --workspace --tests -- --nocapture
 
 check:
 	cd frontend && APP_ENV=development pnpm check && pnpm test:security && pnpm test:framework

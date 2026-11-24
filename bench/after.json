@@ -1,0 +1,70 @@
+{
+  "label": "rust",
+  "generated_at": "2026-11-24T19:12:09Z",
+  "binary": {
+    "path": "/home/mohamed/Projects/DZommercial/target/release/azahar-api",
+    "bytes": 25153968
+  },
+  "server": {
+    "startup_seconds": 0.061,
+    "peak_rss_after_reads_kb": 18148,
+    "peak_rss_after_reads_mb": 17.7,
+    "peak_rss_kb": 279928,
+    "peak_rss_mb": 273.4
+  },
+  "load": {
+    "read_mix": {
+      "workers": 16,
+      "requests": 2400,
+      "elapsed_seconds": 0.379,
+      "throughput_rps": 6333.9,
+      "latency_ms": {
+        "p50": 2.342,
+        "p95": 4.1,
+        "p99": 5.002,
+        "mean": 2.462,
+        "max": 6.362
+      },
+      "status_counts": {
+        "200": 2400
+      },
+      "errors": 0,
+      "error_sample": [],
+      "all_succeeded": true
+    },
+    "login_flow": {
+      "workers": 4,
+      "requests": 40,
+      "elapsed_seconds": 1.469,
+      "throughput_rps": 27.24,
+      "latency_ms": {
+        "p50": 145.192,
+        "p95": 153.041,
+        "p99": 153.853,
+        "mean": 146.708,
+        "max": 153.853
+      },
+      "outcomes": {
+        "ok": 40
+      },
+      "all_succeeded": true
+    }
+  },
+  "hyperfine": {
+    "health": {
+      "command": "curl -fsS -o /dev/null http://127.0.0.1:18082/api/health",
+      "runs": 10,
+      "mean_seconds": 0.004,
+      "median_seconds": 0.0039,
+      "stddev_seconds": 0.0003,
+      "min_seconds": 0.0036,
+      "max_seconds": 0.0047
+    }
+  },
+  "environment": {
+    "workers": 16,
+    "requests": 2400,
+    "login_requests": 40,
+    "database": "http://127.0.0.1:8880"
+  }
+}

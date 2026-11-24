@@ -22,6 +22,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 BACKEND = ROOT / "backend"
+DESKTOP = ROOT / "desktop"
 OUT = ROOT / "MIGRATION.md"
 
 FUNC_RE = re.compile(
@@ -47,13 +48,20 @@ class Func:
         return self.name
 
 
-def packages() -> dict[str, Path]:
-    found: dict[str, Path] = {}
+def packages() -> dict[str, tuple[Path, str]]:
+    """Package key -> (directory, Go import prefix)."""
+    found: dict[str, tuple[Path, str]] = {}
     for go_mod in BACKEND.rglob("*.go"):
         if go_mod.name.endswith("_test.go"):
             continue
         rel = go_mod.parent.relative_to(BACKEND)
-        found[str(rel)] = go_mod.parent
+        found[str(rel)] = (go_mod.parent, "azahar/")
+    for go_mod in DESKTOP.rglob("*.go"):
+        if go_mod.name.endswith("_test.go"):
+            continue
+        rel = go_mod.parent.relative_to(DESKTOP)
+        key = "desktop" if str(rel) == "." else f"desktop/{rel}"
+        found[key] = (go_mod.parent, "azahar/desktop/")
     return found
 
 
@@ -98,19 +106,20 @@ def extract_funcs(pkg: str, directory: Path) -> list[Func]:
     return funcs
 
 
-def package_imports(directory: Path) -> set[str]:
+def package_imports(directory: Path, prefix: str) -> set[str]:
+    pattern = re.compile('"' + re.escape(prefix) + '([^"]+)"')
     deps: set[str] = set()
     for path in directory.glob("*.go"):
         if path.name.endswith("_test.go"):
             continue
-        deps.update(IMPORT_RE.findall(path.read_text(encoding="utf-8", errors="replace")))
+        deps.update(pattern.findall(path.read_text(encoding="utf-8", errors="replace")))
     return deps
 
 
 def resolve_dep(dep: str, dirs: dict[str, Path]) -> str | None:
     """Map an import suffix such as `store` to a package key."""
-    for key in dirs:
-        if key == dep or key == f"internal/{dep}":
+    for key in (dep, f"internal/{dep}", f"desktop/{dep}"):
+        if key in dirs:
             return key
     return None
 
@@ -174,12 +183,12 @@ def main() -> int:
         return 2
 
     dirs = packages()
-    deps = {pkg: package_imports(directory) for pkg, directory in dirs.items()}
+    deps = {pkg: package_imports(directory, prefix) for pkg, (directory, prefix) in dirs.items()}
     ordered = order_packages(deps, dirs)
-    all_funcs = {pkg: extract_funcs(pkg, dirs[pkg]) for pkg in dirs}
+    all_funcs = {pkg: extract_funcs(pkg, dirs[pkg][0]) for pkg in dirs}
     counts = {pkg: len(funcs) for pkg, funcs in all_funcs.items()}
     line_counts: dict[str, int] = {}
-    for pkg, directory in dirs.items():
+    for pkg, (directory, _prefix) in dirs.items():
         total = 0
         for path in directory.glob("*.go"):
             if path.name.endswith("_test.go"):

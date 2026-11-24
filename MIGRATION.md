@@ -145,7 +145,14 @@ desktop              <- desktop/internal/api
 | 24 | implementer | public catalogue routes | running | — |
 | 25 | implementer | order intake core | running | — |
 | 26 | reviewer | plugin framework | done | changes sent back |
-| 27 | implementer | pcbuilder manifest/catalog | done | 5 functions, oracle parity |
+| 27 | implementer | pcbuilder manifest/catalog | done | 6 functions, oracle parity |
+| 28 | implementer | public catalogue + cache | done | 20 HTTP tests, live diff clean |
+| 29 | implementer | admin HTTP surface | done | 15 admin HTTP tests, live shape diff clean |
+| 30 | implementer | checkout/captcha/shipments | done | 39 tests; live validation/challenge diff clean |
+| 31 | implementer | order intake core | done | 9 functions, 47 differential comparisons |
+| 32 | implementer | phone domain/hooks | done | 26 functions total, 354 IMEI + 345 variant cases |
+| 33 | integrator | routes, Turso hooks, full diff | done | 145 httpapi tests, all groups match |
+| 34 | docs/benchmark | charts, README, report | done | `docs/MIGRATION_REPORT.md`, `docs/charts/`, `bench/after.json` |
 
 Status values: `queued`, `running`, `review`, `done`, `failed`, `rebriefed`.
 
@@ -164,7 +171,9 @@ Differences are only acceptable when behaviour is unobservable at the HTTP/API b
 | Plugin routes | `Route` carries method/pattern/admin metadata; the HTTP layer keeps a per-plugin dispatch table instead of a `Handler` field on the trait. Go rejects registration without a handler. | Rust trait objects cannot carry closures with the Go signature; dispatch is compile-checked in `azahar-httpapi` instead. `plugins.Register` stays unticked until every mounted route is covered. |
 | Plugin enrichment | `Registry::enrich_product` is synchronous; the phone enricher needs database I/O. | No in-tree enricher is ported yet (phone/AI are deferred). The trait will become async before those plugins land. |
 | `ProductType.fields` | Empty `Vec` serialises as `null`; Go distinguishes nil (`null`) from an explicit empty slice (`[]`). | No in-tree plugin declares an empty field list. |
-| Plugin settings numbers | `is_go_number` is being aligned with `strconv.ParseFloat`; exotic hex-float and signed-NaN cases are pinned by a differential probe. | Validation-only; stored settings created by the admin UI use ordinary decimal numbers. |
+| Plugin settings numbers | `is_go_number` follows `strconv.ParseFloat` acceptance exactly, pinned by 2,907 generated probes. | Validation-only; no behavioural gap remains. |
+| Demo seed RNG | Go `math/rand` and Rust `StdRng` use the same fixed seed and the same plan/ranges/branches, but draw different concrete orders. | Seeded demo orders are illustrative data. Order-dependent endpoints are compared by response shape in the HTTP diff. |
+| Captcha image | The PNG uses the same size, palette and code alphabet but a simpler built-in 5x7 glyph table instead of Go's font rendering. | The answer check is identical; the image is only displayed to a person. |
 
 ## Checklist
 

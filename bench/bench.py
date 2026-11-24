@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import http.client
 import json
+import math
 import os
 import random
 import signal
@@ -106,11 +107,12 @@ def read_worker(port: int, count: int, seed: int, latencies: list[float],
 
 
 def percentile(values: list[float], fraction: float) -> float:
+    """Nearest-rank percentile: the smallest value with rank >= fraction."""
     if not values:
         return 0.0
     ordered = sorted(values)
-    index = min(len(ordered) - 1, max(0, round(fraction * (len(ordered) - 1))))
-    return ordered[index]
+    rank = max(1, math.ceil(fraction * len(ordered)))
+    return ordered[min(len(ordered) - 1, rank - 1)]
 
 
 def summarise_ms(latencies: list[float]) -> dict[str, float]:
@@ -153,16 +155,17 @@ def run_read_mix(port: int, workers: int, total: int) -> dict[str, object]:
         "status_counts": {str(k): v for k, v in sorted(statuses.items())},
         "errors": len(errors),
         "error_sample": errors[:3],
+        "all_succeeded": not errors and set(statuses) == {200} and sum(statuses.values()) == total,
     }
 
 
 def login_once(port: int, seed: int = 0) -> tuple[float, int, str]:
     started = time.perf_counter()
     client_ip = spread_ip(random.Random(seed))
+    user_agent = f"azahar-bench/{seed}"
+    common = {"X-Forwarded-For": client_ip, "User-Agent": user_agent}
     # The token is both set as a cookie and returned by the endpoint.
-    status, payload, headers = request(
-        port, "GET", "/api/csrf", headers={"X-Forwarded-For": client_ip}
-    )
+    status, payload, headers = request(port, "GET", "/api/csrf", headers=common)
     csrf_cookie = ""
     for line in headers:
         if line.lower().startswith("set-cookie:") and "azahar_csrf=" in line:
@@ -183,6 +186,7 @@ def login_once(port: int, seed: int = 0) -> tuple[float, int, str]:
             "X-CSRF-Token": csrf_token,
             "Cookie": f"azahar_csrf={csrf_cookie}",
             "X-Forwarded-For": client_ip,
+            "User-Agent": user_agent,
         },
     )
     session_cookie = ""
@@ -193,7 +197,11 @@ def login_once(port: int, seed: int = 0) -> tuple[float, int, str]:
         port,
         "GET",
         "/api/auth/me",
-        headers={"Cookie": f"azahar_session={session_cookie}", "X-Forwarded-For": client_ip},
+        headers={
+            "Cookie": f"azahar_session={session_cookie}",
+            "X-Forwarded-For": client_ip,
+            "User-Agent": user_agent,
+        },
     )
     return time.perf_counter() - started, status, "ok" if status_me == 200 else f"me={status_me}"
 
@@ -209,7 +217,13 @@ def run_login_flow(port: int, workers: int, total: int) -> dict[str, object]:
         # Logins must use distinct source users? The API deletes other sessions
         # for the same user agent, so each worker carries its own UA.
         for index in range(count):
-            elapsed, _, outcome = login_once(port, seed * 1000 + index)
+            try:
+                elapsed, _, outcome = login_once(port, seed * 1000 + index)
+            except Exception as exc:  # noqa: BLE001 - report the failure class
+                local_out[f"exception:{type(exc).__name__}"] = (
+                    local_out.get(f"exception:{type(exc).__name__}", 0) + 1
+                )
+                continue
             local.append(elapsed)
             local_out[outcome] = local_out.get(outcome, 0) + 1
         with lock:
@@ -234,6 +248,7 @@ def run_login_flow(port: int, workers: int, total: int) -> dict[str, object]:
         "throughput_rps": round(total / elapsed, 2),
         "latency_ms": summarise_ms(latencies),
         "outcomes": outcomes,
+        "all_succeeded": set(outcomes) == {"ok"} and len(latencies) == total,
     }
 
 
@@ -322,8 +337,12 @@ def main() -> int:
         # Warm up caches and connections.
         run_read_mix(args.port, 4, 80)
         read_mix = run_read_mix(args.port, args.workers, args.requests)
+        if not read_mix["all_succeeded"]:
+            raise RuntimeError(f"read mix did not return 200 for every request: {read_mix}")
         rss_reads = peak_rss_kb(process.pid)
         login_flow = run_login_flow(args.port, 4, args.login_requests)
+        if not login_flow["all_succeeded"]:
+            raise RuntimeError(f"login flow did not succeed for every request: {login_flow}")
         rss = peak_rss_kb(process.pid)
         hf_health = hyperfine(
             f"curl -fsS -o /dev/null http://127.0.0.1:{args.port}/api/health", 10

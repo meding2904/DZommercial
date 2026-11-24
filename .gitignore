@@ -18,3 +18,4 @@ desktop/build/package/
 desktop/build/*.tar.gz
 desktop/frontend/wailsjs/
 target/
+__pycache__/

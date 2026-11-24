@@ -5,9 +5,9 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
-use azahar_plugin_pcbuilder::{build_parts_response, Plugin};
+use azahar_plugin_pcbuilder::{Plugin, build_parts_response};
 use azahar_plugins::Plugin as PluginTrait;
 use azahar_store::{Category, Product};
 

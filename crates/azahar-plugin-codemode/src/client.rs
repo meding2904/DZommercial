@@ -22,9 +22,6 @@ pub const MAX_PLAN_RUNES: usize = 30_000;
 /// The model used when the setting is blank.
 pub const DEFAULT_MODEL: &str = "gpt-4o-mini";
 
-/// The Go default when no HTTP client is passed to `newClient`.
-const DEFAULT_TIMEOUT: Duration = Duration::from_secs(25);
-
 static MODEL_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"^[A-Za-z0-9._:/-]{1,64}$").expect("static model pattern is valid")
 });
@@ -156,7 +153,7 @@ impl std::fmt::Display for UpstreamError {
 #[derive(Debug, Deserialize)]
 struct ChatCompletionResponse {
     #[serde(default)]
-    choices: Vec<Option<ChatChoice>>,
+    choices: Option<Vec<Option<ChatChoice>>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -201,11 +198,11 @@ impl Client {
         {
             return Err(ConfigError::NotConfigured);
         }
-        let http = reqwest::Client::builder()
-            .timeout(timeout.unwrap_or(DEFAULT_TIMEOUT))
-            .redirect(reqwest::redirect::Policy::none())
-            .build()
-            .map_err(|_| ConfigError::NotConfigured)?;
+        let mut builder = reqwest::Client::builder().redirect(reqwest::redirect::Policy::none());
+        if let Some(timeout) = timeout.filter(|value| !value.is_zero()) {
+            builder = builder.timeout(timeout);
+        }
+        let http = builder.build().map_err(|_| ConfigError::NotConfigured)?;
         Ok(Self {
             base_url,
             api_key,
@@ -267,9 +264,12 @@ impl Client {
             body.extend_from_slice(&chunk);
         }
 
-        let decoded: ChatCompletionResponse = serde_json::from_slice(&body)
+        let decoded: Option<ChatCompletionResponse> = serde_json::from_slice(&body)
             .map_err(|_| UpstreamError::network("the response was not valid JSON"))?;
-        let Some(choice) = decoded.choices.first() else {
+        let Some(choices) = decoded.and_then(|decoded| decoded.choices) else {
+            return Err(UpstreamError::network("the response had no choices"));
+        };
+        let Some(choice) = choices.first() else {
             return Err(UpstreamError::network("the response had no choices"));
         };
         let message = choice

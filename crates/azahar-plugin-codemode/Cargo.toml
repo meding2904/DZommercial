@@ -26,6 +26,8 @@ tokio.workspace = true
 tracing.workspace = true
 url.workspace = true
 
+unicode-general-category = "1"
+
 [dev-dependencies]
 async-trait.workspace = true
 azahar-auth.workspace = true

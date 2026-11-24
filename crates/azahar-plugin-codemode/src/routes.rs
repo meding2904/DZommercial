@@ -147,6 +147,9 @@ fn plugin_enabled(state: &AppState) -> Result<(), ApiProblem> {
         .plugins
         .read()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
+    if registry.get(PLUGIN_ID).is_none() {
+        return Err(problem(404, "not_found", "Not found."));
+    }
     if registry.effective_enabled(PLUGIN_ID) {
         Ok(())
     } else {

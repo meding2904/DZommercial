@@ -1154,7 +1154,7 @@ pub fn validate_product_attributes(
     else {
         return Ok(());
     };
-    let label = go_lower(problem.label.trim());
+    let label = go_lower(&problem.label);
     match problem.kind {
         rules::Kind::MissingRequired => Err(format!("add at least one {label} value")),
         rules::Kind::SingleValue => Err(format!("{label} takes one value")),

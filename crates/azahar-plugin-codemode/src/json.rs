@@ -64,7 +64,7 @@ pub fn quote(value: &str) -> String {
             '\u{2028}' | '\u{2029}' => {
                 let _ = write!(out, "\\u{:04x}", character as u32);
             }
-            other if other.is_control() => {
+            other if !is_go_print(other) => {
                 let code = other as u32;
                 if code < 0x1_0000 {
                     let _ = write!(out, "\\u{code:04x}");
@@ -77,6 +77,41 @@ pub fn quote(value: &str) -> String {
     }
     out.push('"');
     out
+}
+
+/// Go `strconv.IsPrint`: letters, marks, numbers, punctuation, symbols and the
+/// ASCII space are printable; separators, format and unassigned code points are
+/// escaped by `%q`.
+fn is_go_print(character: char) -> bool {
+    if character == ' ' {
+        return true;
+    }
+    use unicode_general_category::{GeneralCategory, get_general_category};
+    matches!(
+        get_general_category(character),
+        GeneralCategory::UppercaseLetter
+            | GeneralCategory::LowercaseLetter
+            | GeneralCategory::TitlecaseLetter
+            | GeneralCategory::ModifierLetter
+            | GeneralCategory::OtherLetter
+            | GeneralCategory::NonspacingMark
+            | GeneralCategory::SpacingMark
+            | GeneralCategory::EnclosingMark
+            | GeneralCategory::DecimalNumber
+            | GeneralCategory::LetterNumber
+            | GeneralCategory::OtherNumber
+            | GeneralCategory::ConnectorPunctuation
+            | GeneralCategory::DashPunctuation
+            | GeneralCategory::OpenPunctuation
+            | GeneralCategory::ClosePunctuation
+            | GeneralCategory::InitialPunctuation
+            | GeneralCategory::FinalPunctuation
+            | GeneralCategory::OtherPunctuation
+            | GeneralCategory::MathSymbol
+            | GeneralCategory::CurrencySymbol
+            | GeneralCategory::ModifierSymbol
+            | GeneralCategory::OtherSymbol
+    )
 }
 
 /// Go's `json.Marshal` compaction of a raw JSON message: whitespace outside

@@ -30,7 +30,7 @@ use azahar_store::{StoreError, User, format_time};
 use chrono::{Duration as ChronoDuration, NaiveTime, Utc};
 use http_body_util::LengthLimitError;
 use libsql::params;
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use serde::{Deserialize, Serialize};
 
 use crate::client::{ConfigError, config_from_settings, new_client};
 use crate::prompts::{ProductSales, build_product_prompt, build_store_prompt};
@@ -50,7 +50,7 @@ pub const ROUTE_PREFIX: &str = "/api/plugins/ai";
 pub struct AnalyzeRequest {
     pub kind: String,
     pub product_id: String,
-    pub days: i32,
+    pub days: i64,
 }
 
 /// One saved analysis row, in the Go `runDTO` field order.
@@ -100,10 +100,7 @@ fn preparation_failed() -> ApiProblem {
 /// Port of `plugins.DecodeBody[T]`: content-type prefix check, the 1 MiB
 /// ceiling, a zero value for a `null` body, unknown fields folded into the
 /// shape message, and a single-object rule.
-async fn decode_plugin_body<T>(request: Request) -> Result<T, ApiProblem>
-where
-    T: DeserializeOwned + Default,
-{
+async fn decode_plugin_body(request: Request) -> Result<AnalyzeRequest, ApiProblem> {
     let content_type = request
         .headers()
         .get(axum::http::header::CONTENT_TYPE)
@@ -162,19 +159,45 @@ where
         return Err(problem(422, "invalid_json", "Send one JSON object."));
     }
     if value.is_null() {
-        return Ok(T::default());
+        return Ok(AnalyzeRequest::default());
     }
-    if !value.is_object() {
+    let Some(object) = value.as_object() else {
         return Err(shape_error());
+    };
+    let mut payload = AnalyzeRequest::default();
+    for (key, item) in object {
+        match key.to_ascii_lowercase().as_str() {
+            "kind" => payload.kind = string_field(item)?,
+            "product_id" => payload.product_id = string_field(item)?,
+            "days" => {
+                payload.days = match item {
+                    serde_json::Value::Null => 0,
+                    serde_json::Value::Number(number) => number.as_i64().ok_or_else(shape_error)?,
+                    _ => return Err(shape_error()),
+                }
+            }
+            _ => return Err(shape_error()),
+        }
     }
-    serde_json::from_value(value).map_err(|_| shape_error())
+    Ok(payload)
+}
+
+fn string_field(value: &serde_json::Value) -> Result<String, ApiProblem> {
+    match value {
+        serde_json::Value::Null => Ok(String::new()),
+        serde_json::Value::String(value) => Ok(value.clone()),
+        _ => Err(shape_error()),
+    }
 }
 
 /// The Go `pluginHandler` gate: an unregistered or effectively disabled
 /// plugin answers 404 before the handler runs.
 fn ensure_plugin(state: &AppState) -> Result<(), ApiProblem> {
     let registry = state.plugins.read().unwrap_or_else(PoisonError::into_inner);
-    if registry.get(PLUGIN_ID).is_some() && registry.effective_enabled(PLUGIN_ID) {
+    if registry.get(PLUGIN_ID).is_none() {
+        return Err(problem(404, "not_found", "Not found."));
+    }
+    if registry.effective_enabled(PLUGIN_ID) {
         Ok(())
     } else {
         Err(problem(404, "not_found", "Plugin not found."))
@@ -229,7 +252,7 @@ pub async fn analyze(
     let kind = body.kind.trim();
     let product_id = body.product_id.trim();
     let days = if body.days == 0 {
-        DEFAULT_DAYS
+        i64::from(DEFAULT_DAYS)
     } else {
         body.days
     };
@@ -238,7 +261,7 @@ pub async fn analyze(
     if kind != "store" && kind != "product" {
         fields.insert("kind".to_string(), "Choose store or product.".to_string());
     }
-    if !crate::SUPPORTED_DAYS.contains(&days) {
+    if !matches!(days, 7 | 30 | 90) {
         fields.insert("days".to_string(), "Choose 7, 30 or 90.".to_string());
     }
     if kind == "product" && product_id.is_empty() {
@@ -307,7 +330,7 @@ pub async fn analyze(
             now.date_naive().and_time(NaiveTime::MIN),
             Utc,
         );
-        let span = ChronoDuration::days(i64::from(days) - 1);
+        let span = ChronoDuration::days(days - 1);
         let from = to - span;
         let previous_to = from - ChronoDuration::days(1);
         let previous_from = previous_to - span;
@@ -323,6 +346,7 @@ pub async fn analyze(
                 return Err(preparation_failed());
             }
         };
+        let days = i32::try_from(days).unwrap_or(DEFAULT_DAYS);
         let (system, facts) = build_store_prompt(&config.language, days, &metrics);
         (system, facts, format!("store:{days}d"))
     } else {
@@ -562,5 +586,47 @@ mod tests {
         assert_eq!(converted.status, StatusCode::CONFLICT);
         assert_eq!(converted.code, "plugin_disabled");
         assert!(converted.fields.is_none());
+    }
+}
+
+#[cfg(test)]
+mod decode_tests {
+    use super::*;
+    use axum::body::Body;
+
+    fn request(body: &str) -> Request {
+        Request::builder()
+            .header("content-type", "application/json")
+            .body(Body::from(body.to_string()))
+            .expect("request")
+    }
+
+    #[tokio::test]
+    async fn accepts_go_case_insensitive_keys_and_nulls() {
+        let payload =
+            decode_plugin_body(request(r#"{"Kind":"store","Product_ID":null,"Days":null}"#))
+                .await
+                .expect("go accepts mixed case and nulls");
+        assert_eq!(payload.kind, "store");
+        assert_eq!(payload.product_id, "");
+        assert_eq!(payload.days, 0);
+    }
+
+    #[tokio::test]
+    async fn accepts_64_bit_days_for_validation() {
+        let payload = decode_plugin_body(request(r#"{"kind":"store","days":4294967326}"#))
+            .await
+            .expect("go decodes into int");
+        assert_eq!(payload.days, 4_294_967_326);
+    }
+
+    #[tokio::test]
+    async fn rejects_unknown_and_wrong_shapes() {
+        assert!(
+            decode_plugin_body(request(r#"{"kind":"store","other":1}"#))
+                .await
+                .is_err()
+        );
+        assert!(decode_plugin_body(request(r#"{"kind":1}"#)).await.is_err());
     }
 }

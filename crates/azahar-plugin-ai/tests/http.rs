@@ -1000,7 +1000,7 @@ async fn unregistered_or_disabled_plugin_answers_404() {
     let cookie = login(&unregistered.app, "/test/login-admin").await;
     let (status, body) = analyze(&unregistered.app, &cookie, json!({"kind": "store"})).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
-    assert_eq!(body["error"]["message"], "Plugin not found.");
+    assert_eq!(body["error"]["message"], "Not found.");
     let (status, body) = runs(&unregistered.app, &cookie, "").await;
     assert_eq!(status, StatusCode::NOT_FOUND);
     assert_eq!(body["error"]["code"], "not_found");

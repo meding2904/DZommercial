@@ -177,3 +177,15 @@ pub fn admin_plugin_routes(state: AppState) -> Router<AppState> {
         .route_layer(from_fn(require_staff))
         .route_layer(from_fn_with_state(state, require_user))
 }
+
+/// Explicit replacement for Go's `mountPluginRoutes`: every shipped plugin's
+/// routes are merged here, with the admin routes already carrying their guard
+/// chain.
+pub fn mount_plugin_routes(state: AppState) -> Router<AppState> {
+    public_plugin_routes().merge(admin_plugin_routes(state))
+}
+
+/// The plugin-enabled gate Go applies in `pluginHandler` before dispatch.
+pub fn plugin_handler(state: &AppState, plugin_id: &str) -> Result<(), ApiProblem> {
+    plugin_enabled(state, plugin_id)
+}

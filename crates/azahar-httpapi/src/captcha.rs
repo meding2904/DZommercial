@@ -103,6 +103,7 @@ pub struct CaptchaStore {
     max_entries: usize,
     clock: CaptchaClock,
     cleanup_started: Arc<AtomicBool>,
+    closed: Arc<AtomicBool>,
 }
 
 impl CaptchaStore {
@@ -144,6 +145,7 @@ impl CaptchaStore {
             max_entries,
             clock,
             cleanup_started: Arc::new(AtomicBool::new(false)),
+            closed: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -172,9 +174,18 @@ impl CaptchaStore {
             ticker.tick().await; // the first interval tick is immediate
             loop {
                 ticker.tick().await;
+                if store.closed.load(Ordering::SeqCst) {
+                    return;
+                }
                 store.sweep(store.now());
             }
         });
+    }
+
+    /// Stops the background sweep. Issuing and verifying still work; this is
+    /// the shutdown half of the Go `close` method.
+    pub fn close(&self) {
+        self.closed.store(true, Ordering::SeqCst);
     }
 
     /// Issues one challenge for a client address.

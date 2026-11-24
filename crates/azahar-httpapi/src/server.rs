@@ -66,6 +66,10 @@ impl Server {
         Self { listener, app }
     }
 
+    /// Go's `Server.Close` stops the limiter and captcha cleanup goroutines.
+    /// Axum drops its tasks with the runtime; the listener closes on drop.
+    pub fn close(&self) {}
+
     /// The address the OS assigned, useful with port `0` in tests.
     pub fn local_addr(&self) -> std::io::Result<SocketAddr> {
         self.listener.local_addr()

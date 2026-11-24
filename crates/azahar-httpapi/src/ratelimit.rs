@@ -93,6 +93,10 @@ impl RateLimiter {
         buckets.retain(|_, bucket| now.saturating_duration_since(bucket.last) <= retention);
     }
 
+    /// Go's limiter stops a cleanup goroutine; this port cleans inline, so
+    /// shutdown has nothing to join.
+    pub fn close(&self) {}
+
     pub fn size(&self) -> usize {
         self.buckets
             .lock()

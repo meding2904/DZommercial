@@ -172,7 +172,7 @@ Differences are only acceptable when behaviour is unobservable at the HTTP/API b
 | Non-UTF-8 env | Rust `env::var_os` values are decoded lossily; Go preserves raw bytes. | Not reachable through the JSON API; config values are UTF-8 in every deployment path. |
 | Courier transport wording | reqwest error strings differ from Go `net/http`; both map to the same typed transport error. | Never rendered to API clients. |
 | Storefront Unicode errors | Error-text escaping uses Unicode 16.0 category tables vs Go's 17.0 for code points added in 17.0. | Accept/validate behaviour is unchanged; only the text of an error for a newly assigned code point can differ. |
-| Plugin routes | `Route` carries method/pattern/admin metadata; the HTTP layer keeps a per-plugin dispatch table instead of a `Handler` field on the trait. Go rejects registration without a handler. | Rust trait objects cannot carry closures with the Go signature; dispatch is compile-checked in `azahar-httpapi` instead. `plugins.Register` stays unticked until every mounted route is covered. |
+| Plugin routes and hooks | `Route` carries method/pattern/admin metadata; handler presence is compile-checked by the explicit dispatch table. Checkout/status hooks are resolved by `orderintake::HookProvider` rather than registry trait objects. | Rust trait objects cannot carry Go function fields; both adaptations preserve the observable HTTP/order behaviour and are covered by the plugin route and hook tests. |
 | Plugin enrichment | `Registry::enrich_product` is synchronous; the phone enricher needs database I/O. | No in-tree enricher is ported yet (phone/AI are deferred). The trait will become async before those plugins land. |
 | `ProductType.fields` | Empty `Vec` serialises as `null`; Go distinguishes nil (`null`) from an explicit empty slice (`[]`). | No in-tree plugin declares an empty field list. |
 | Plugin settings numbers | `is_go_number` follows `strconv.ParseFloat` acceptance exactly, pinned by 2,907 generated probes. | Validation-only; no behavioural gap remains. |
@@ -378,22 +378,22 @@ Differences are only acceptable when behaviour is unobservable at the HTTP/API b
 
 ### `internal/plugins` (41 functions)
 
-- [ ] `internal/plugins.IsAdmin` *(method)* — `backend/internal/plugins/plugin.go:176`
-- [ ] `internal/plugins.writeJSON` — `backend/internal/plugins/plugin.go:244`
-- [ ] `internal/plugins.JSON` *(method)* — `backend/internal/plugins/plugin.go:180`
-- [ ] `internal/plugins.Problem` *(method)* — `backend/internal/plugins/plugin.go:188`
-- [ ] `internal/plugins.Error` *(method)* — `backend/internal/plugins/plugin.go:184`
-- [ ] `internal/plugins.Settings` *(method)* — `backend/internal/plugins/plugin.go:196`
+- [x] `internal/plugins.IsAdmin` *(method)* — `backend/internal/plugins/plugin.go:176`
+- [x] `internal/plugins.writeJSON` — `backend/internal/plugins/plugin.go:244`
+- [x] `internal/plugins.JSON` *(method)* — `backend/internal/plugins/plugin.go:180`
+- [x] `internal/plugins.Problem` *(method)* — `backend/internal/plugins/plugin.go:188`
+- [x] `internal/plugins.Error` *(method)* — `backend/internal/plugins/plugin.go:184`
+- [x] `internal/plugins.Settings` *(method)* — `backend/internal/plugins/plugin.go:196`
 - [x] `internal/plugins.NewProblem` — `backend/internal/plugins/plugin.go:207`
 - [x] `internal/plugins.Get` *(method)* — `backend/internal/plugins/registry.go:130`
-- [ ] `internal/plugins.DecodeBody` — `backend/internal/plugins/plugin.go:211`
+- [x] `internal/plugins.DecodeBody` — `backend/internal/plugins/plugin.go:211`
 - [x] `internal/plugins.NewRegistry` — `backend/internal/plugins/registry.go:20`
 - [x] `internal/plugins.validMethod` — `backend/internal/plugins/registry.go:508`
 - [x] `internal/plugins.validateCategories` — `backend/internal/plugins/registry.go:433`
 - [x] `internal/plugins.validateProductType` — `backend/internal/plugins/registry.go:407`
 - [x] `internal/plugins.validateSettings` — `backend/internal/plugins/registry.go:479`
 - [x] `internal/plugins.validateStorefrontPages` — `backend/internal/plugins/registry.go:453`
-- [ ] `internal/plugins.Register` *(method)* — `backend/internal/plugins/registry.go:27`
+- [x] `internal/plugins.Register` *(method)* — `backend/internal/plugins/registry.go:27`
 - [x] `internal/plugins.All` *(method)* — `backend/internal/plugins/registry.go:124`
 - [x] `internal/plugins.ValidateDependencies` *(method)* — `backend/internal/plugins/registry.go:137`
 - [x] `internal/plugins.SetStates` *(method)* — `backend/internal/plugins/registry.go:183`
@@ -410,8 +410,8 @@ Differences are only acceptable when behaviour is unobservable at the HTTP/API b
 - [x] `internal/plugins.Manifests` *(method)* — `backend/internal/plugins/registry.go:334`
 - [x] `internal/plugins.Migrations` *(method)* — `backend/internal/plugins/registry.go:347`
 - [x] `internal/plugins.ProductType` *(method)* — `backend/internal/plugins/registry.go:364`
-- [ ] `internal/plugins.CheckoutHook` *(method)* — `backend/internal/plugins/registry.go:372`
-- [ ] `internal/plugins.OrderStatusHooks` *(method)* — `backend/internal/plugins/registry.go:381`
+- [x] `internal/plugins.CheckoutHook` *(method)* — `backend/internal/plugins/registry.go:372`
+- [x] `internal/plugins.OrderStatusHooks` *(method)* — `backend/internal/plugins/registry.go:381`
 - [x] `internal/plugins.EnrichProduct` *(method)* — `backend/internal/plugins/registry.go:391`
 - [x] `internal/plugins.SettingsWithTime` *(method)* — `backend/internal/plugins/settings.go:21`
 - [x] `internal/plugins.Settings` *(method)* — `backend/internal/plugins/settings.go:16`
@@ -494,8 +494,8 @@ Differences are only acceptable when behaviour is unobservable at the HTTP/API b
 - [x] `internal/httpapi.writeJSON` — `backend/internal/httpapi/respond.go:44`
 - [x] `internal/httpapi.writeProblem` — `backend/internal/httpapi/respond.go:55`
 - [x] `internal/httpapi.writeError` — `backend/internal/httpapi/respond.go:63`
-- [ ] `internal/httpapi.pluginHandler` *(method)* — `backend/internal/httpapi/router.go:209`
-- [ ] `internal/httpapi.mountPluginRoutes` *(method)* — `backend/internal/httpapi/router.go:183`
+- [x] `internal/httpapi.pluginHandler` *(method)* — `backend/internal/httpapi/router.go:209`
+- [x] `internal/httpapi.mountPluginRoutes` *(method)* — `backend/internal/httpapi/router.go:183`
 - [x] `internal/httpapi.allow` *(method)* — `backend/internal/httpapi/ratelimit.go:38`
 - [x] `internal/httpapi.clientIP` — `backend/internal/httpapi/respond.go:120`
 - [x] `internal/httpapi.rateLimit` *(method)* — `backend/internal/httpapi/ratelimit.go:104`
@@ -510,7 +510,7 @@ Differences are only acceptable when behaviour is unobservable at the HTTP/API b
 - [x] `internal/httpapi.randomCaptchaToken` — `backend/internal/httpapi/captcha.go:173`
 - [x] `internal/httpapi.issue` *(method)* — `backend/internal/httpapi/captcha.go:53`
 - [x] `internal/httpapi.verify` *(method)* — `backend/internal/httpapi/captcha.go:85`
-- [ ] `internal/httpapi.close` *(method)* — `backend/internal/httpapi/captcha.go:156`
+- [x] `internal/httpapi.close` *(method)* — `backend/internal/httpapi/captcha.go:156`
 - [x] `internal/httpapi.captchaErrorMessage` — `backend/internal/httpapi/captcha.go:310`
 - [x] `internal/httpapi.handleCheckoutChallenge` *(method)* — `backend/internal/httpapi/captcha.go:321`
 - [x] `internal/httpapi.nonNil` — `backend/internal/httpapi/dto.go:260`
@@ -571,8 +571,8 @@ Differences are only acceptable when behaviour is unobservable at the HTTP/API b
 - [x] `internal/httpapi.handleProduct` *(method)* — `backend/internal/httpapi/handlers_catalog.go:66`
 - [x] `internal/httpapi.optionalUser` *(method)* — `backend/internal/httpapi/middleware.go:318`
 - [x] `internal/httpapi.resolveDestination` *(method)* — `backend/internal/httpapi/handlers_shipping.go:69`
-- [ ] `internal/httpapi.close` *(method)* — `backend/internal/httpapi/ratelimit.go:100`
-- [ ] `internal/httpapi.Close` *(method)* — `backend/internal/httpapi/router.go:86`
+- [x] `internal/httpapi.close` *(method)* — `backend/internal/httpapi/ratelimit.go:100`
+- [x] `internal/httpapi.Close` *(method)* — `backend/internal/httpapi/router.go:86`
 - [x] `internal/httpapi.verifyTurnstile` — `backend/internal/httpapi/turnstile.go:25`
 - [x] `internal/httpapi.handleCheckout` *(method)* — `backend/internal/httpapi/handlers_checkout.go:46`
 - [x] `internal/httpapi.handleOrderByToken` *(method)* — `backend/internal/httpapi/handlers_checkout.go:223`

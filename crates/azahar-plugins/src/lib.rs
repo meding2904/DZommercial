@@ -8,11 +8,13 @@
 //! its manifest, route registrations and migrations, and the mount layer
 //! supplies the handlers.
 
+mod context;
 mod manifest;
 mod plugin;
 mod registry;
 mod settings;
 
+pub use context::{Context, decode_body, error_body, write_json};
 pub use manifest::*;
 pub use plugin::*;
 pub use registry::*;

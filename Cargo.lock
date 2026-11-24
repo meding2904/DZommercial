@@ -296,6 +296,7 @@ name = "azahar-courier"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "casefold",
  "chrono",
  "reqwest",
  "serde",
@@ -323,18 +324,28 @@ dependencies = [
  "async-trait",
  "axum 0.8.9",
  "azahar-auth",
+ "azahar-config",
+ "azahar-courier",
  "azahar-db",
+ "azahar-ids",
+ "azahar-plugins",
  "azahar-store",
  "chrono",
+ "getrandom 0.3.4",
+ "hex",
+ "http-body-util",
  "libsql",
+ "mime",
  "rmp-serde",
  "serde",
  "serde_json",
+ "subtle",
  "thiserror 2.0.21",
  "time",
  "tokio",
  "tower 0.5.3",
  "tower-sessions",
+ "url",
 ]
 
 [[package]]
@@ -429,6 +440,20 @@ dependencies = [
 [[package]]
 name = "azahar-seed"
 version = "0.1.0"
+dependencies = [
+ "azahar-auth",
+ "azahar-db",
+ "azahar-ids",
+ "azahar-store",
+ "azahar-storefront",
+ "chrono",
+ "libsql",
+ "rand 0.9.5",
+ "serde_json",
+ "thiserror 2.0.21",
+ "tokio",
+ "tracing",
+]
 
 [[package]]
 name = "azahar-store"
@@ -622,6 +647,12 @@ checksum = "776dfebd015e2d8732c684a2c71003674ccb49457b539b9e82151ba38e96dd7c"
 dependencies = [
  "serde",
 ]
+
+[[package]]
+name = "casefold"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4382156a4e6d5f0c279184bb37207f1259a5061c23084d3aa93eedf2a68c2eed"
 
 [[package]]
 name = "cbc"

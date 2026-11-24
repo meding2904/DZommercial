@@ -10,7 +10,7 @@ WAILS_TAG_FLAGS = $(if $(strip $(WAILS_TAGS)),-tags "$(WAILS_TAGS)")
 VERSION ?= 2.0.0
 DESKTOP_GOARCH ?= $(shell go env GOARCH)
 
-.PHONY: help dev-db dev-api dev-web check desktop-sync desktop-check desktop-deps build smoke kiri-up kiri-local kiri-down desktop desktop-build desktop-package loadtest rust-check rust-test bench-baseline rust-bench oracle-diff
+.PHONY: help dev-db dev-api dev-web check desktop-sync desktop-check desktop-deps build smoke kiri-up kiri-local kiri-down desktop desktop-build desktop-package desktop-rust desktop-rust-build desktop-smoke loadtest rust-check rust-test bench-baseline rust-bench oracle-diff
 
 help:
 	@echo "Azahar demo store"
@@ -24,6 +24,7 @@ help:
 	@echo "  make desktop-sync  copy the shared admin domain into the desktop renderer"
 	@echo "  make desktop   run the Go Wails admin app (oracle)"
 	@echo "  make desktop-rust  run the Rust Tauri admin app"
+	@echo "  make desktop-smoke  headless Weston smoke test for the Tauri host"
 	@echo "  make desktop-build  build the Wails admin binary"
 	@echo "  make desktop-package  build a Linux tarball with binary, desktop file and icon"
 	@echo "  make loadtest  run a short read probe against the API"
@@ -131,6 +132,9 @@ desktop-rust:
 
 desktop-rust-build:
 	cargo build --release -p azahar-desktop
+
+desktop-smoke:
+	./scripts/desktop-smoke.sh
 
 desktop-deps:
 	go install github.com/wailsapp/wails/v2/cmd/wails@v2.17.1

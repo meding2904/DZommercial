@@ -175,6 +175,7 @@ The development start publishes the API on `http://127.0.0.1:8080`. Then open a 
 
 ```bash
 make desktop-rust   # Rust Tauri host
+make desktop-smoke  # headless Weston smoke test (no display required)
 # or, for the Go oracle:
 make desktop-deps   # first time only, installs the Wails CLI
 make desktop

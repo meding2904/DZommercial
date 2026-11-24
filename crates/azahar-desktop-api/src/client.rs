@@ -7,7 +7,6 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 
-use serde::Deserialize;
 use serde_json::Value;
 
 use crate::environment::Environment;
@@ -512,7 +511,10 @@ impl Client {
         }
     }
 
-    fn delete_stored_session(&self, store: &Arc<dyn SecretStore>) -> Result<(), ClientError> {
+    pub(crate) fn delete_stored_session(
+        &self,
+        store: &Arc<dyn SecretStore>,
+    ) -> Result<(), ClientError> {
         let _guard = self
             .secret_mu
             .lock()
@@ -520,7 +522,7 @@ impl Client {
         store.delete().map_err(ClientError::Secret)
     }
 
-    fn load_session(&self) {
+    pub(crate) fn load_session(&self) {
         let Some(store) = self.current_secrets() else {
             return;
         };
@@ -665,18 +667,94 @@ fn decode_settings(fields: &serde_json::Map<String, Value>, next: &mut Settings)
         next.network_allowed_host = value;
     }
     if let Some(Value::Object(window)) = fields.get("window") {
-        if let Some(value) = decode_i64(window.get("width")) {
+        if let Some(value) = decode_i64(field_ignore_case(window, "width")) {
             next.window.width = value;
         }
-        if let Some(value) = decode_i64(window.get("height")) {
+        if let Some(value) = decode_i64(field_ignore_case(window, "height")) {
             next.window.height = value;
         }
-        if let Some(value) = decode_i64(window.get("x")) {
+        if let Some(value) = decode_i64(field_ignore_case(window, "x")) {
             next.window.x = value;
         }
-        if let Some(value) = decode_i64(window.get("y")) {
+        if let Some(value) = decode_i64(field_ignore_case(window, "y")) {
             next.window.y = value;
         }
+    }
+}
+
+/// `encoding/json` matches struct fields and tags case-insensitively.
+pub(crate) fn field_ignore_case<'a>(
+    fields: &'a serde_json::Map<String, Value>,
+    name: &str,
+) -> Option<&'a Value> {
+    fields.get(name).or_else(|| {
+        fields
+            .iter()
+            .find(|(key, _)| key.eq_ignore_ascii_case(name))
+            .map(|(_, value)| value)
+    })
+}
+
+/// Apply one `decodeSetting` call to a JSON document. Returns the decoded
+/// value and whether `encoding/json` would have reported success for the key.
+pub(crate) fn decode_setting_value(document: &[u8], key: &str, kind: &str) -> (Value, bool) {
+    let Ok(Value::Object(fields)) = serde_json::from_slice::<Value>(document) else {
+        return (default_setting_value(kind), false);
+    };
+    let Some(raw) = fields.get(key) else {
+        return (default_setting_value(kind), false);
+    };
+    match kind {
+        "string" => match raw {
+            Value::String(value) => (Value::String(value.clone()), true),
+            Value::Null => (Value::String(String::new()), true),
+            _ => (Value::String(String::new()), false),
+        },
+        "bool" => match raw {
+            Value::Bool(value) => (Value::Bool(*value), true),
+            Value::Null => (Value::Bool(false), true),
+            _ => (Value::Bool(false), false),
+        },
+        _ => {
+            let mut window = WindowBounds::default();
+            match raw {
+                Value::Null => {}
+                Value::Object(fields) => {
+                    let mut applied = true;
+                    apply_window_field(fields, "width", &mut window.width, &mut applied);
+                    apply_window_field(fields, "height", &mut window.height, &mut applied);
+                    apply_window_field(fields, "x", &mut window.x, &mut applied);
+                    apply_window_field(fields, "y", &mut window.y, &mut applied);
+                    return (serde_json::to_value(window).unwrap_or(Value::Null), applied);
+                }
+                _ => return (serde_json::to_value(window).unwrap_or(Value::Null), false),
+            }
+            (serde_json::to_value(window).unwrap_or(Value::Null), true)
+        }
+    }
+}
+
+fn default_setting_value(kind: &str) -> Value {
+    match kind {
+        "string" => Value::String(String::new()),
+        "bool" => Value::Bool(false),
+        _ => serde_json::to_value(WindowBounds::default()).unwrap_or(Value::Null),
+    }
+}
+
+fn apply_window_field(
+    fields: &serde_json::Map<String, Value>,
+    key: &str,
+    target: &mut i64,
+    applied: &mut bool,
+) {
+    match field_ignore_case(fields, key) {
+        None | Some(Value::Null) => {}
+        Some(Value::Number(number)) => match go_i64(number) {
+            Some(value) => *target = value,
+            None => *applied = false,
+        },
+        Some(_) => *applied = false,
     }
 }
 
@@ -694,40 +772,79 @@ fn decode_bool(value: Option<&Value>) -> Option<bool> {
     }
 }
 
+/// `encoding/json` decodes `-0` as the integer zero but rejects `-0.0`;
+/// serde_json represents both as a floating-point number, so the rendered
+/// form is the only remaining discriminator.
+fn go_i64(number: &serde_json::Number) -> Option<i64> {
+    number.as_i64().or_else(|| {
+        if number.as_f64() == Some(0.0) && number.to_string() == "-0.0" {
+            Some(0)
+        } else {
+            None
+        }
+    })
+}
+
 fn decode_i64(value: Option<&Value>) -> Option<i64> {
     match value {
-        Some(Value::Number(number)) => number.as_i64(),
+        Some(Value::Number(number)) => go_i64(number),
         _ => None,
     }
 }
 
-#[derive(Deserialize)]
-struct LegacySettings {
-    #[serde(rename = "apiUrl")]
-    api_url: String,
-    #[serde(default)]
-    origin: String,
-    #[serde(default)]
-    window: WindowBounds,
-}
-
-fn load_legacy_settings(environment: &Environment) -> Option<Settings> {
+pub(crate) fn load_legacy_settings(environment: &Environment) -> Option<Settings> {
     let root = environment.user_config_dir()?;
     let data = fs::read(root.join("Azahar Admin").join("settings.json")).ok()?;
-    let legacy: LegacySettings = serde_json::from_slice(&data).ok()?;
-    if legacy.api_url.trim().is_empty() {
+    let Value::Object(fields) = serde_json::from_slice::<Value>(&data).ok()? else {
+        return None;
+    };
+    let api_url = legacy_string(&fields, "apiUrl").ok()??;
+    let origin = legacy_string(&fields, "origin").ok()?.unwrap_or_default();
+    let window = match field_ignore_case(&fields, "window") {
+        None | Some(Value::Null) => WindowBounds::default(),
+        Some(Value::Object(window)) => legacy_window(window).ok()?,
+        Some(_) => return None,
+    };
+    if api_url.trim().is_empty() {
         return None;
     }
     Some(Settings {
-        api_url: legacy.api_url,
-        origin: legacy.origin,
+        api_url,
+        origin,
         network_allowed: false,
         network_allowed_host: String::new(),
-        window: legacy.window,
+        window,
     })
 }
 
-fn save_settings(path: &Path, settings: &Settings) -> Result<(), ClientError> {
+/// A `string` field decoded the way `encoding/json` decodes into a Go string:
+/// absent or null leaves the zero value, any other type is an error.
+fn legacy_string(fields: &serde_json::Map<String, Value>, key: &str) -> Result<Option<String>, ()> {
+    match field_ignore_case(fields, key) {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::String(value)) => Ok(Some(value.clone())),
+        Some(_) => Err(()),
+    }
+}
+
+fn legacy_i64(fields: &serde_json::Map<String, Value>, key: &str) -> Result<i64, ()> {
+    match field_ignore_case(fields, key) {
+        None | Some(Value::Null) => Ok(0),
+        Some(Value::Number(number)) => go_i64(number).ok_or(()),
+        Some(_) => Err(()),
+    }
+}
+
+fn legacy_window(fields: &serde_json::Map<String, Value>) -> Result<WindowBounds, ()> {
+    Ok(WindowBounds {
+        width: legacy_i64(fields, "width")?,
+        height: legacy_i64(fields, "height")?,
+        x: legacy_i64(fields, "x")?,
+        y: legacy_i64(fields, "y")?,
+    })
+}
+
+pub(crate) fn save_settings(path: &Path, settings: &Settings) -> Result<(), ClientError> {
     let data = serde_json::to_vec_pretty(settings)
         .map_err(|error| ClientError::Message(error.to_string()))?;
     write_private_file(path, &data)?;

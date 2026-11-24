@@ -13,7 +13,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, SystemTime};
 
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use sha2::{Digest, Sha256};
 
 use crate::environment::Environment;
@@ -101,10 +101,31 @@ impl SecretStore for MemorySecretStore {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize)]
 struct SessionFile {
     #[serde(rename = "azahar_session")]
     session: String,
+}
+
+/// Decode the session file like Go's struct unmarshal: the tag
+/// `azahar_session` matches case-insensitively, null leaves the zero value and
+/// any other type rejects the document.
+fn session_file_value(data: &[u8]) -> Option<String> {
+    let Ok(serde_json::Value::Object(fields)) = serde_json::from_slice(data) else {
+        return None;
+    };
+    let mut session = String::new();
+    for (key, value) in &fields {
+        if !key.eq_ignore_ascii_case("azahar_session") {
+            continue;
+        }
+        match value {
+            serde_json::Value::String(value) => session = value.clone(),
+            serde_json::Value::Null => {}
+            _ => return None,
+        }
+    }
+    Some(session)
 }
 
 /// JSON file holding only the session cookie.
@@ -127,13 +148,13 @@ impl SecretStore for FileSecretStore {
             Err(error) => return Err(SecretError::new(error.to_string())),
         };
         let _ = set_mode(&self.path, 0o600);
-        let Ok(record) = serde_json::from_slice::<SessionFile>(&data) else {
+        let Some(session) = session_file_value(&data) else {
             return Ok(None);
         };
-        if !valid_cookie_value(&record.session) {
+        if !valid_cookie_value(&session) {
             return Ok(None);
         }
-        Ok(Some(record.session))
+        Ok(Some(session))
     }
 
     fn save(&self, value: &str) -> Result<(), SecretError> {
@@ -302,6 +323,15 @@ pub fn session_scope(profile_dir: &Path, api_url: &str) -> String {
     format!("session-{}", hex::encode(&digest[..8]))
 }
 
+pub(crate) fn default_secret_backend_is_file(environment: &Environment) -> bool {
+    let backend_is_file = environment
+        .session_backend
+        .as_deref()
+        .map(str::trim)
+        .is_some_and(|value| value.eq_ignore_ascii_case("file"));
+    backend_is_file || env_enabled(environment.disable_keyring.as_deref())
+}
+
 pub fn default_secret_store(
     profile_dir: &Path,
     api_url: &str,
@@ -312,12 +342,7 @@ pub fn default_secret_store(
         profile_dir.join(format!("{scope}.json")),
     ));
 
-    let backend_is_file = environment
-        .session_backend
-        .as_deref()
-        .map(str::trim)
-        .is_some_and(|value| value.eq_ignore_ascii_case("file"));
-    if backend_is_file || env_enabled(environment.disable_keyring.as_deref()) {
+    if default_secret_backend_is_file(environment) {
         return file;
     }
 

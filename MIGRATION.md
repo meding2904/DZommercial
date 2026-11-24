@@ -157,6 +157,7 @@ desktop              <- desktop/internal/api
 | 35 | implementer | AI analyst plugin | done | 20 functions, 249 oracle comparisons |
 | 36 | implementer | code-mode plugin | done | 55 functions, 352 plan documents + 12 DB scenarios |
 | 37 | implementer | desktop API client | done | 86 functions, 5,930 comparisons |
+| 43 | differential tester | desktop API extended coverage | done | +3,271 comparisons (9,201 total), real key/null/error fixes |
 | 38 | integrator | plugin route mounting + final diff | done | all HTTP groups match, no expected skips |
 | 39 | reviewer | AI + code-mode | done | decode/registration/choice/quote fixes applied |
 | 40 | reviewer | desktop + Tauri + SDK adapters | done | phone enrichment and route decoder fixed; remaining items documented |
@@ -186,6 +187,7 @@ Differences are only acceptable when behaviour is unobservable at the HTTP/API b
 | SDK `DecodeBody` | The Rust helper accepts `null` and duplicate keys, but cannot match JSON keys case-insensitively for arbitrary structs; mounted routes use purpose-built decoders where Go parity needs it. | serde has no runtime field-name introspection. The phone/AI routes implement case-insensitive decoding directly. |
 | Demo seed RNG | Go `math/rand` and Rust `StdRng` use the same fixed seed and the same plan/ranges/branches, but draw different concrete orders. | Seeded demo orders are illustrative data. Order-dependent endpoints are compared by response shape in the HTTP diff. |
 | Captcha image | The PNG uses the same size, palette and code alphabet but a simpler built-in 5x7 glyph table instead of Go's font rendering. | The answer check is identical; the image is only displayed to a person. |
+| Desktop JSON duplicate keys | Go matches struct fields case-insensitively and applies duplicate keys in document order; `serde_json` keeps one entry per spelling, so a window object such as `{"width":7,"Width":8}` can decode differently. Error envelopes use an ordered parser and match Go exactly; health, legacy and session fields match case-insensitively with a single spelling, and settings keys remain exact as in Go. | The default `serde_json` map does not preserve document order without enabling `preserve_order` for every crate in the workspace. Neither the client nor the API writes duplicate keys that differ only by case; pinned as an explicit exclusion in the extended differential test. |
 
 ## Checklist
 

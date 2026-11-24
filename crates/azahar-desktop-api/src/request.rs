@@ -1,8 +1,11 @@
 //! Request construction, CSRF handling, response decoding and error envelopes.
 
 use std::collections::BTreeMap;
+use std::fmt;
 use std::time::SystemTime;
 
+use serde::Deserializer;
+use serde::de::{IgnoredAny, MapAccess, SeqAccess, Visitor};
 use serde_json::Value;
 
 use crate::client::{Client, MAX_REQUEST_BODY_BYTES, MAX_RESPONSE_BYTES};
@@ -208,7 +211,7 @@ impl Client {
         }
     }
 
-    fn absorb_cookies(&self, set_cookies: &[String], generation: u64) {
+    pub(crate) fn absorb_cookies(&self, set_cookies: &[String], generation: u64) {
         let now = SystemTime::now();
         let mut session_changed = false;
         let session_value;
@@ -323,134 +326,237 @@ fn go_json_encode(value: &Value) -> Result<Vec<u8>, ApiError> {
     Ok(text.into_bytes())
 }
 
-fn field<'a>(object: &'a serde_json::Map<String, Value>, name: &str) -> Option<&'a Value> {
-    object.get(name).or_else(|| {
-        object
-            .iter()
-            .find(|(key, _)| key.eq_ignore_ascii_case(name))
-            .map(|(_, value)| value)
-    })
+/// A JSON value with object members kept in document order.
+///
+/// `encoding/json` matches struct fields case-insensitively and lets a later
+/// duplicate overwrite an earlier one. `serde_json::Map` loses both order and
+/// duplicate case variants, so the error envelope and the code probe decode
+/// into this ordered tree instead. Scalars and arrays only need their kind, so
+/// they collapse to `Other`.
+enum OrderedValue {
+    Null,
+    String(String),
+    Object(Vec<(String, OrderedValue)>),
+    Other,
 }
 
-pub fn error_from_result(result: &HttpResult) -> ApiError {
-    let defaults = || {
-        (
-            "request_failed".to_owned(),
-            "The API returned an error. Try again.".to_owned(),
-            BTreeMap::new(),
-        )
-    };
-    let Ok(Value::Object(envelope)) = serde_json::from_slice::<Value>(&result.body) else {
-        let (code, message, fields) = defaults();
-        return ApiError {
-            status: result.status,
-            code,
-            message,
-            fields,
-        };
-    };
-    let Some(Value::Object(error)) = field(&envelope, "error") else {
-        let (code, message, fields) = defaults();
-        return ApiError {
-            status: result.status,
-            code,
-            message,
-            fields,
-        };
-    };
+impl<'de> serde::Deserialize<'de> for OrderedValue {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct ValueVisitor;
 
-    let mut code = "request_failed".to_owned();
-    let mut message = "The API returned an error. Try again.".to_owned();
-    let mut fields = BTreeMap::new();
-    match field(error, "code") {
-        None | Some(Value::Null) => {}
-        Some(Value::String(value)) => {
-            let value = value.trim();
-            if !value.is_empty() {
-                code = value.to_owned();
+        impl<'de> Visitor<'de> for ValueVisitor {
+            type Value = OrderedValue;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                formatter.write_str("a JSON value")
+            }
+
+            fn visit_bool<E: serde::de::Error>(self, _value: bool) -> Result<Self::Value, E> {
+                Ok(OrderedValue::Other)
+            }
+
+            fn visit_i64<E: serde::de::Error>(self, _value: i64) -> Result<Self::Value, E> {
+                Ok(OrderedValue::Other)
+            }
+
+            fn visit_u64<E: serde::de::Error>(self, _value: u64) -> Result<Self::Value, E> {
+                Ok(OrderedValue::Other)
+            }
+
+            fn visit_f64<E: serde::de::Error>(self, _value: f64) -> Result<Self::Value, E> {
+                Ok(OrderedValue::Other)
+            }
+
+            fn visit_str<E: serde::de::Error>(self, value: &str) -> Result<Self::Value, E> {
+                Ok(OrderedValue::String(value.to_owned()))
+            }
+
+            fn visit_string<E: serde::de::Error>(self, value: String) -> Result<Self::Value, E> {
+                Ok(OrderedValue::String(value))
+            }
+
+            fn visit_none<E: serde::de::Error>(self) -> Result<Self::Value, E> {
+                Ok(OrderedValue::Null)
+            }
+
+            fn visit_unit<E: serde::de::Error>(self) -> Result<Self::Value, E> {
+                Ok(OrderedValue::Null)
+            }
+
+            fn visit_some<D: Deserializer<'de>>(
+                self,
+                deserializer: D,
+            ) -> Result<Self::Value, D::Error> {
+                deserializer.deserialize_any(ValueVisitor)
+            }
+
+            fn visit_newtype_struct<D: Deserializer<'de>>(
+                self,
+                deserializer: D,
+            ) -> Result<Self::Value, D::Error> {
+                deserializer.deserialize_any(ValueVisitor)
+            }
+
+            fn visit_seq<A: SeqAccess<'de>>(
+                self,
+                mut sequence: A,
+            ) -> Result<Self::Value, A::Error> {
+                while sequence.next_element::<IgnoredAny>()?.is_some() {}
+                Ok(OrderedValue::Other)
+            }
+
+            fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
+                let mut members = Vec::new();
+                while let Some((key, value)) = map.next_entry::<String, OrderedValue>()? {
+                    members.push((key, value));
+                }
+                Ok(OrderedValue::Object(members))
             }
         }
-        Some(_) => {
-            let (default_code, default_message, default_fields) = defaults();
-            return ApiError {
-                status: result.status,
-                code: default_code,
-                message: default_message,
-                fields: default_fields,
-            };
-        }
+
+        deserializer.deserialize_any(ValueVisitor)
     }
-    match field(error, "message") {
-        None | Some(Value::Null) => {}
-        Some(Value::String(value)) => {
-            let value = value.trim();
-            if !value.is_empty() {
-                message = value.to_owned();
+}
+
+/// The members of a top-level JSON object, or an empty list for JSON `null`
+/// (which Go decodes into a zero struct). Anything else is not an envelope.
+fn ordered_members(data: &[u8]) -> Option<Vec<(String, OrderedValue)>> {
+    match serde_json::from_slice::<OrderedValue>(data).ok()? {
+        OrderedValue::Object(members) => Some(members),
+        OrderedValue::Null => Some(Vec::new()),
+        _ => None,
+    }
+}
+
+#[derive(Default)]
+struct ErrorParts {
+    code: Option<String>,
+    message: Option<String>,
+    fields: Option<BTreeMap<String, String>>,
+}
+
+fn ordered_error_parts(body: &[u8]) -> Option<(bool, ErrorParts)> {
+    let members = ordered_members(body)?;
+    let mut parts = ErrorParts::default();
+    let mut present = false;
+    for (key, value) in members {
+        if !key.eq_ignore_ascii_case("error") {
+            continue;
+        }
+        let error_members = match value {
+            OrderedValue::Null => {
+                parts = ErrorParts::default();
+                present = false;
+                continue;
             }
-        }
-        Some(_) => {
-            let (default_code, default_message, default_fields) = defaults();
-            return ApiError {
-                status: result.status,
-                code: default_code,
-                message: default_message,
-                fields: default_fields,
-            };
-        }
-    }
-    match field(error, "fields") {
-        None | Some(Value::Null) => {}
-        Some(Value::Object(map)) => {
-            for (key, value) in map {
+            OrderedValue::Object(error_members) => error_members,
+            _ => return None,
+        };
+        present = true;
+        for (key, value) in error_members {
+            if key.eq_ignore_ascii_case("code") {
                 match value {
-                    Value::Null => {
-                        fields.insert(key.clone(), String::new());
+                    OrderedValue::String(value) => parts.code = Some(value),
+                    OrderedValue::Null => {}
+                    _ => return None,
+                }
+            } else if key.eq_ignore_ascii_case("message") {
+                match value {
+                    OrderedValue::String(value) => parts.message = Some(value),
+                    OrderedValue::Null => {}
+                    _ => return None,
+                }
+            } else if key.eq_ignore_ascii_case("fields") {
+                match value {
+                    OrderedValue::Null => parts.fields = None,
+                    OrderedValue::Object(entries) => {
+                        let target = parts.fields.get_or_insert_with(BTreeMap::new);
+                        for (key, value) in entries {
+                            match value {
+                                OrderedValue::String(value) => {
+                                    target.insert(key, value);
+                                }
+                                OrderedValue::Null => {
+                                    target.insert(key, String::new());
+                                }
+                                _ => return None,
+                            }
+                        }
                     }
-                    Value::String(value) => {
-                        fields.insert(key.clone(), value.clone());
-                    }
-                    _ => {
-                        let (default_code, default_message, default_fields) = defaults();
-                        return ApiError {
-                            status: result.status,
-                            code: default_code,
-                            message: default_message,
-                            fields: default_fields,
-                        };
-                    }
+                    _ => return None,
                 }
             }
         }
-        Some(_) => {
-            let (default_code, default_message, default_fields) = defaults();
-            return ApiError {
-                status: result.status,
-                code: default_code,
-                message: default_message,
-                fields: default_fields,
-            };
-        }
     }
+    Some((present, parts))
+}
+
+pub fn error_from_result(result: &HttpResult) -> ApiError {
+    let Some((present, parts)) = ordered_error_parts(&result.body) else {
+        return default_api_error(result.status);
+    };
+    if !present {
+        return default_api_error(result.status);
+    }
+    let code = parts
+        .code
+        .map(|value| value.trim().to_owned())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "request_failed".to_owned());
+    let message = parts
+        .message
+        .map(|value| value.trim().to_owned())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "The API returned an error. Try again.".to_owned());
     ApiError {
         status: result.status,
         code,
         message,
-        fields,
+        fields: parts.fields.unwrap_or_default(),
+    }
+}
+
+fn default_api_error(status: i32) -> ApiError {
+    ApiError {
+        status,
+        code: "request_failed".to_owned(),
+        message: "The API returned an error. Try again.".to_owned(),
+        fields: BTreeMap::new(),
     }
 }
 
 pub fn error_code(body: &[u8]) -> String {
-    let Ok(Value::Object(envelope)) = serde_json::from_slice::<Value>(body) else {
+    let Some(members) = ordered_members(body) else {
         return String::new();
     };
-    let Some(Value::Object(error)) = field(&envelope, "error") else {
-        return String::new();
-    };
-    match field(error, "code") {
-        Some(Value::String(code)) => code.clone(),
-        None | Some(Value::Null) => String::new(),
-        Some(_) => String::new(),
+    let mut present = false;
+    let mut code = String::new();
+    for (key, value) in members {
+        if !key.eq_ignore_ascii_case("error") {
+            continue;
+        }
+        let error_members = match value {
+            OrderedValue::Null => {
+                present = false;
+                code.clear();
+                continue;
+            }
+            OrderedValue::Object(error_members) => error_members,
+            _ => return String::new(),
+        };
+        present = true;
+        for (key, value) in error_members {
+            if !key.eq_ignore_ascii_case("code") {
+                continue;
+            }
+            match value {
+                OrderedValue::String(value) => code = value,
+                OrderedValue::Null => {}
+                _ => return String::new(),
+            }
+        }
     }
+    if present { code } else { String::new() }
 }
 
 pub fn decode_json(body: &[u8]) -> Option<Value> {

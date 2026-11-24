@@ -21,38 +21,54 @@ import (
 )
 
 type command struct {
-	Op             string          `json:"op"`
-	Raw            string          `json:"raw"`
-	APIURL         string          `json:"api_url"`
-	AllowedHost    string          `json:"allowed_host"`
-	Origin         string          `json:"origin"`
-	ResolvedOrigin string          `json:"resolved_origin"`
-	AllowNetwork   bool            `json:"allow_network"`
-	Platform       string          `json:"platform"`
-	Host           string          `json:"host"`
-	Status         int             `json:"status"`
-	BodyString     string          `json:"body_string"`
-	Method         string          `json:"method"`
-	Session        string          `json:"session"`
-	CSRF           string          `json:"csrf"`
-	SessionExpires string          `json:"session_expires"`
-	CSRFExpires    string          `json:"csrf_expires"`
-	Now            string          `json:"now"`
-	NowUnix        int64           `json:"now_unix"`
-	SessionExpUnix int64           `json:"session_expires_unix"`
-	CSRFExpUnix    int64           `json:"csrf_expires_unix"`
-	IncludeOrigin  bool            `json:"include_origin"`
-	IncludeCSRF    bool            `json:"include_csrf"`
-	HasBody        bool            `json:"has_body"`
-	UserAgent      string          `json:"user_agent"`
-	Generation     uint64          `json:"generation"`
-	Profile        string          `json:"profile"`
-	SetCookie      string          `json:"set_cookie"`
-	Value          string          `json:"value"`
-	Kind           string          `json:"kind"`
-	Settings       *api.Settings   `json:"settings"`
-	Payload        json.RawMessage `json:"payload"`
-	PayloadPresent bool            `json:"payload_present"`
+	Op             string             `json:"op"`
+	Raw            string             `json:"raw"`
+	APIURL         string             `json:"api_url"`
+	AllowedHost    string             `json:"allowed_host"`
+	Origin         string             `json:"origin"`
+	ResolvedOrigin string             `json:"resolved_origin"`
+	AllowNetwork   bool               `json:"allow_network"`
+	Platform       string             `json:"platform"`
+	Host           string             `json:"host"`
+	Status         int                `json:"status"`
+	BodyString     string             `json:"body_string"`
+	Method         string             `json:"method"`
+	Session        string             `json:"session"`
+	CSRF           string             `json:"csrf"`
+	SessionExpires string             `json:"session_expires"`
+	CSRFExpires    string             `json:"csrf_expires"`
+	Now            string             `json:"now"`
+	NowUnix        int64              `json:"now_unix"`
+	SessionExpUnix int64              `json:"session_expires_unix"`
+	CSRFExpUnix    int64              `json:"csrf_expires_unix"`
+	IncludeOrigin  bool               `json:"include_origin"`
+	IncludeCSRF    bool               `json:"include_csrf"`
+	HasBody        bool               `json:"has_body"`
+	UserAgent      string             `json:"user_agent"`
+	Generation     uint64             `json:"generation"`
+	Profile        string             `json:"profile"`
+	SetCookie      string             `json:"set_cookie"`
+	Value          string             `json:"value"`
+	Kind           string             `json:"kind"`
+	Settings       *api.Settings      `json:"settings"`
+	Previous       *api.Settings      `json:"previous"`
+	Payload        json.RawMessage    `json:"payload"`
+	PayloadPresent bool               `json:"payload_present"`
+	Doc            string             `json:"doc"`
+	Key            string             `json:"key"`
+	Data           string             `json:"data"`
+	Path           string             `json:"path"`
+	SettingsRaw    *string            `json:"settings_raw"`
+	Precreate      *string            `json:"precreate"`
+	BlockParent    bool               `json:"block_parent"`
+	SecretRaw      *string            `json:"secret_raw"`
+	LegacyRaw      *string            `json:"legacy_raw"`
+	LegacyKind     string             `json:"legacy_kind"`
+	Env            map[string]*string `json:"env"`
+	ValuePresent   bool               `json:"value_present"`
+	Store          *storeSpec         `json:"store"`
+	Ops            []storeOp          `json:"ops"`
+	Script         *clientScript      `json:"script"`
 }
 
 type result struct {
@@ -202,6 +218,31 @@ func handle(cmd command) result {
 		return marshal(settings)
 	case "session_script":
 		return sessionScript()
+	case "client_script":
+		if cmd.Script == nil {
+			return wrap(nil, &api.Error{Code: "oracle_bad_command", Message: "script is required", Fields: map[string]string{}})
+		}
+		return runClientScript(cmd.Script)
+	case "decode_setting":
+		return runDecodeSetting(cmd)
+	case "settings_load":
+		return runSettingsLoad(cmd)
+	case "save_settings":
+		return runSaveSettings(cmd)
+	case "write_private_file":
+		return runWritePrivateFile(cmd)
+	case "load_legacy":
+		return runLoadLegacy(cmd)
+	case "consent_host_for_update":
+		return runConsentHostForUpdate(cmd)
+	case "settings_consent_allowed":
+		return runSettingsConsentAllowed(cmd)
+	case "secret_ops":
+		return runSecretOps(cmd)
+	case "default_secret_store_kind":
+		return runDefaultSecretStoreKind(cmd)
+	case "env_enabled":
+		return runEnvEnabled(cmd)
 	default:
 		return wrap(nil, &api.Error{
 			Code:    "oracle_unknown_op",

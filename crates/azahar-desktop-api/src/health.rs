@@ -123,13 +123,13 @@ fn parse_health_body(body: &[u8]) -> HealthBody {
     let Ok(Value::Object(fields)) = serde_json::from_slice::<Value>(body) else {
         return parsed;
     };
-    if let Some(Value::String(value)) = fields.get("origin") {
+    if let Some(Value::String(value)) = crate::client::field_ignore_case(&fields, "origin") {
         parsed.origin = value.clone();
     }
-    if let Some(Value::String(value)) = fields.get("env") {
+    if let Some(Value::String(value)) = crate::client::field_ignore_case(&fields, "env") {
         parsed.env = value.clone();
     }
-    if let Some(Value::String(value)) = fields.get("server_time") {
+    if let Some(Value::String(value)) = crate::client::field_ignore_case(&fields, "server_time") {
         parsed.server_time = value.clone();
     }
     parsed

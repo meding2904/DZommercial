@@ -5,4 +5,16 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+async-trait.workspace = true
+azahar-ids.workspace = true
+azahar-orderstatus.workspace = true
+azahar-plugins.workspace = true
+azahar-store.workspace = true
+chrono.workspace = true
+libsql.workspace = true
 serde_json.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+azahar-db.workspace = true
+tokio.workspace = true

@@ -49,9 +49,10 @@ outputs, by a database differential, or by an HTTP-level differential.
 | `desktop/internal/api` | 86 | 86 | done |
 | `desktop` | 19 | 19 | done |
 
-No scoped function remains. The Tauri host is built and unit-tested headlessly;
-a live WebKitGTK window, monitor placement, keyring and single-instance D-Bus
-behaviour could not be exercised in this environment and are listed under risks.
+No scoped function remains. The Tauri host is built, unit-tested and smoke-tested
+by opening the real window under a private Weston headless compositor; monitor
+placement, keyring and single-instance D-Bus behaviour could not be exercised in
+this environment and are listed under risks.
 
 ## Benchmarks
 
@@ -104,9 +105,10 @@ Recorded in `MIGRATION.md`:
 
 ## Risks
 
-- The Tauri host is compile- and unit-tested, but no GUI session was available:
-  window creation, monitor placement, the close hook and CSP enforcement on a
-  live WebKitGTK window are unverified. The Go Wails host remains the oracle.
+- The Tauri host passes a headless Weston smoke (window stays alive, no panic or
+  window error). Physical-display monitor placement, the close-hook save path,
+  CSP enforcement and keyring/D-Bus single-instance behaviour remain unverified.
+  The Go Wails host remains the oracle.
 - The keyring-backed secret store is abstracted and tested with fakes; live OS
   Secret Service integration is not covered by the differential.
 - Desktop TLS roots use rustls/webpki rather than Go's OS trust store, and gzip

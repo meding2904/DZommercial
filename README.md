@@ -591,8 +591,8 @@ Ported and differential-clean against the Go oracle so far:
   host in `azahar-desktop` replaces Wails and keeps the renderer unchanged.
 
 All scoped Go functions are ported, including the Tauri desktop host. The Tauri
-window itself was built and unit-tested headlessly; a live WebKitGTK session is
-needed to verify monitor placement and the close hook.
+window is smoke-tested under a headless Weston compositor; physical-display
+monitor placement, the close hook and keyring behaviour remain unverified.
 
 ### Before and after
 

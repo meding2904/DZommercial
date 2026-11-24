@@ -169,6 +169,9 @@ desktop              <- desktop/internal/api
 | 40 | reviewer | desktop + Tauri + SDK adapters | done | phone enrichment and route decoder fixed; remaining items documented |
 | 41 | implementer | Tauri 2 desktop host | done | 19 functions, 25 tests, `cargo build` passes |
 | 42 | integrator | final 624/624 close-out | done | all scoped checkboxes ticked |
+| 44 | differential tester | desktop API extended coverage | done | +3,271 comparisons (9,201 total) |
+| 45 | differential tester | Tauri host oracle | done | 1,437 comparisons (profile/clamp/position/URL/bridge) |
+| 46 | differential tester | live checkout success | done | deterministic captcha seam, `201` order matched |
 
 Status values: `queued`, `running`, `review`, `done`, `failed`, `rebriefed`.
 
@@ -190,6 +193,7 @@ Differences are only acceptable when behaviour is unobservable at the HTTP/API b
 | Plugin settings numbers | `is_go_number` follows `strconv.ParseFloat` acceptance exactly, pinned by 2,907 generated probes. | Validation-only; no behavioural gap remains. |
 | Desktop host | Tauri 2.9.5 replaces Wails; the renderer is unchanged through an injected `window.go.main.App` bridge. Monitor values/scale factors and Tauri's CSP nonces differ from Wails byte-for-byte. | User chose Tauri 2. Window bounds are converted logical↔physical; the CSP is equal or stricter; the Go Wails host remains the oracle. Single-instance uses a Tauri plugin and is skipped when no session bus exists. The host is compile/unit-tested and smoke-tested under headless Weston; physical-display monitor placement and keyring/D-Bus behaviour remain unverified. |
 | Desktop transport | rustls/webpki roots and no automatic gzip vs Go's OS trust store and transparent gzip. | Both are documented transport choices; API/error semantics are unchanged. Enterprise CA and gzip-only deployments should be tested before rollout. |
+| Desktop URL parser edges | Go `net/url` accepts IPv6 zone IDs, ports above 65535, dotted hosts ending in a number and hosts containing `]`/`,` outside brackets; the WHATWG parser rejects some of them. | Fail-closed; those URLs cannot open a legitimate admin endpoint and the host never weakens TLS. Core http(s)/userinfo/control/escape cases match the Go oracle. |
 | Wayland window shadow | Under Weston headless, Tauri reports an inner size about 52 px larger than the requested content size (client-side shadow). The clamp/save path runs, but the persisted size can exceed the monitor by that decoration. | Headless smoke proves window creation, clamp invocation, close-hook save and exit; physical-display geometry remains unverified. A Wayland-specific deduction needs a real compositor matrix. |
 | SDK `DecodeBody` | The Rust helper takes the struct's field list, then matches keys case-insensitively and applies duplicate keys in document order with last-wins; `null` is the zero value. Serde cannot discover field names at runtime, so the list is explicit. | The generic function now matches Go on the fixed/duplicate/case/null cases in the differential; mounted routes still use purpose-built decoders where they predate this helper. |
 | Router mounting | `build_router`/`Server::bind` require the plugin router from the binary; there is no default that silently omits AI/code-mode. Tests pass an explicit empty router. | Plugin crates depend on `azahar-httpapi`, so the binary is the only layer that can assemble the full set without a cycle. |

@@ -19,7 +19,8 @@ outputs, by a database differential, or by an HTTP-level differential.
   order-by-token, account orders, admin reads/mutations, plugin manifests and
   settings, AI runs, code-mode plans, phone devices, checkout
   validation/challenge and a successful 201 checkout driven through the
-  deterministic-captcha oracle seam.
+  deterministic-captcha oracle seam. The Tauri host has 1,437 oracle
+  comparisons for profile, clamp, monitor-position, URL and bridge helpers.
 
 ## Packages
 

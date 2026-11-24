@@ -12,6 +12,7 @@ use std::time::Duration;
 use axum::Router;
 use axum::extract::DefaultBodyLimit;
 use axum::middleware::{from_fn, from_fn_with_state};
+use axum::response::IntoResponse;
 use axum::routing::{get, patch, post, put};
 use tower_sessions::SessionManagerLayer;
 
@@ -207,6 +208,10 @@ pub fn build_router(state: AppState, sessions: SessionManagerLayer<LibsqlSession
             middleware::general_rate_limit,
         ))
         .layer(DefaultBodyLimit::max(BODY_LIMIT))
+        .layer(tower_http::catch_panic::CatchPanicLayer::custom(|_| {
+            problem(500, "internal_error", "Something went wrong.").into_response()
+        }))
+        .layer(from_fn(middleware::log_requests))
         .layer(from_fn(middleware::request_id))
         .layer(from_fn_with_state(state, middleware::security_headers))
 }

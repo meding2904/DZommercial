@@ -608,9 +608,9 @@ Differences are only acceptable when behaviour is unobservable at the HTTP/API b
 - [x] `internal/httpapi.handleRefreshTracking` *(method)* — `backend/internal/httpapi/handlers_shipping.go:239`
 - [x] `internal/httpapi.securityHeaders` *(method)* — `backend/internal/httpapi/middleware.go:38`
 - [x] `internal/httpapi.withRequestID` *(method)* — `backend/internal/httpapi/middleware.go:52`
-- [ ] `internal/httpapi.redactedPath` — `backend/internal/httpapi/middleware.go:113`
-- [ ] `internal/httpapi.logRequests` *(method)* — `backend/internal/httpapi/middleware.go:90`
-- [ ] `internal/httpapi.recoverPanic` *(method)* — `backend/internal/httpapi/middleware.go:120`
+- [x] `internal/httpapi.redactedPath` — `backend/internal/httpapi/middleware.go:113`
+- [x] `internal/httpapi.logRequests` *(method)* — `backend/internal/httpapi/middleware.go:90`
+- [x] `internal/httpapi.recoverPanic` *(method)* — `backend/internal/httpapi/middleware.go:120`
 - [x] `internal/httpapi.limitBody` *(method)* — `backend/internal/httpapi/middleware.go:139`
 - [x] `internal/httpapi.requireChallengeHeader` *(method)* — `backend/internal/httpapi/middleware.go:152`
 - [x] `internal/httpapi.isLocalDevelopmentOrigin` — `backend/internal/httpapi/middleware.go:207`

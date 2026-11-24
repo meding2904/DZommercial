@@ -441,3 +441,49 @@ mod tests {
         assert_eq!(forbidden().message, "This account does not have access.");
     }
 }
+
+/// Access log in the same fields as the Go `logRequests` middleware, with
+/// order tokens redacted. The request id is attached by `request_id`.
+pub async fn log_requests(request: Request, next: Next) -> Response {
+    let started = std::time::Instant::now();
+    let method = request.method().clone();
+    let path = redacted_path(request.uri().path());
+    let request_id = request
+        .extensions()
+        .get::<RequestId>()
+        .map(|id| id.0.clone())
+        .unwrap_or_default();
+    let response = next.run(request).await;
+    tracing::info!(
+        method = %method,
+        path = %path,
+        status = response.status().as_u16(),
+        duration_ms = started.elapsed().as_millis() as u64,
+        request_id = %request_id,
+        "http request"
+    );
+    response
+}
+
+/// Order tokens are bearer secrets, so the access log never contains them.
+pub fn redacted_path(path: &str) -> String {
+    if path.starts_with("/api/orders/") && path.len() > "/api/orders/".len() {
+        return "/api/orders/[redacted]".to_string();
+    }
+    path.to_string()
+}
+
+#[cfg(test)]
+mod log_tests {
+    use super::redacted_path;
+
+    #[test]
+    fn order_tokens_are_redacted() {
+        assert_eq!(
+            redacted_path("/api/orders/abc123"),
+            "/api/orders/[redacted]"
+        );
+        assert_eq!(redacted_path("/api/orders"), "/api/orders");
+        assert_eq!(redacted_path("/api/products"), "/api/products");
+    }
+}

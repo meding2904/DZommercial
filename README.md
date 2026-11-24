@@ -596,7 +596,7 @@ needed to verify monitor placement and the close hook.
 ### Before and after
 
 The same harness (`bench/bench.py`) ran against both builds: 16 workers × 2400
-mixed public reads with the in-process read cache, and 4 × 24 login flows, on
+mixed public reads with the in-process read cache, and 4 × 40 login flows, on
 the same seeded local libSQL database.
 
 | Metric | Go oracle | Rust |

@@ -7,6 +7,7 @@ members = [
   "crates/azahar-config",
   "crates/azahar-courier",
   "crates/azahar-db",
+  "crates/azahar-desktop-api",
   "crates/azahar-httpapi",
   "crates/azahar-ids",
   "crates/azahar-orderintake",
@@ -37,6 +38,7 @@ azahar-auth = { path = "crates/azahar-auth" }
 azahar-config = { path = "crates/azahar-config" }
 azahar-courier = { path = "crates/azahar-courier" }
 azahar-db = { path = "crates/azahar-db" }
+azahar-desktop-api = { path = "crates/azahar-desktop-api" }
 azahar-httpapi = { path = "crates/azahar-httpapi" }
 azahar-ids = { path = "crates/azahar-ids" }
 azahar-orderintake = { path = "crates/azahar-orderintake" }

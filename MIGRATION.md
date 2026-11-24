@@ -624,26 +624,26 @@ Differences are only acceptable when behaviour is unobservable at the HTTP/API b
 
 ### `internal/plugins/ai` (20 functions)
 
-- [ ] `internal/plugins/ai.New` — `backend/internal/plugins/ai/ai.go:44`
-- [ ] `internal/plugins/ai.Manifest` *(method)* — `backend/internal/plugins/ai/ai.go:48`
-- [ ] `internal/plugins/ai.ValidateSettings` *(method)* — `backend/internal/plugins/ai/ai.go:97`
-- [ ] `internal/plugins/ai.Migrations` *(method)* — `backend/internal/plugins/ai/ai.go:113`
-- [ ] `internal/plugins/ai.Routes` *(method)* — `backend/internal/plugins/ai/ai.go:129`
-- [ ] `internal/plugins/ai.Error` *(method)* — `backend/internal/plugins/ai/client.go:35`
-- [ ] `internal/plugins/ai.analysisInstruction` — `backend/internal/plugins/ai/prompts.go:11`
-- [ ] `internal/plugins/ai.formatDZD` — `backend/internal/plugins/ai/prompts.go:129`
-- [ ] `internal/plugins/ai.buildProductPrompt` — `backend/internal/plugins/ai/prompts.go:82`
-- [ ] `internal/plugins/ai.buildStorePrompt` — `backend/internal/plugins/ai/prompts.go:22`
-- [ ] `internal/plugins/ai.complete` *(method)* — `backend/internal/plugins/ai/client.go:138`
-- [ ] `internal/plugins/ai.enabledFromSettings` — `backend/internal/plugins/ai/client.go:109`
-- [ ] `internal/plugins/ai.configFromSettings` — `backend/internal/plugins/ai/client.go:90`
-- [ ] `internal/plugins/ai.Detail` *(method)* — `backend/internal/plugins/ai/client.go:49`
-- [ ] `internal/plugins/ai.StatusClass` *(method)* — `backend/internal/plugins/ai/client.go:42`
-- [ ] `internal/plugins/ai.logWarn` — `backend/internal/plugins/ai/ai.go:333`
-- [ ] `internal/plugins/ai.logUpstreamFailure` — `backend/internal/plugins/ai/ai.go:340`
-- [ ] `internal/plugins/ai.newClient` — `backend/internal/plugins/ai/client.go:60`
-- [ ] `internal/plugins/ai.handleAnalyze` *(method)* — `backend/internal/plugins/ai/ai.go:151`
-- [ ] `internal/plugins/ai.handleRuns` *(method)* — `backend/internal/plugins/ai/ai.go:291`
+- [x] `internal/plugins/ai.New` — `backend/internal/plugins/ai/ai.go:44`
+- [x] `internal/plugins/ai.Manifest` *(method)* — `backend/internal/plugins/ai/ai.go:48`
+- [x] `internal/plugins/ai.ValidateSettings` *(method)* — `backend/internal/plugins/ai/ai.go:97`
+- [x] `internal/plugins/ai.Migrations` *(method)* — `backend/internal/plugins/ai/ai.go:113`
+- [x] `internal/plugins/ai.Routes` *(method)* — `backend/internal/plugins/ai/ai.go:129`
+- [x] `internal/plugins/ai.Error` *(method)* — `backend/internal/plugins/ai/client.go:35`
+- [x] `internal/plugins/ai.analysisInstruction` — `backend/internal/plugins/ai/prompts.go:11`
+- [x] `internal/plugins/ai.formatDZD` — `backend/internal/plugins/ai/prompts.go:129`
+- [x] `internal/plugins/ai.buildProductPrompt` — `backend/internal/plugins/ai/prompts.go:82`
+- [x] `internal/plugins/ai.buildStorePrompt` — `backend/internal/plugins/ai/prompts.go:22`
+- [x] `internal/plugins/ai.complete` *(method)* — `backend/internal/plugins/ai/client.go:138`
+- [x] `internal/plugins/ai.enabledFromSettings` — `backend/internal/plugins/ai/client.go:109`
+- [x] `internal/plugins/ai.configFromSettings` — `backend/internal/plugins/ai/client.go:90`
+- [x] `internal/plugins/ai.Detail` *(method)* — `backend/internal/plugins/ai/client.go:49`
+- [x] `internal/plugins/ai.StatusClass` *(method)* — `backend/internal/plugins/ai/client.go:42`
+- [x] `internal/plugins/ai.logWarn` — `backend/internal/plugins/ai/ai.go:333`
+- [x] `internal/plugins/ai.logUpstreamFailure` — `backend/internal/plugins/ai/ai.go:340`
+- [x] `internal/plugins/ai.newClient` — `backend/internal/plugins/ai/client.go:60`
+- [x] `internal/plugins/ai.handleAnalyze` *(method)* — `backend/internal/plugins/ai/ai.go:151`
+- [x] `internal/plugins/ai.handleRuns` *(method)* — `backend/internal/plugins/ai/ai.go:291`
 
 ### `internal/plugins/codemode` (55 functions)
 

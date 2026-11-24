@@ -7,7 +7,7 @@ use axum::Router;
 use tokio::net::TcpListener;
 use tower_sessions::SessionManagerLayer;
 
-use crate::router::build_router;
+use crate::router::build_router_with_extra;
 use crate::session_layer::session_layer;
 use crate::session_store::LibsqlSessionStore;
 use crate::state::{AppState, configured_ttl};
@@ -37,15 +37,32 @@ impl Server {
     /// Binds `API_ADDR`. Go accepts `:8080`; Rust needs an explicit host, so a
     /// leading colon is expanded to all IPv4 interfaces.
     pub async fn bind(address: &str, state: AppState) -> std::io::Result<Self> {
+        Self::bind_with_extra(address, state, Router::new()).await
+    }
+
+    /// Binds and merges plugin routes supplied by the binary.
+    pub async fn bind_with_extra(
+        address: &str,
+        state: AppState,
+        extra: Router<AppState>,
+    ) -> std::io::Result<Self> {
         let listener = TcpListener::bind(normalize_bind_address(address)).await?;
-        Ok(Self::with_listener(listener, state))
+        Ok(Self::with_listener_and_extra(listener, state, extra))
     }
 
     /// Builds the app on an already-bound listener.
     #[must_use]
     pub fn with_listener(listener: TcpListener, state: AppState) -> Self {
+        Self::with_listener_and_extra(listener, state, Router::new())
+    }
+
+    pub fn with_listener_and_extra(
+        listener: TcpListener,
+        state: AppState,
+        extra: Router<AppState>,
+    ) -> Self {
         let sessions = session_layer_for(&state);
-        let app = build_router(state, sessions);
+        let app = build_router_with_extra(state, sessions, extra);
         Self { listener, app }
     }
 

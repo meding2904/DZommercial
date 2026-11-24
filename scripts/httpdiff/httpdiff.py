@@ -257,6 +257,7 @@ def pump_cases(oracle: Client, candidate: Client, group: str = "all") -> list[tu
     if wanted("products"):
         get("products", "/api/products")
         get("product", "/api/products/rose-petal-bath-soak")
+        get("phone_product", "/api/products/aster-5")
         get("not_found", "/api/products/does-not-exist")
         get("method_not_allowed", "/api/products")
     if wanted("plugins"):

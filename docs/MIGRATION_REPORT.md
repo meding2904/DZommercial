@@ -7,10 +7,10 @@ stayed runnable as the oracle. Every ported function is covered by a Rust test
 that drives the real Go code through a line-delimited JSON oracle and compares
 outputs, by a database differential, or by an HTTP-level differential.
 
-- **605 / 624** non-test Go functions in the migration scope are
+- **624 / 624** non-test Go functions in the migration scope are
   ticked in `MIGRATION.md` (the four `cmd/oracle-*` harness functions added for
   testing are excluded from this count).
-- **22 workspace crates** compile, `cargo clippy --workspace --all-targets -- -D warnings`
+- **24 workspace crates** compile, `cargo clippy --workspace --all-targets -- -D warnings`
   and `cargo fmt --all --check` pass.
 - The Rust `azahar-api` boots against Turso, runs the same migrations and seed,
   and serves the ported HTTP surface.
@@ -47,12 +47,11 @@ outputs, by a database differential, or by an HTTP-level differential.
 | `internal/seed` | 5 | 5 | done |
 | `cmd/api` | 1 | 1 | done |
 | `desktop/internal/api` | 86 | 86 | done |
-| `desktop` | 0 | 19 | partial |
+| `desktop` | 19 | 19 | done |
 
-Remaining: the 19 Wails window-host functions in `desktop/main.go`. The desktop
-API client (86 functions) is ported; the SvelteKit UI remains the UI layer by
-design. Choosing a Rust GUI framework (Tauri, egui/wry, or keeping the Go host)
-is a product decision, so it is recorded in `MIGRATION.md` rather than guessed.
+No scoped function remains. The Tauri host is built and unit-tested headlessly;
+a live WebKitGTK window, monitor placement, keyring and single-instance D-Bus
+behaviour could not be exercised in this environment and are listed under risks.
 
 ## Benchmarks
 
@@ -62,13 +61,13 @@ per side on the development machine. `bench/baseline.json` and
 
 | Metric | Go oracle | Rust |
 | --- | ---: | ---: |
-| Read throughput | 6,106 req/s | 5,731 req/s |
-| Read p50 / p95 / p99 | 2.49 / 4.07 / 5.01 ms | 2.56 / 4.77 / 5.87 ms |
-| Login p50 / p95 / p99 | 480.0 / 926.1 / 983.2 ms | 168.0 / 174.8 / 179.3 ms |
-| Peak RSS after reads | 100.1 MiB | 19.3 MiB |
-| Peak RSS including logins | 539.0 MiB | 275.0 MiB |
+| Read throughput | 6,106 req/s | 6,276 req/s |
+| Read p50 / p95 / p99 | 2.49 / 4.07 / 5.01 ms | 2.39 / 4.14 / 5.11 ms |
+| Login p50 / p95 / p99 | 480.0 / 926.1 / 983.2 ms | 158.1 / 161.4 / 162.0 ms |
+| Peak RSS after reads | 100.1 MiB | 20.8 MiB |
+| Peak RSS including logins | 539.0 MiB | 276.6 MiB |
 | Release binary | 14.7 MB | 26.9 MB |
-| Startup to healthy | 0.255 s | 0.062 s |
+| Startup to healthy | 0.255 s | 0.355 s |
 
 The read path includes the in-process read cache on both sides. Login uses the
 same Argon2id parameters (64 MiB, 3 passes, 4 lanes); the Go tail is dominated by
@@ -105,10 +104,13 @@ Recorded in `MIGRATION.md`:
 
 ## Risks
 
-- The Wails window host (`desktop/main.go`, 19 functions) remains Go. The Rust
-  desktop API client is ported, but no Rust GUI shell is wired yet.
+- The Tauri host is compile- and unit-tested, but no GUI session was available:
+  window creation, monitor placement, the close hook and CSP enforcement on a
+  live WebKitGTK window are unverified. The Go Wails host remains the oracle.
 - The keyring-backed secret store is abstracted and tested with fakes; live OS
   Secret Service integration is not covered by the differential.
+- Desktop TLS roots use rustls/webpki rather than Go's OS trust store, and gzip
+  negotiation is not enabled; enterprise CAs or gzip-only servers can differ.
 - Checkout success is covered by 39 unit/integration tests against a local
   database, but the live HTTP diff only compares validation and challenge
   responses because captcha codes are server-local.

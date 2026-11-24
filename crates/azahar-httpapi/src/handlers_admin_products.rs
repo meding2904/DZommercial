@@ -23,7 +23,7 @@ use serde::Deserialize;
 use serde::de::Deserializer;
 use serde_json::json;
 
-use crate::dto::to_product;
+use crate::dto::to_product_async;
 use crate::extract::{JsonBody, RawFields};
 use crate::handlers_admin::audit_detail;
 use crate::middleware::{CurrentUser, internal_error};
@@ -300,13 +300,9 @@ pub async fn create(
         }
     }
 
-    let registry = state
-        .plugins
-        .read()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
     Ok(json_response(
         201,
-        &json!({"product": to_product(&registry, &product, true)}),
+        &json!({"product": to_product_async(&state, &product, true).await}),
     ))
 }
 
@@ -620,13 +616,9 @@ pub async fn update(
         }
     }
 
-    let registry = state
-        .plugins
-        .read()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
     Ok(json_response(
         200,
-        &json!({"product": to_product(&registry, &product, true)}),
+        &json!({"product": to_product_async(&state, &product, true).await}),
     ))
 }
 

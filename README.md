@@ -151,14 +151,17 @@ for anything real.
 
 ## Desktop admin app
 
-The repository also ships a Wails app for the owner's counter. It is framework code, not part
-of the demo catalogue, and works with any deployment. It is the admin panel only, not a second
-storefront: the ledger, a counter sale, orders, products and stock, customers and staff. A Go
-backend talks to the API directly, and the static renderer has no network access of its own.
-The SvelteKit web app is not in the path.
+The repository also ships an admin desktop app for the owner's counter. It is framework code,
+not part of the demo catalogue, and works with any deployment. It is the admin panel only, not
+a second storefront: the ledger, a counter sale, orders, products and stock, customers and
+staff. The Rust host talks to the API through `azahar-desktop-api`; the static renderer has no
+network access of its own. The SvelteKit web app is not in the path.
 
-`desktop/` holds the Wails project. It uses the same API, roles and audit trail as the web
-admin. The storefront editor, plugin settings and the AI screens remain in the web admin.
+The migration branch has two hosts: the Rust Tauri app in `crates/azahar-desktop` (the port)
+and the original Go Wails app in `desktop/` (kept runnable as the oracle). Both load the same
+static renderer in `desktop/frontend`; the Tauri host injects a `window.go.main.App` bridge so
+the renderer is unchanged. They use the same API, roles and audit trail as the web admin. The
+storefront editor, plugin settings and the AI screens remain in the web admin.
 
 ### Run it
 
@@ -171,6 +174,8 @@ Start the API and the web app first, from the repository root:
 The development start publishes the API on `http://127.0.0.1:8080`. Then open a second terminal:
 
 ```bash
+make desktop-rust   # Rust Tauri host
+# or, for the Go oracle:
 make desktop-deps   # first time only, installs the Wails CLI
 make desktop
 ```
@@ -580,13 +585,13 @@ Ported and differential-clean against the Go oracle so far:
 - **Plugins** — registry/settings framework, oils, PC parts, PC builder,
   phone IMEI catalog and hooks, AI analyst and code-mode console (plans,
   preview, validated apply with audit).
-- **Desktop** — the API client, URL/firewall policy, session/CSRF handling,
-  settings and image layer are ported in `azahar-desktop-api`; the Wails
-  window host remains Go.
+- **Desktop** — `azahar-desktop-api` ports the client, URL/firewall policy,
+  session/CSRF handling, settings, images and keyring abstraction; the Tauri
+  host in `azahar-desktop` replaces Wails and keeps the renderer unchanged.
 
-Remaining: the 19 Wails window-host functions in `desktop/main.go`. The desktop
-API client is ported; choosing a Rust GUI framework is a product decision.
-Everything the server serves is ported.
+All scoped Go functions are ported, including the Tauri desktop host. The Tauri
+window itself was built and unit-tested headlessly; a live WebKitGTK session is
+needed to verify monitor placement and the close hook.
 
 ### Before and after
 
@@ -596,13 +601,13 @@ the same seeded local libSQL database.
 
 | Metric | Go oracle | Rust |
 | --- | ---: | ---: |
-| Read throughput | 6,106 req/s | 5,731 req/s |
-| Read p50 / p95 / p99 | 2.49 / 4.07 / 5.01 ms | 2.56 / 4.77 / 5.87 ms |
-| Login p50 / p95 / p99 | 480.0 / 926.1 / 983.2 ms | 168.0 / 174.8 / 179.3 ms |
-| Peak RSS after reads | 100.1 MiB | 19.3 MiB |
-| Peak RSS including logins | 539.0 MiB | 275.0 MiB |
+| Read throughput | 6,106 req/s | 6,276 req/s |
+| Read p50 / p95 / p99 | 2.49 / 4.07 / 5.01 ms | 2.39 / 4.14 / 5.11 ms |
+| Login p50 / p95 / p99 | 480.0 / 926.1 / 983.2 ms | 158.1 / 161.4 / 162.0 ms |
+| Peak RSS after reads | 100.1 MiB | 20.8 MiB |
+| Peak RSS including logins | 539.0 MiB | 276.6 MiB |
 | Release binary | 14.7 MB | 26.9 MB |
-| Startup to healthy | 0.255 s | 0.062 s |
+| Startup to healthy | 0.255 s | 0.355 s |
 
 ![Read, login and tail latency](docs/charts/latency.png)
 

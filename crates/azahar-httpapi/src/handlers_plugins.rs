@@ -7,7 +7,8 @@
 use std::collections::HashMap;
 
 use axum::Router;
-use axum::extract::{Path, Query, State};
+use axum::body::to_bytes;
+use axum::extract::{Path, Query, Request, State};
 use axum::http::StatusCode;
 use axum::middleware::{from_fn, from_fn_with_state};
 use axum::response::{IntoResponse, Response};
@@ -106,10 +107,10 @@ async fn phone_devices(
 /// `POST /api/plugins/phone/devices`.
 async fn phone_create_device(
     State(state): State<AppState>,
-    body: crate::extract::JsonBody<CreateDeviceRequest>,
+    request: Request,
 ) -> Result<Response, ApiProblem> {
     plugin_enabled(&state, "phone")?;
-    let payload = body.payload;
+    let payload = decode_phone_body(request).await?;
     let device = PhoneService::new()
         .create_device(
             state.store.conn(),
@@ -188,4 +189,65 @@ pub fn mount_plugin_routes(state: AppState) -> Router<AppState> {
 /// The plugin-enabled gate Go applies in `pluginHandler` before dispatch.
 pub fn plugin_handler(state: &AppState, plugin_id: &str) -> Result<(), ApiProblem> {
     plugin_enabled(state, plugin_id)
+}
+
+/// Go `plugins.DecodeBody` for the phone route: `application/json*`, 1 MiB,
+/// case-insensitive keys, null -> zero value, unknown fields refused.
+async fn decode_phone_body(request: Request) -> Result<CreateDeviceRequest, ApiProblem> {
+    let content_type = request
+        .headers()
+        .get(axum::http::header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or_default()
+        .trim()
+        .to_ascii_lowercase();
+    if !content_type.starts_with("application/json") {
+        return Err(ApiProblem::new(
+            415,
+            "unsupported_media_type",
+            "Send the request body as application/json.",
+        ));
+    }
+    let bytes = to_bytes(request.into_body(), 1 << 20)
+        .await
+        .map_err(|_| ApiProblem::new(413, "payload_too_large", "The request body is too large."))?;
+    if String::from_utf8_lossy(&bytes).trim().is_empty() {
+        return Err(ApiProblem::with_fields(
+            422,
+            "validation_error",
+            "Check the marked fields.",
+            HashMap::from([("body".to_string(), "Send a JSON object.".to_string())]),
+        ));
+    }
+    let value: serde_json::Value = serde_json::from_slice(&bytes).map_err(|_| shape_problem())?;
+    if value.is_null() {
+        return Ok(CreateDeviceRequest::default());
+    }
+    let Some(object) = value.as_object() else {
+        return Err(shape_problem());
+    };
+    let mut payload = CreateDeviceRequest::default();
+    for (key, item) in object {
+        let target = match key.to_ascii_lowercase().as_str() {
+            "product_id" => &mut payload.product_id,
+            "config" => &mut payload.config,
+            "color" => &mut payload.color,
+            "imei" => &mut payload.imei,
+            _ => return Err(shape_problem()),
+        };
+        *target = match item {
+            serde_json::Value::Null => String::new(),
+            serde_json::Value::String(value) => value.clone(),
+            _ => return Err(shape_problem()),
+        };
+    }
+    Ok(payload)
+}
+
+fn shape_problem() -> ApiProblem {
+    ApiProblem::new(
+        422,
+        "invalid_json",
+        "The request body does not match the expected shape.",
+    )
 }

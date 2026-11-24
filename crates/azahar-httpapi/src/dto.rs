@@ -240,6 +240,33 @@ pub fn to_product(
     dto
 }
 
+/// Detail view that also runs async plugin enrichment (phone IMEI counts).
+/// The registry guard is dropped before the database call so a slow query
+/// cannot stall plugin administration.
+pub async fn to_product_async(
+    state: &crate::state::AppState,
+    product: &Product,
+    with_timestamps: bool,
+) -> ProductDto {
+    let mut dto = {
+        let registry = state
+            .plugins
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        to_product(&registry, product, with_timestamps)
+    };
+    if dto.plugin_id == "phone"
+        && dto.plugin_data.is_none()
+        && let Ok(data) = azahar_plugin_phone::PhoneService::new()
+            .product_enrichment(state.store.conn(), &product.id)
+            .await
+        && !data.is_empty()
+    {
+        dto.plugin_data = Some(data.into_iter().collect());
+    }
+    dto
+}
+
 /// List view: decorated but no per-product plugin counts.
 #[must_use]
 pub fn to_products(

@@ -19,10 +19,9 @@ Living plan for the Rust port. The Go tree stays runnable and untouched as the *
   `SessionStore` and the Rust-owned `web_sessions` table. The Go `sessions`
   table is left alone. Full rationale and versions: `docs/auth.md`.
 - **Decision D3 — desktop:** the API client (`desktop/internal/api`, 86
-  functions) is ported to `azahar-desktop-api`. The 19 Wails window-host
-  functions in `desktop/main.go` are **blocked on a GUI-framework decision**
-  (Tauri vs egui/wry vs keeping the Go host). The renderer is Svelte/JS and
-  stays.
+  functions) is ported to `azahar-desktop-api`; the host is ported to Tauri
+  2.9.5 in `crates/azahar-desktop` with a `window.go.main.App` bridge so the
+  existing Svelte renderer runs unchanged. The Go Wails app stays as the oracle.
 - **Oracle harness convention:** each package adds `backend/cmd/oracle-<pkg>/`,
   a line-delimited JSON adapter around the Go functions. Rust integration
   tests under `crates/<crate>/tests/differential.rs` spawn it with `go run`.
@@ -159,6 +158,10 @@ desktop              <- desktop/internal/api
 | 36 | implementer | code-mode plugin | done | 55 functions, 352 plan documents + 12 DB scenarios |
 | 37 | implementer | desktop API client | done | 86 functions, 5,930 comparisons |
 | 38 | integrator | plugin route mounting + final diff | done | all HTTP groups match, no expected skips |
+| 39 | reviewer | AI + code-mode | done | decode/registration/choice/quote fixes applied |
+| 40 | reviewer | desktop + Tauri + SDK adapters | done | phone enrichment and route decoder fixed; remaining items documented |
+| 41 | implementer | Tauri 2 desktop host | done | 19 functions, 25 tests, `cargo build` passes |
+| 42 | integrator | final 624/624 close-out | done | all scoped checkboxes ticked |
 
 Status values: `queued`, `running`, `review`, `done`, `failed`, `rebriefed`.
 
@@ -175,10 +178,12 @@ Differences are only acceptable when behaviour is unobservable at the HTTP/API b
 | Courier transport wording | reqwest error strings differ from Go `net/http`; both map to the same typed transport error. | Never rendered to API clients. |
 | Storefront Unicode errors | Error-text escaping uses Unicode 16.0 category tables vs Go's 17.0 for code points added in 17.0. | Accept/validate behaviour is unchanged; only the text of an error for a newly assigned code point can differ. |
 | Plugin routes and hooks | `Route` carries method/pattern/admin metadata; handler presence is compile-checked by the explicit dispatch table. Checkout/status hooks are resolved by `orderintake::HookProvider` rather than registry trait objects. | Rust trait objects cannot carry Go function fields; both adaptations preserve the observable HTTP/order behaviour and are covered by the plugin route and hook tests. |
-| Plugin enrichment | `Registry::enrich_product` is synchronous; the phone enricher needs database I/O. | No in-tree enricher is ported yet (phone/AI are deferred). The trait will become async before those plugins land. |
+| Plugin enrichment | `Registry::enrich_product` is synchronous. Phone IMEI counts need database I/O, so product detail calls `to_product_async`, which merges the phone service result after the registry guard is dropped. | Detail responses are diff-verified against Go, including `plugin_data`; a future async trait can replace the special case. |
 | `ProductType.fields` | Empty `Vec` serialises as `null`; Go distinguishes nil (`null`) from an explicit empty slice (`[]`). | No in-tree plugin declares an empty field list. |
 | Plugin settings numbers | `is_go_number` follows `strconv.ParseFloat` acceptance exactly, pinned by 2,907 generated probes. | Validation-only; no behavioural gap remains. |
-| Desktop host | `desktop/internal/api` is ported; `desktop/main.go` (19 Wails window/lifecycle functions) stays Go until a Rust GUI shell is chosen. | Wails is a Go webview framework with no drop-in Rust equivalent; porting the client layer first keeps the migration useful without inventing a UI stack. |
+| Desktop host | Tauri 2.9.5 replaces Wails; the renderer is unchanged through an injected `window.go.main.App` bridge. Monitor values/scale factors and Tauri's CSP nonces differ from Wails byte-for-byte. | User chose Tauri 2. Window bounds are converted logical↔physical; the CSP is equal or stricter; the Go Wails host remains the oracle. Single-instance uses a Tauri plugin and is skipped when no session bus exists. The host is compile/unit-tested but no live GUI session was available. |
+| Desktop transport | rustls/webpki roots and no automatic gzip vs Go's OS trust store and transparent gzip. | Both are documented transport choices; API/error semantics are unchanged. Enterprise CA and gzip-only deployments should be tested before rollout. |
+| SDK `DecodeBody` | The Rust helper accepts `null` and duplicate keys, but cannot match JSON keys case-insensitively for arbitrary structs; mounted routes use purpose-built decoders where Go parity needs it. | serde has no runtime field-name introspection. The phone/AI routes implement case-insensitive decoding directly. |
 | Demo seed RNG | Go `math/rand` and Rust `StdRng` use the same fixed seed and the same plan/ranges/branches, but draw different concrete orders. | Seeded demo orders are illustrative data. Order-dependent endpoints are compared by response shape in the HTTP diff. |
 | Captcha image | The PNG uses the same size, palette and code alphabet but a simpler built-in 5x7 glyph table instead of Go's font rendering. | The answer check is identical; the image is only displayed to a person. |
 
@@ -873,23 +878,23 @@ Differences are only acceptable when behaviour is unobservable at the HTTP/API b
 
 ### `desktop` (19 functions)
 
-- [ ] `desktop.profileDirectory` — `desktop/main.go:112`
-- [ ] `desktop.NewApp` — `desktop/main.go:100`
-- [ ] `desktop.context` *(method)* — `desktop/main.go:133`
-- [ ] `desktop.windowBounds` *(method)* — `desktop/main.go:224`
-- [ ] `desktop.main` — `desktop/main.go:33`
-- [ ] `desktop.securityHeaders` — `desktop/main.go:81`
-- [ ] `desktop.startup` *(method)* — `desktop/main.go:127`
-- [ ] `desktop.clampWindowSize` — `desktop/main.go:198`
-- [ ] `desktop.screenPositionAllowed` — `desktop/main.go:151`
-- [ ] `desktop.domReady` *(method)* — `desktop/main.go:139`
-- [ ] `desktop.beforeClose` *(method)* — `desktop/main.go:180`
-- [ ] `desktop.Info` *(method)* — `desktop/main.go:228`
-- [ ] `desktop.Health` *(method)* — `desktop/main.go:232`
-- [ ] `desktop.Request` *(method)* — `desktop/main.go:236`
-- [ ] `desktop.Image` *(method)* — `desktop/main.go:240`
-- [ ] `desktop.UpdateSettings` *(method)* — `desktop/main.go:244`
-- [ ] `desktop.ClearSession` *(method)* — `desktop/main.go:248`
-- [ ] `desktop.FirewallGuide` *(method)* — `desktop/main.go:252`
-- [ ] `desktop.OpenExternal` *(method)* — `desktop/main.go:256`
+- [x] `desktop.profileDirectory` — `desktop/main.go:112`
+- [x] `desktop.NewApp` — `desktop/main.go:100`
+- [x] `desktop.context` *(method)* — `desktop/main.go:133`
+- [x] `desktop.windowBounds` *(method)* — `desktop/main.go:224`
+- [x] `desktop.main` — `desktop/main.go:33`
+- [x] `desktop.securityHeaders` — `desktop/main.go:81`
+- [x] `desktop.startup` *(method)* — `desktop/main.go:127`
+- [x] `desktop.clampWindowSize` — `desktop/main.go:198`
+- [x] `desktop.screenPositionAllowed` — `desktop/main.go:151`
+- [x] `desktop.domReady` *(method)* — `desktop/main.go:139`
+- [x] `desktop.beforeClose` *(method)* — `desktop/main.go:180`
+- [x] `desktop.Info` *(method)* — `desktop/main.go:228`
+- [x] `desktop.Health` *(method)* — `desktop/main.go:232`
+- [x] `desktop.Request` *(method)* — `desktop/main.go:236`
+- [x] `desktop.Image` *(method)* — `desktop/main.go:240`
+- [x] `desktop.UpdateSettings` *(method)* — `desktop/main.go:244`
+- [x] `desktop.ClearSession` *(method)* — `desktop/main.go:248`
+- [x] `desktop.FirewallGuide` *(method)* — `desktop/main.go:252`
+- [x] `desktop.OpenExternal` *(method)* — `desktop/main.go:256`
 

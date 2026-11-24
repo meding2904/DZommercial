@@ -8,8 +8,8 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use serde::Serialize;
 use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
 
 use crate::{Env, Problem, SettingsError};
 
@@ -27,9 +27,13 @@ impl Context {
         self.user_role == "admin"
     }
 
-    /// Go `Context.JSON`: a status plus the shared JSON encoding.
-    pub fn json<T: Serialize>(&self, status: u16, payload: &T) -> (u16, String) {
-        (status, write_json(Some(payload)))
+    /// Go `Context.JSON`: status, content type and the shared JSON encoding.
+    pub fn json<T: Serialize>(&self, status: u16, payload: &T) -> (u16, &'static str, String) {
+        (
+            status,
+            "application/json; charset=utf-8",
+            write_json(Some(payload)),
+        )
     }
 
     pub fn error(&self, status: u16, code: &str, message: &str) -> Problem {
@@ -86,7 +90,10 @@ fn escape_json(raw: &str) -> String {
 /// Unknown fields are rejected only when `T` declares `deny_unknown_fields`;
 /// Rust cannot inspect arbitrary struct fields at runtime. Every in-tree caller
 /// uses such a payload type.
-pub fn decode_body<T: DeserializeOwned>(content_type: &str, body: &[u8]) -> Result<T, Problem> {
+pub fn decode_body<T: DeserializeOwned + Default>(
+    content_type: &str,
+    body: &[u8],
+) -> Result<T, Problem> {
     if !content_type
         .trim()
         .to_ascii_lowercase()
@@ -119,7 +126,7 @@ pub fn decode_body<T: DeserializeOwned>(content_type: &str, body: &[u8]) -> Resu
         ));
     }
     let mut deserializer = serde_json::Deserializer::from_slice(body);
-    let value = match T::deserialize(&mut deserializer) {
+    let value: serde_json::Value = match serde_json::Value::deserialize(&mut deserializer) {
         Ok(value) => value,
         Err(_) => {
             return Err(Problem::new(
@@ -138,7 +145,17 @@ pub fn decode_body<T: DeserializeOwned>(content_type: &str, body: &[u8]) -> Resu
             None,
         ));
     }
-    Ok(value)
+    if value.is_null() {
+        return Ok(T::default());
+    }
+    serde_json::from_value(value).map_err(|_| {
+        Problem::new(
+            422,
+            "invalid_json",
+            "The request body does not match the expected shape.",
+            None,
+        )
+    })
 }
 
 /// The SDK's error envelope, matching the HTTP layer's omission of empty
@@ -148,7 +165,8 @@ pub fn error_body(problem: &Problem) -> String {
     let message = serde_json::to_string(&problem.message).unwrap_or_else(|_| "\"\"".to_string());
     let mut out = format!("{{\"error\":{{\"code\":{code},\"message\":{message}");
     if let Some(fields) = problem.fields.as_ref().filter(|fields| !fields.is_empty()) {
-        let fields = serde_json::to_string(fields).unwrap_or_else(|_| "{}".to_string());
+        let sorted: std::collections::BTreeMap<_, _> = fields.iter().collect();
+        let fields = serde_json::to_string(&sorted).unwrap_or_else(|_| "{}".to_string());
         out.push_str(",\"fields\":");
         out.push_str(&fields);
     }
@@ -161,7 +179,7 @@ mod tests {
     use super::*;
     use serde::Deserialize;
 
-    #[derive(Debug, Deserialize, PartialEq)]
+    #[derive(Debug, Default, Deserialize, PartialEq)]
     #[serde(deny_unknown_fields)]
     struct Payload {
         name: String,
@@ -213,6 +231,16 @@ mod tests {
             decode_body::<Payload>("APPLICATION/JSON", br#"{"name":"a"}"#).unwrap(),
             Payload {
                 name: "a".to_string()
+            }
+        );
+        assert_eq!(
+            decode_body::<Payload>("application/json", b"null").unwrap(),
+            Payload::default()
+        );
+        assert_eq!(
+            decode_body::<Payload>("application/json", br#"{"name":"a","name":"b"}"#).unwrap(),
+            Payload {
+                name: "b".to_string()
             }
         );
     }

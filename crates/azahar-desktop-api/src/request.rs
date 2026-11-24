@@ -323,6 +323,15 @@ fn go_json_encode(value: &Value) -> Result<Vec<u8>, ApiError> {
     Ok(text.into_bytes())
 }
 
+fn field<'a>(object: &'a serde_json::Map<String, Value>, name: &str) -> Option<&'a Value> {
+    object.get(name).or_else(|| {
+        object
+            .iter()
+            .find(|(key, _)| key.eq_ignore_ascii_case(name))
+            .map(|(_, value)| value)
+    })
+}
+
 pub fn error_from_result(result: &HttpResult) -> ApiError {
     let defaults = || {
         (
@@ -340,7 +349,7 @@ pub fn error_from_result(result: &HttpResult) -> ApiError {
             fields,
         };
     };
-    let Some(Value::Object(error)) = envelope.get("error") else {
+    let Some(Value::Object(error)) = field(&envelope, "error") else {
         let (code, message, fields) = defaults();
         return ApiError {
             status: result.status,
@@ -353,7 +362,7 @@ pub fn error_from_result(result: &HttpResult) -> ApiError {
     let mut code = "request_failed".to_owned();
     let mut message = "The API returned an error. Try again.".to_owned();
     let mut fields = BTreeMap::new();
-    match error.get("code") {
+    match field(error, "code") {
         None | Some(Value::Null) => {}
         Some(Value::String(value)) => {
             let value = value.trim();
@@ -371,7 +380,7 @@ pub fn error_from_result(result: &HttpResult) -> ApiError {
             };
         }
     }
-    match error.get("message") {
+    match field(error, "message") {
         None | Some(Value::Null) => {}
         Some(Value::String(value)) => {
             let value = value.trim();
@@ -389,20 +398,27 @@ pub fn error_from_result(result: &HttpResult) -> ApiError {
             };
         }
     }
-    match error.get("fields") {
+    match field(error, "fields") {
         None | Some(Value::Null) => {}
         Some(Value::Object(map)) => {
             for (key, value) in map {
-                let Value::String(value) = value else {
-                    let (default_code, default_message, default_fields) = defaults();
-                    return ApiError {
-                        status: result.status,
-                        code: default_code,
-                        message: default_message,
-                        fields: default_fields,
-                    };
-                };
-                fields.insert(key.clone(), value.clone());
+                match value {
+                    Value::Null => {
+                        fields.insert(key.clone(), String::new());
+                    }
+                    Value::String(value) => {
+                        fields.insert(key.clone(), value.clone());
+                    }
+                    _ => {
+                        let (default_code, default_message, default_fields) = defaults();
+                        return ApiError {
+                            status: result.status,
+                            code: default_code,
+                            message: default_message,
+                            fields: default_fields,
+                        };
+                    }
+                }
             }
         }
         Some(_) => {
@@ -427,10 +443,10 @@ pub fn error_code(body: &[u8]) -> String {
     let Ok(Value::Object(envelope)) = serde_json::from_slice::<Value>(body) else {
         return String::new();
     };
-    let Some(Value::Object(error)) = envelope.get("error") else {
+    let Some(Value::Object(error)) = field(&envelope, "error") else {
         return String::new();
     };
-    match error.get("code") {
+    match field(error, "code") {
         Some(Value::String(code)) => code.clone(),
         None | Some(Value::Null) => String::new(),
         Some(_) => String::new(),

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Azahar admin",
+  "mainBinaryName": "azahar-admin",
+  "version": "2.0.0",
+  "identifier": "com.azahar.admin",
+  "build": {
+    "frontendDist": "../../desktop/frontend"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [],
+    "security": {
+      "csp": "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+      "headers": {
+        "X-Content-Type-Options": "nosniff",
+        "Cross-Origin-Opener-Policy": "same-origin",
+        "Cross-Origin-Resource-Policy": "same-origin",
+        "Permissions-Policy": "camera=(), microphone=(), geolocation=()"
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": ["../../desktop/build/appicon.png"]
+  }
+}

@@ -9,7 +9,7 @@ use axum::response::{IntoResponse, Response};
 use azahar_store::{Product, ProductFilter, StoreError};
 use serde_json::json;
 
-use crate::dto::{CategoryDto, PublicPluginDto, to_product, to_products};
+use crate::dto::{CategoryDto, PublicPluginDto, to_product_async, to_products};
 use crate::middleware::internal_error;
 use crate::respond::{ApiProblem, json_response, problem};
 use crate::state::AppState;
@@ -117,20 +117,21 @@ pub async fn product(
         .await
         .map_err(|_| internal_error())?;
 
-    let registry = state
-        .plugins
-        .read()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
-    let visible: Vec<Product> = related
-        .into_iter()
-        .filter(|item| registry.effective_enabled(&item.plugin_id))
-        .collect();
+    let related = {
+        let registry = state
+            .plugins
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let visible: Vec<Product> = related
+            .into_iter()
+            .filter(|item| registry.effective_enabled(&item.plugin_id))
+            .collect();
+        to_products(&registry, &visible, false)
+    };
+    let detail = to_product_async(&state, &product, false).await;
     Ok(json_response(
         200,
-        &json!({
-            "product": to_product(&registry, &product, false),
-            "related": to_products(&registry, &visible, false),
-        }),
+        &json!({"product": detail, "related": related}),
     ))
 }
 

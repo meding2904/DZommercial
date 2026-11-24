@@ -487,3 +487,14 @@ mod log_tests {
         assert_eq!(redacted_path("/api/products"), "/api/products");
     }
 }
+
+/// chi registers only the methods a route asks for; `HEAD` on a GET route is a
+/// 405. Axum routes HEAD to GET automatically, so this restores the Go answer.
+pub async fn reject_head(request: Request, next: Next) -> Response {
+    use axum::response::IntoResponse;
+    if request.method() == axum::http::Method::HEAD {
+        return crate::respond::problem(405, "method_not_allowed", "Method not allowed.")
+            .into_response();
+    }
+    next.run(request).await
+}

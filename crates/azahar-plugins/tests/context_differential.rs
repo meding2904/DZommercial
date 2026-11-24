@@ -50,7 +50,7 @@ impl Drop for Oracle {
     }
 }
 
-#[derive(Debug, serde::Deserialize, PartialEq)]
+#[derive(Debug, Default, serde::Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 struct Payload {
     name: String,

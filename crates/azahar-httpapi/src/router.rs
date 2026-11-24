@@ -225,6 +225,7 @@ pub fn build_router_with_extra(
             problem(500, "internal_error", "Something went wrong.").into_response()
         }))
         .layer(from_fn(middleware::log_requests))
+        .layer(from_fn(middleware::reject_head))
         .layer(from_fn(middleware::request_id))
         .layer(from_fn_with_state(state, middleware::security_headers))
 }

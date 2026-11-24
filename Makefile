@@ -22,7 +22,8 @@ help:
 	@echo "  make smoke     call the public API endpoints"
 	@echo "  make desktop-deps  install the Wails CLI"
 	@echo "  make desktop-sync  copy the shared admin domain into the desktop renderer"
-	@echo "  make desktop   run the Wails admin app against the local API"
+	@echo "  make desktop   run the Go Wails admin app (oracle)"
+	@echo "  make desktop-rust  run the Rust Tauri admin app"
 	@echo "  make desktop-build  build the Wails admin binary"
 	@echo "  make desktop-package  build a Linux tarball with binary, desktop file and icon"
 	@echo "  make loadtest  run a short read probe against the API"
@@ -124,6 +125,12 @@ desktop-check:
 	else \
 		echo "skipping Wails main package checks: install libgtk-3-dev and libwebkit2gtk-4.1-dev"; \
 	fi
+
+desktop-rust:
+	cargo run -p azahar-desktop
+
+desktop-rust-build:
+	cargo build --release -p azahar-desktop
 
 desktop-deps:
 	go install github.com/wailsapp/wails/v2/cmd/wails@v2.17.1

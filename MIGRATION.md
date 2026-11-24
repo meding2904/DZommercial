@@ -29,9 +29,15 @@ Living plan for the Rust port. The Go tree stays runnable and untouched as the *
 - **Oracle-only exports:** unexported Go helpers used by the harness are exposed
   from `backend/internal/<pkg>/oracle_export.go` under `//go:build oracle`, so
   the normal API binary is unchanged.
-- **Decision D4 — commits:** one commit per package, with the function names in
-  the body. A commit per function cannot compile on its own, which would break
-  bisect and `git checkout` on the migration branch.
+- **Decision D4 — commits (user-approved):** one commit per package, with the
+  function names in the body. A commit per function cannot compile on its own,
+  which would break bisect and `git checkout` on the migration branch. The user
+  accepted this deviation from the literal per-function commit loop.
+- **Decision D7 — desktop runtime parity (user-approved):** live OS Secret
+  Service/keyring, Windows/macOS hosts, and the OS trust store are accepted as
+  documented differences. The differential covers memory/file/fallback/timeout
+  secret stores, URL/firewall/session/image behavior and the transport contract
+  with injected transports; no Secret Service or cross-OS host is available here.
 
 ## Baseline (Go oracle)
 

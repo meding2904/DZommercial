@@ -114,7 +114,8 @@ Recorded in `MIGRATION.md`:
   Weston adds a client-side shadow to the reported window size. The Go Wails host
   remains the oracle.
 - The keyring-backed secret store is abstracted and tested with fakes; live OS
-  Secret Service integration is not covered by the differential.
+  Secret Service integration and Windows/macOS hosts are accepted differences
+  (user-approved).
 - Desktop TLS roots use rustls/webpki rather than Go's OS trust store, and gzip
   negotiation is not enabled; enterprise CAs or gzip-only servers can differ.
 - Checkout success is covered by 39 unit/integration tests and by the live HTTP

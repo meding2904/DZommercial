@@ -34,7 +34,7 @@ Living plan for the Rust port. The Go tree stays runnable and untouched as the *
 
 ## Baseline (Go oracle)
 
-`bench/baseline.json`, 16 workers x 2400 mixed reads on the local libSQL:
+`bench/baseline.json`, 16 workers x 2400 mixed HTTP reads (the same in-process read cache on both sides):
 
 | Metric | Go oracle |
 | --- | ---: |
@@ -137,7 +137,15 @@ desktop              <- desktop/internal/api
 | 16 | reviewer | storefront/intake/audit/bench | running | — |
 | 17 | auth specialist | tower-sessions + Turso | done | `auth_turso` login/me/logout/expiry/rotation pass |
 | 18 | implementer | HTTP core + auth handlers | running | — |
-| 19 | implementer | auth review fixes | running | — |
+| 19 | implementer | auth review fixes | done | pinned `m<8*p`, ping-pong harness, std argon2 inherited |
+| 20 | implementer | courier review fixes | done | case-insensitive JSON, EqualFold, typed client failure |
+| 21 | implementer | store/db review fixes | done | zero-time, RFC3339, JSON codecs, DSN rules, fmt |
+| 22 | implementer | plugin review fixes | running | numeric parse parity, null settings |
+| 23 | implementer | seed | done | 5 functions, disposable-DB differential |
+| 24 | implementer | public catalogue routes | running | — |
+| 25 | implementer | order intake core | running | — |
+| 26 | reviewer | plugin framework | done | changes sent back |
+| 27 | implementer | pcbuilder manifest/catalog | done | 5 functions, oracle parity |
 
 Status values: `queued`, `running`, `review`, `done`, `failed`, `rebriefed`.
 
@@ -153,108 +161,112 @@ Differences are only acceptable when behaviour is unobservable at the HTTP/API b
 | Non-UTF-8 env | Rust `env::var_os` values are decoded lossily; Go preserves raw bytes. | Not reachable through the JSON API; config values are UTF-8 in every deployment path. |
 | Courier transport wording | reqwest error strings differ from Go `net/http`; both map to the same typed transport error. | Never rendered to API clients. |
 | Storefront Unicode errors | Error-text escaping uses Unicode 16.0 category tables vs Go's 17.0 for code points added in 17.0. | Accept/validate behaviour is unchanged; only the text of an error for a newly assigned code point can differ. |
+| Plugin routes | `Route` carries method/pattern/admin metadata; the HTTP layer keeps a per-plugin dispatch table instead of a `Handler` field on the trait. Go rejects registration without a handler. | Rust trait objects cannot carry closures with the Go signature; dispatch is compile-checked in `azahar-httpapi` instead. `plugins.Register` stays unticked until every mounted route is covered. |
+| Plugin enrichment | `Registry::enrich_product` is synchronous; the phone enricher needs database I/O. | No in-tree enricher is ported yet (phone/AI are deferred). The trait will become async before those plugins land. |
+| `ProductType.fields` | Empty `Vec` serialises as `null`; Go distinguishes nil (`null`) from an explicit empty slice (`[]`). | No in-tree plugin declares an empty field list. |
+| Plugin settings numbers | `is_go_number` is being aligned with `strconv.ParseFloat`; exotic hex-float and signed-NaN cases are pinned by a differential probe. | Validation-only; stored settings created by the admin UI use ordinary decimal numbers. |
 
 ## Checklist
 
 ### `internal/store` (93 functions)
 
-- [ ] `internal/store.FormatTime` — `backend/internal/store/types.go:141`
-- [ ] `internal/store.InsertAudit` *(method)* — `backend/internal/store/audit.go:8`
-- [ ] `internal/store.FlushAuditBatch` *(method)* — `backend/internal/store/audit_flush.go:15`
-- [ ] `internal/store.CreateProductImage` *(method)* — `backend/internal/store/images.go:17`
-- [ ] `internal/store.ParseTime` — `backend/internal/store/types.go:152`
-- [ ] `internal/store.ProductImage` *(method)* — `backend/internal/store/images.go:29`
-- [ ] `internal/store.Metrics` *(method)* — `backend/internal/store/metrics.go:60`
-- [ ] `internal/store.CountOrders` *(method)* — `backend/internal/store/orders.go:17`
-- [ ] `internal/store.NextOrderNumber` *(method)* — `backend/internal/store/orders.go:23`
-- [ ] `internal/store.FormatOptionalTime` — `backend/internal/store/types.go:145`
-- [ ] `internal/store.NormalizePluginID` — `backend/internal/store/products.go:374`
-- [ ] `internal/store.defaultCurrency` — `backend/internal/store/products.go:381`
-- [ ] `internal/store.encodeCourierEvents` — `backend/internal/store/types.go:242`
-- [ ] `internal/store.encodeStringMap` — `backend/internal/store/types.go:220`
-- [ ] `internal/store.CreateOrder` *(method)* — `backend/internal/store/orders.go:39`
-- [ ] `internal/store.decodeCourierEvents` — `backend/internal/store/types.go:253`
-- [ ] `internal/store.scanOrder` — `backend/internal/store/store.go:105`
-- [ ] `internal/store.OrderByTokenHash` *(method)* — `backend/internal/store/orders.go:79`
-- [ ] `internal/store.orderByID` *(method)* — `backend/internal/store/orders.go:95`
-- [ ] `internal/store.OrderByID` *(method)* — `backend/internal/store/orders.go:85`
-- [ ] `internal/store.OrderByIDTx` *(method)* — `backend/internal/store/orders.go:91`
-- [ ] `internal/store.decodeStringMap` — `backend/internal/store/types.go:231`
-- [ ] `internal/store.scanOrderItem` — `backend/internal/store/orders.go:164`
-- [ ] `internal/store.orderItems` *(method)* — `backend/internal/store/orders.go:142`
-- [ ] `internal/store.OrderItems` *(method)* — `backend/internal/store/orders.go:101`
-- [ ] `internal/store.OrderItemsTx` *(method)* — `backend/internal/store/orders.go:105`
-- [ ] `internal/store.OrderItemsByOrderIDs` *(method)* — `backend/internal/store/orders.go:112`
-- [ ] `internal/store.OrdersByUser` *(method)* — `backend/internal/store/orders.go:176`
-- [ ] `internal/store.AdminOrders` *(method)* — `backend/internal/store/orders.go:197`
-- [ ] `internal/store.UpdateOrderStatus` *(method)* — `backend/internal/store/orders.go:239`
-- [ ] `internal/store.UpdateShipment` *(method)* — `backend/internal/store/orders.go:257`
-- [ ] `internal/store.UpdateTracking` *(method)* — `backend/internal/store/orders.go:277`
-- [ ] `internal/store.PluginStates` *(method)* — `backend/internal/store/plugin_states.go:11`
-- [ ] `internal/store.SetPluginState` *(method)* — `backend/internal/store/plugin_states.go:31`
-- [ ] `internal/store.SaleWindow` *(method)* — `backend/internal/store/pricing.go:25`
-- [ ] `internal/store.PricePositive` *(method)* — `backend/internal/store/pricing.go:35`
-- [ ] `internal/store.PriceValid` *(method)* — `backend/internal/store/pricing.go:41`
-- [ ] `internal/store.EndsAfterStarts` *(method)* — `backend/internal/store/pricing.go:47`
-- [ ] `internal/store.Problems` *(method)* — `backend/internal/store/pricing.go:55`
-- [ ] `internal/store.Valid` *(method)* — `backend/internal/store/pricing.go:80`
-- [ ] `internal/store.Active` *(method)* — `backend/internal/store/pricing.go:86`
-- [ ] `internal/store.SaleActive` *(method)* — `backend/internal/store/pricing.go:95`
-- [ ] `internal/store.EffectivePriceCents` *(method)* — `backend/internal/store/pricing.go:100`
-- [ ] `internal/store.scanCategories` — `backend/internal/store/products.go:49`
-- [ ] `internal/store.Categories` *(method)* — `backend/internal/store/products.go:21`
-- [ ] `internal/store.PublicCategories` *(method)* — `backend/internal/store/products.go:35`
-- [ ] `internal/store.CategoryBySlugTx` *(method)* — `backend/internal/store/products.go:115`
-- [ ] `internal/store.CategoryBySlug` *(method)* — `backend/internal/store/products.go:62`
-- [ ] `internal/store.UpsertCategory` *(method)* — `backend/internal/store/products.go:69`
-- [ ] `internal/store.ReconcileProductCategories` *(method)* — `backend/internal/store/products.go:96`
-- [ ] `internal/store.CountProducts` *(method)* — `backend/internal/store/products.go:127`
-- [ ] `internal/store.decodeJSON` — `backend/internal/store/types.go:184`
-- [ ] `internal/store.decodeStringListMap` — `backend/internal/store/types.go:209`
-- [ ] `internal/store.scanProduct` — `backend/internal/store/store.go:45`
-- [ ] `internal/store.ListProducts` *(method)* — `backend/internal/store/products.go:133`
-- [ ] `internal/store.ProductBySlug` *(method)* — `backend/internal/store/products.go:203`
-- [ ] `internal/store.ProductByIDTx` *(method)* — `backend/internal/store/products.go:220`
-- [ ] `internal/store.ProductByID` *(method)* — `backend/internal/store/products.go:216`
-- [ ] `internal/store.DecrementStock` *(method)* — `backend/internal/store/products.go:233`
-- [ ] `internal/store.IncrementStock` *(method)* — `backend/internal/store/products.go:248`
-- [ ] `internal/store.RelatedProducts` *(method)* — `backend/internal/store/products.go:262`
-- [ ] `internal/store.boolInt` — `backend/internal/store/products.go:362`
-- [ ] `internal/store.encodeJSON` — `backend/internal/store/types.go:173`
-- [ ] `internal/store.encodeStringListMap` — `backend/internal/store/types.go:198`
-- [ ] `internal/store.CreateProduct` *(method)* — `backend/internal/store/products.go:289`
-- [ ] `internal/store.UpdateProduct` *(method)* — `backend/internal/store/products.go:313`
-- [ ] `internal/store.SetProductActive` *(method)* — `backend/internal/store/products.go:344`
-- [ ] `internal/store.CreateSession` *(method)* — `backend/internal/store/sessions.go:10`
-- [ ] `internal/store.SessionUserByHash` *(method)* — `backend/internal/store/sessions.go:23`
-- [ ] `internal/store.DeleteSessionByHash` *(method)* — `backend/internal/store/sessions.go:51`
-- [ ] `internal/store.DeleteSessionsForUserAgent` *(method)* — `backend/internal/store/sessions.go:56`
-- [ ] `internal/store.DeleteExpiredSessions` *(method)* — `backend/internal/store/sessions.go:66`
-- [ ] `internal/store.PluginSettings` *(method)* — `backend/internal/store/settings.go:9`
-- [ ] `internal/store.SavePluginSettings` *(method)* — `backend/internal/store/settings.go:20`
-- [ ] `internal/store.storefrontSettings` *(method)* — `backend/internal/store/settings.go:42`
-- [ ] `internal/store.StorefrontSettings` *(method)* — `backend/internal/store/settings.go:32`
-- [ ] `internal/store.StorefrontSettingsTx` *(method)* — `backend/internal/store/settings.go:38`
-- [ ] `internal/store.SaveStorefrontSettings` *(method)* — `backend/internal/store/settings.go:53`
-- [ ] `internal/store.New` — `backend/internal/store/store.go:15`
-- [ ] `internal/store.DB` *(method)* — `backend/internal/store/store.go:19`
-- [ ] `internal/store.InTx` *(method)* — `backend/internal/store/store.go:27`
-- [ ] `internal/store.NullTime` — `backend/internal/store/types.go:165`
-- [ ] `internal/store.CountUsers` *(method)* — `backend/internal/store/users.go:10`
-- [ ] `internal/store.defaultPreset` — `backend/internal/store/users.go:157`
-- [ ] `internal/store.CreateUser` *(method)* — `backend/internal/store/users.go:16`
-- [ ] `internal/store.scanUser` *(method)* — `backend/internal/store/users.go:94`
-- [ ] `internal/store.UserByEmail` *(method)* — `backend/internal/store/users.go:29`
-- [ ] `internal/store.UserByID` *(method)* — `backend/internal/store/users.go:36`
-- [ ] `internal/store.ListUsers` *(method)* — `backend/internal/store/users.go:45`
-- [ ] `internal/store.UpdateUserRole` *(method)* — `backend/internal/store/users.go:67`
-- [ ] `internal/store.CountAdmins` *(method)* — `backend/internal/store/users.go:85`
-- [ ] `internal/store.UpdateTheme` *(method)* — `backend/internal/store/users.go:107`
-- [ ] `internal/store.ListCustomers` *(method)* — `backend/internal/store/users.go:125`
+- [x] `internal/store.FormatTime` — `backend/internal/store/types.go:141`
+- [x] `internal/store.InsertAudit` *(method)* — `backend/internal/store/audit.go:8`
+- [x] `internal/store.FlushAuditBatch` *(method)* — `backend/internal/store/audit_flush.go:15`
+- [x] `internal/store.CreateProductImage` *(method)* — `backend/internal/store/images.go:17`
+- [x] `internal/store.ParseTime` — `backend/internal/store/types.go:152`
+- [x] `internal/store.ProductImage` *(method)* — `backend/internal/store/images.go:29`
+- [x] `internal/store.Metrics` *(method)* — `backend/internal/store/metrics.go:60`
+- [x] `internal/store.CountOrders` *(method)* — `backend/internal/store/orders.go:17`
+- [x] `internal/store.NextOrderNumber` *(method)* — `backend/internal/store/orders.go:23`
+- [x] `internal/store.FormatOptionalTime` — `backend/internal/store/types.go:145`
+- [x] `internal/store.NormalizePluginID` — `backend/internal/store/products.go:374`
+- [x] `internal/store.defaultCurrency` — `backend/internal/store/products.go:381`
+- [x] `internal/store.encodeCourierEvents` — `backend/internal/store/types.go:242`
+- [x] `internal/store.encodeStringMap` — `backend/internal/store/types.go:220`
+- [x] `internal/store.CreateOrder` *(method)* — `backend/internal/store/orders.go:39`
+- [x] `internal/store.decodeCourierEvents` — `backend/internal/store/types.go:253`
+- [x] `internal/store.scanOrder` — `backend/internal/store/store.go:105`
+- [x] `internal/store.OrderByTokenHash` *(method)* — `backend/internal/store/orders.go:79`
+- [x] `internal/store.orderByID` *(method)* — `backend/internal/store/orders.go:95`
+- [x] `internal/store.OrderByID` *(method)* — `backend/internal/store/orders.go:85`
+- [x] `internal/store.OrderByIDTx` *(method)* — `backend/internal/store/orders.go:91`
+- [x] `internal/store.decodeStringMap` — `backend/internal/store/types.go:231`
+- [x] `internal/store.scanOrderItem` — `backend/internal/store/orders.go:164`
+- [x] `internal/store.orderItems` *(method)* — `backend/internal/store/orders.go:142`
+- [x] `internal/store.OrderItems` *(method)* — `backend/internal/store/orders.go:101`
+- [x] `internal/store.OrderItemsTx` *(method)* — `backend/internal/store/orders.go:105`
+- [x] `internal/store.OrderItemsByOrderIDs` *(method)* — `backend/internal/store/orders.go:112`
+- [x] `internal/store.OrdersByUser` *(method)* — `backend/internal/store/orders.go:176`
+- [x] `internal/store.AdminOrders` *(method)* — `backend/internal/store/orders.go:197`
+- [x] `internal/store.UpdateOrderStatus` *(method)* — `backend/internal/store/orders.go:239`
+- [x] `internal/store.UpdateShipment` *(method)* — `backend/internal/store/orders.go:257`
+- [x] `internal/store.UpdateTracking` *(method)* — `backend/internal/store/orders.go:277`
+- [x] `internal/store.PluginStates` *(method)* — `backend/internal/store/plugin_states.go:11`
+- [x] `internal/store.SetPluginState` *(method)* — `backend/internal/store/plugin_states.go:31`
+- [x] `internal/store.SaleWindow` *(method)* — `backend/internal/store/pricing.go:25`
+- [x] `internal/store.PricePositive` *(method)* — `backend/internal/store/pricing.go:35`
+- [x] `internal/store.PriceValid` *(method)* — `backend/internal/store/pricing.go:41`
+- [x] `internal/store.EndsAfterStarts` *(method)* — `backend/internal/store/pricing.go:47`
+- [x] `internal/store.Problems` *(method)* — `backend/internal/store/pricing.go:55`
+- [x] `internal/store.Valid` *(method)* — `backend/internal/store/pricing.go:80`
+- [x] `internal/store.Active` *(method)* — `backend/internal/store/pricing.go:86`
+- [x] `internal/store.SaleActive` *(method)* — `backend/internal/store/pricing.go:95`
+- [x] `internal/store.EffectivePriceCents` *(method)* — `backend/internal/store/pricing.go:100`
+- [x] `internal/store.scanCategories` — `backend/internal/store/products.go:49`
+- [x] `internal/store.Categories` *(method)* — `backend/internal/store/products.go:21`
+- [x] `internal/store.PublicCategories` *(method)* — `backend/internal/store/products.go:35`
+- [x] `internal/store.CategoryBySlugTx` *(method)* — `backend/internal/store/products.go:115`
+- [x] `internal/store.CategoryBySlug` *(method)* — `backend/internal/store/products.go:62`
+- [x] `internal/store.UpsertCategory` *(method)* — `backend/internal/store/products.go:69`
+- [x] `internal/store.ReconcileProductCategories` *(method)* — `backend/internal/store/products.go:96`
+- [x] `internal/store.CountProducts` *(method)* — `backend/internal/store/products.go:127`
+- [x] `internal/store.decodeJSON` — `backend/internal/store/types.go:184`
+- [x] `internal/store.decodeStringListMap` — `backend/internal/store/types.go:209`
+- [x] `internal/store.scanProduct` — `backend/internal/store/store.go:45`
+- [x] `internal/store.ListProducts` *(method)* — `backend/internal/store/products.go:133`
+- [x] `internal/store.ProductBySlug` *(method)* — `backend/internal/store/products.go:203`
+- [x] `internal/store.ProductByIDTx` *(method)* — `backend/internal/store/products.go:220`
+- [x] `internal/store.ProductByID` *(method)* — `backend/internal/store/products.go:216`
+- [x] `internal/store.DecrementStock` *(method)* — `backend/internal/store/products.go:233`
+- [x] `internal/store.IncrementStock` *(method)* — `backend/internal/store/products.go:248`
+- [x] `internal/store.RelatedProducts` *(method)* — `backend/internal/store/products.go:262`
+- [x] `internal/store.boolInt` — `backend/internal/store/products.go:362`
+- [x] `internal/store.encodeJSON` — `backend/internal/store/types.go:173`
+- [x] `internal/store.encodeStringListMap` — `backend/internal/store/types.go:198`
+- [x] `internal/store.CreateProduct` *(method)* — `backend/internal/store/products.go:289`
+- [x] `internal/store.UpdateProduct` *(method)* — `backend/internal/store/products.go:313`
+- [x] `internal/store.SetProductActive` *(method)* — `backend/internal/store/products.go:344`
+- [x] `internal/store.CreateSession` *(method)* — `backend/internal/store/sessions.go:10`
+- [x] `internal/store.SessionUserByHash` *(method)* — `backend/internal/store/sessions.go:23`
+- [x] `internal/store.DeleteSessionByHash` *(method)* — `backend/internal/store/sessions.go:51`
+- [x] `internal/store.DeleteSessionsForUserAgent` *(method)* — `backend/internal/store/sessions.go:56`
+- [x] `internal/store.DeleteExpiredSessions` *(method)* — `backend/internal/store/sessions.go:66`
+- [x] `internal/store.PluginSettings` *(method)* — `backend/internal/store/settings.go:9`
+- [x] `internal/store.SavePluginSettings` *(method)* — `backend/internal/store/settings.go:20`
+- [x] `internal/store.storefrontSettings` *(method)* — `backend/internal/store/settings.go:42`
+- [x] `internal/store.StorefrontSettings` *(method)* — `backend/internal/store/settings.go:32`
+- [x] `internal/store.StorefrontSettingsTx` *(method)* — `backend/internal/store/settings.go:38`
+- [x] `internal/store.SaveStorefrontSettings` *(method)* — `backend/internal/store/settings.go:53`
+- [x] `internal/store.New` — `backend/internal/store/store.go:15`
+- [x] `internal/store.DB` *(method)* — `backend/internal/store/store.go:19`
+- [x] `internal/store.InTx` *(method)* — `backend/internal/store/store.go:27`
+- [x] `internal/store.NullTime` — `backend/internal/store/types.go:165`
+- [x] `internal/store.CountUsers` *(method)* — `backend/internal/store/users.go:10`
+- [x] `internal/store.defaultPreset` — `backend/internal/store/users.go:157`
+- [x] `internal/store.CreateUser` *(method)* — `backend/internal/store/users.go:16`
+- [x] `internal/store.scanUser` *(method)* — `backend/internal/store/users.go:94`
+- [x] `internal/store.UserByEmail` *(method)* — `backend/internal/store/users.go:29`
+- [x] `internal/store.UserByID` *(method)* — `backend/internal/store/users.go:36`
+- [x] `internal/store.ListUsers` *(method)* — `backend/internal/store/users.go:45`
+- [x] `internal/store.UpdateUserRole` *(method)* — `backend/internal/store/users.go:67`
+- [x] `internal/store.CountAdmins` *(method)* — `backend/internal/store/users.go:85`
+- [x] `internal/store.UpdateTheme` *(method)* — `backend/internal/store/users.go:107`
+- [x] `internal/store.ListCustomers` *(method)* — `backend/internal/store/users.go:125`
 
 ### `internal/auditbatch` (1 functions)
 
-- [ ] `internal/auditbatch.Run` — `backend/internal/auditbatch/batcher.go:18`
+- [x] `internal/auditbatch.Run` — `backend/internal/auditbatch/batcher.go:18`
 
 ### `internal/config` (9 functions)
 
@@ -270,70 +282,70 @@ Differences are only acceptable when behaviour is unobservable at the HTTP/API b
 
 ### `internal/courier` (44 functions)
 
-- [ ] `internal/courier.Error` *(method)* — `backend/internal/courier/courier.go:104`
-- [ ] `internal/courier.get` *(method)* — `backend/internal/courier/courier.go:157`
-- [ ] `internal/courier.stale` *(method)* — `backend/internal/courier/courier.go:163`
-- [ ] `internal/courier.set` *(method)* — `backend/internal/courier/courier.go:169`
-- [ ] `internal/courier.newDZShip` — `backend/internal/courier/dzship.go:25`
-- [ ] `internal/courier.New` — `backend/internal/courier/courier.go:177`
-- [ ] `internal/courier.isOffline` *(method)* — `backend/internal/courier/courier.go:381`
-- [ ] `internal/courier.markOffline` *(method)* — `backend/internal/courier/courier.go:390`
-- [ ] `internal/courier.notifyFallback` *(method)* — `backend/internal/courier/courier.go:369`
-- [ ] `internal/courier.resolveMap` — `backend/internal/courier/courier.go:290`
-- [ ] `internal/courier.Wilayas` *(method)* — `backend/internal/courier/courier.go:204`
-- [ ] `internal/courier.Wilaya` *(method)* — `backend/internal/courier/courier.go:209`
-- [ ] `internal/courier.communeCache` *(method)* — `backend/internal/courier/courier.go:347`
-- [ ] `internal/courier.apiError` — `backend/internal/courier/dzship.go:231`
-- [ ] `internal/courier.doJSON` *(method)* — `backend/internal/courier/dzship.go:144`
-- [ ] `internal/courier.communes` *(method)* — `backend/internal/courier/dzship.go:51`
-- [ ] `internal/courier.fallbackCommunesFor` — `backend/internal/courier/snapshot.go:79`
-- [ ] `internal/courier.communes` *(method)* — `backend/internal/courier/snapshot.go:59`
-- [ ] `internal/courier.Communes` *(method)* — `backend/internal/courier/courier.go:222`
-- [ ] `internal/courier.Commune` *(method)* — `backend/internal/courier/courier.go:229`
-- [ ] `internal/courier.deskCache` *(method)* — `backend/internal/courier/courier.go:358`
-- [ ] `internal/courier.credentialsOrNil` *(method)* — `backend/internal/courier/dzship.go:130`
-- [ ] `internal/courier.options` *(method)* — `backend/internal/courier/dzship.go:137`
-- [ ] `internal/courier.desks` *(method)* — `backend/internal/courier/dzship.go:63`
-- [ ] `internal/courier.localDesks` — `backend/internal/courier/snapshot.go:90`
-- [ ] `internal/courier.desks` *(method)* — `backend/internal/courier/snapshot.go:67`
-- [ ] `internal/courier.Desks` *(method)* — `backend/internal/courier/courier.go:243`
-- [ ] `internal/courier.Desk` *(method)* — `backend/internal/courier/courier.go:250`
-- [ ] `internal/courier.createOrder` *(method)* — `backend/internal/courier/dzship.go:80`
-- [ ] `internal/courier.sanitizeTracking` — `backend/internal/courier/snapshot.go:132`
-- [ ] `internal/courier.localShipment` — `backend/internal/courier/snapshot.go:120`
-- [ ] `internal/courier.createOrder` *(method)* — `backend/internal/courier/snapshot.go:71`
-- [ ] `internal/courier.isUnavailable` — `backend/internal/courier/courier.go:399`
-- [ ] `internal/courier.sandboxUnavailable` *(method)* — `backend/internal/courier/courier.go:377`
-- [ ] `internal/courier.resolveCall` — `backend/internal/courier/courier.go:324`
-- [ ] `internal/courier.CreateOrder` *(method)* — `backend/internal/courier/courier.go:263`
-- [ ] `internal/courier.track` *(method)* — `backend/internal/courier/dzship.go:111`
-- [ ] `internal/courier.localTracking` — `backend/internal/courier/snapshot.go:145`
-- [ ] `internal/courier.track` *(method)* — `backend/internal/courier/snapshot.go:75`
-- [ ] `internal/courier.Track` *(method)* — `backend/internal/courier/courier.go:280`
-- [ ] `internal/courier.wilayas` *(method)* — `backend/internal/courier/dzship.go:40`
-- [ ] `internal/courier.loadWilayaSnapshot` — `backend/internal/courier/snapshot.go:27`
-- [ ] `internal/courier.loadCommuneSnapshot` — `backend/internal/courier/snapshot.go:35`
-- [ ] `internal/courier.wilayas` *(method)* — `backend/internal/courier/snapshot.go:51`
+- [x] `internal/courier.Error` *(method)* — `backend/internal/courier/courier.go:104`
+- [x] `internal/courier.get` *(method)* — `backend/internal/courier/courier.go:157`
+- [x] `internal/courier.stale` *(method)* — `backend/internal/courier/courier.go:163`
+- [x] `internal/courier.set` *(method)* — `backend/internal/courier/courier.go:169`
+- [x] `internal/courier.newDZShip` — `backend/internal/courier/dzship.go:25`
+- [x] `internal/courier.New` — `backend/internal/courier/courier.go:177`
+- [x] `internal/courier.isOffline` *(method)* — `backend/internal/courier/courier.go:381`
+- [x] `internal/courier.markOffline` *(method)* — `backend/internal/courier/courier.go:390`
+- [x] `internal/courier.notifyFallback` *(method)* — `backend/internal/courier/courier.go:369`
+- [x] `internal/courier.resolveMap` — `backend/internal/courier/courier.go:290`
+- [x] `internal/courier.Wilayas` *(method)* — `backend/internal/courier/courier.go:204`
+- [x] `internal/courier.Wilaya` *(method)* — `backend/internal/courier/courier.go:209`
+- [x] `internal/courier.communeCache` *(method)* — `backend/internal/courier/courier.go:347`
+- [x] `internal/courier.apiError` — `backend/internal/courier/dzship.go:231`
+- [x] `internal/courier.doJSON` *(method)* — `backend/internal/courier/dzship.go:144`
+- [x] `internal/courier.communes` *(method)* — `backend/internal/courier/dzship.go:51`
+- [x] `internal/courier.fallbackCommunesFor` — `backend/internal/courier/snapshot.go:79`
+- [x] `internal/courier.communes` *(method)* — `backend/internal/courier/snapshot.go:59`
+- [x] `internal/courier.Communes` *(method)* — `backend/internal/courier/courier.go:222`
+- [x] `internal/courier.Commune` *(method)* — `backend/internal/courier/courier.go:229`
+- [x] `internal/courier.deskCache` *(method)* — `backend/internal/courier/courier.go:358`
+- [x] `internal/courier.credentialsOrNil` *(method)* — `backend/internal/courier/dzship.go:130`
+- [x] `internal/courier.options` *(method)* — `backend/internal/courier/dzship.go:137`
+- [x] `internal/courier.desks` *(method)* — `backend/internal/courier/dzship.go:63`
+- [x] `internal/courier.localDesks` — `backend/internal/courier/snapshot.go:90`
+- [x] `internal/courier.desks` *(method)* — `backend/internal/courier/snapshot.go:67`
+- [x] `internal/courier.Desks` *(method)* — `backend/internal/courier/courier.go:243`
+- [x] `internal/courier.Desk` *(method)* — `backend/internal/courier/courier.go:250`
+- [x] `internal/courier.createOrder` *(method)* — `backend/internal/courier/dzship.go:80`
+- [x] `internal/courier.sanitizeTracking` — `backend/internal/courier/snapshot.go:132`
+- [x] `internal/courier.localShipment` — `backend/internal/courier/snapshot.go:120`
+- [x] `internal/courier.createOrder` *(method)* — `backend/internal/courier/snapshot.go:71`
+- [x] `internal/courier.isUnavailable` — `backend/internal/courier/courier.go:399`
+- [x] `internal/courier.sandboxUnavailable` *(method)* — `backend/internal/courier/courier.go:377`
+- [x] `internal/courier.resolveCall` — `backend/internal/courier/courier.go:324`
+- [x] `internal/courier.CreateOrder` *(method)* — `backend/internal/courier/courier.go:263`
+- [x] `internal/courier.track` *(method)* — `backend/internal/courier/dzship.go:111`
+- [x] `internal/courier.localTracking` — `backend/internal/courier/snapshot.go:145`
+- [x] `internal/courier.track` *(method)* — `backend/internal/courier/snapshot.go:75`
+- [x] `internal/courier.Track` *(method)* — `backend/internal/courier/courier.go:280`
+- [x] `internal/courier.wilayas` *(method)* — `backend/internal/courier/dzship.go:40`
+- [x] `internal/courier.loadWilayaSnapshot` — `backend/internal/courier/snapshot.go:27`
+- [x] `internal/courier.loadCommuneSnapshot` — `backend/internal/courier/snapshot.go:35`
+- [x] `internal/courier.wilayas` *(method)* — `backend/internal/courier/snapshot.go:51`
 
 ### `migrations` (0 functions)
 
 
 ### `internal/db` (5 functions)
 
-- [ ] `internal/db.Open` — `backend/internal/db/db.go:17`
-- [ ] `internal/db.migrationApplied` — `backend/internal/db/db.go:92`
-- [ ] `internal/db.splitStatements` — `backend/internal/db/db.go:103`
-- [ ] `internal/db.Migrate` — `backend/internal/db/db.go:35`
-- [ ] `internal/db.MigratePlugins` — `backend/internal/db/plugin_migrations.go:20`
+- [x] `internal/db.Open` — `backend/internal/db/db.go:17`
+- [x] `internal/db.migrationApplied` — `backend/internal/db/db.go:92`
+- [x] `internal/db.splitStatements` — `backend/internal/db/db.go:103`
+- [x] `internal/db.Migrate` — `backend/internal/db/db.go:35`
+- [x] `internal/db.MigratePlugins` — `backend/internal/db/plugin_migrations.go:20`
 
 ### `internal/auth` (6 functions)
 
-- [ ] `internal/auth.HashPassword` — `backend/internal/auth/password.go:26`
-- [ ] `internal/auth.VerifyPassword` — `backend/internal/auth/password.go:39`
-- [ ] `internal/auth.DummyHash` — `backend/internal/auth/password.go:102`
-- [ ] `internal/auth.VerifyDummy` — `backend/internal/auth/password.go:107`
-- [ ] `internal/auth.NewToken` — `backend/internal/auth/token.go:14`
-- [ ] `internal/auth.HashToken` — `backend/internal/auth/token.go:24`
+- [x] `internal/auth.HashPassword` — `backend/internal/auth/password.go:26`
+- [x] `internal/auth.VerifyPassword` — `backend/internal/auth/password.go:39`
+- [x] `internal/auth.DummyHash` — `backend/internal/auth/password.go:102`
+- [x] `internal/auth.VerifyDummy` — `backend/internal/auth/password.go:107`
+- [x] `internal/auth.NewToken` — `backend/internal/auth/token.go:14`
+- [x] `internal/auth.HashToken` — `backend/internal/auth/token.go:24`
 
 ### `internal/ids` (1 functions)
 
@@ -358,89 +370,89 @@ Differences are only acceptable when behaviour is unobservable at the HTTP/API b
 - [ ] `internal/plugins.Problem` *(method)* — `backend/internal/plugins/plugin.go:188`
 - [ ] `internal/plugins.Error` *(method)* — `backend/internal/plugins/plugin.go:184`
 - [ ] `internal/plugins.Settings` *(method)* — `backend/internal/plugins/plugin.go:196`
-- [ ] `internal/plugins.NewProblem` — `backend/internal/plugins/plugin.go:207`
-- [ ] `internal/plugins.Get` *(method)* — `backend/internal/plugins/registry.go:130`
+- [x] `internal/plugins.NewProblem` — `backend/internal/plugins/plugin.go:207`
+- [x] `internal/plugins.Get` *(method)* — `backend/internal/plugins/registry.go:130`
 - [ ] `internal/plugins.DecodeBody` — `backend/internal/plugins/plugin.go:211`
-- [ ] `internal/plugins.NewRegistry` — `backend/internal/plugins/registry.go:20`
-- [ ] `internal/plugins.validMethod` — `backend/internal/plugins/registry.go:508`
-- [ ] `internal/plugins.validateCategories` — `backend/internal/plugins/registry.go:433`
-- [ ] `internal/plugins.validateProductType` — `backend/internal/plugins/registry.go:407`
-- [ ] `internal/plugins.validateSettings` — `backend/internal/plugins/registry.go:479`
-- [ ] `internal/plugins.validateStorefrontPages` — `backend/internal/plugins/registry.go:453`
+- [x] `internal/plugins.NewRegistry` — `backend/internal/plugins/registry.go:20`
+- [x] `internal/plugins.validMethod` — `backend/internal/plugins/registry.go:508`
+- [x] `internal/plugins.validateCategories` — `backend/internal/plugins/registry.go:433`
+- [x] `internal/plugins.validateProductType` — `backend/internal/plugins/registry.go:407`
+- [x] `internal/plugins.validateSettings` — `backend/internal/plugins/registry.go:479`
+- [x] `internal/plugins.validateStorefrontPages` — `backend/internal/plugins/registry.go:453`
 - [ ] `internal/plugins.Register` *(method)* — `backend/internal/plugins/registry.go:27`
-- [ ] `internal/plugins.All` *(method)* — `backend/internal/plugins/registry.go:124`
-- [ ] `internal/plugins.ValidateDependencies` *(method)* — `backend/internal/plugins/registry.go:137`
-- [ ] `internal/plugins.SetStates` *(method)* — `backend/internal/plugins/registry.go:183`
-- [ ] `internal/plugins.SetEnabled` *(method)* — `backend/internal/plugins/registry.go:195`
-- [ ] `internal/plugins.enabledLocked` *(method)* — `backend/internal/plugins/registry.go:214`
-- [ ] `internal/plugins.Enabled` *(method)* — `backend/internal/plugins/registry.go:207`
-- [ ] `internal/plugins.effectiveEnabledLocked` *(method)* — `backend/internal/plugins/registry.go:235`
-- [ ] `internal/plugins.EffectiveEnabled` *(method)* — `backend/internal/plugins/registry.go:228`
-- [ ] `internal/plugins.dependentsLocked` *(method)* — `backend/internal/plugins/registry.go:266`
-- [ ] `internal/plugins.Dependents` *(method)* — `backend/internal/plugins/registry.go:259`
-- [ ] `internal/plugins.EnabledDependents` *(method)* — `backend/internal/plugins/registry.go:291`
-- [ ] `internal/plugins.blockedByLocked` *(method)* — `backend/internal/plugins/registry.go:313`
-- [ ] `internal/plugins.BlockedBy` *(method)* — `backend/internal/plugins/registry.go:306`
-- [ ] `internal/plugins.Manifests` *(method)* — `backend/internal/plugins/registry.go:334`
-- [ ] `internal/plugins.Migrations` *(method)* — `backend/internal/plugins/registry.go:347`
-- [ ] `internal/plugins.ProductType` *(method)* — `backend/internal/plugins/registry.go:364`
+- [x] `internal/plugins.All` *(method)* — `backend/internal/plugins/registry.go:124`
+- [x] `internal/plugins.ValidateDependencies` *(method)* — `backend/internal/plugins/registry.go:137`
+- [x] `internal/plugins.SetStates` *(method)* — `backend/internal/plugins/registry.go:183`
+- [x] `internal/plugins.SetEnabled` *(method)* — `backend/internal/plugins/registry.go:195`
+- [x] `internal/plugins.enabledLocked` *(method)* — `backend/internal/plugins/registry.go:214`
+- [x] `internal/plugins.Enabled` *(method)* — `backend/internal/plugins/registry.go:207`
+- [x] `internal/plugins.effectiveEnabledLocked` *(method)* — `backend/internal/plugins/registry.go:235`
+- [x] `internal/plugins.EffectiveEnabled` *(method)* — `backend/internal/plugins/registry.go:228`
+- [x] `internal/plugins.dependentsLocked` *(method)* — `backend/internal/plugins/registry.go:266`
+- [x] `internal/plugins.Dependents` *(method)* — `backend/internal/plugins/registry.go:259`
+- [x] `internal/plugins.EnabledDependents` *(method)* — `backend/internal/plugins/registry.go:291`
+- [x] `internal/plugins.blockedByLocked` *(method)* — `backend/internal/plugins/registry.go:313`
+- [x] `internal/plugins.BlockedBy` *(method)* — `backend/internal/plugins/registry.go:306`
+- [x] `internal/plugins.Manifests` *(method)* — `backend/internal/plugins/registry.go:334`
+- [x] `internal/plugins.Migrations` *(method)* — `backend/internal/plugins/registry.go:347`
+- [x] `internal/plugins.ProductType` *(method)* — `backend/internal/plugins/registry.go:364`
 - [ ] `internal/plugins.CheckoutHook` *(method)* — `backend/internal/plugins/registry.go:372`
 - [ ] `internal/plugins.OrderStatusHooks` *(method)* — `backend/internal/plugins/registry.go:381`
-- [ ] `internal/plugins.EnrichProduct` *(method)* — `backend/internal/plugins/registry.go:391`
-- [ ] `internal/plugins.SettingsWithTime` *(method)* — `backend/internal/plugins/settings.go:21`
-- [ ] `internal/plugins.Settings` *(method)* — `backend/internal/plugins/settings.go:16`
-- [ ] `internal/plugins.EncodeSettings` *(method)* — `backend/internal/plugins/settings.go:44`
-- [ ] `internal/plugins.MergeSettings` — `backend/internal/plugins/settings.go:58`
-- [ ] `internal/plugins.MaskSettings` — `backend/internal/plugins/settings.go:131`
-- [ ] `internal/plugins.SettingsComplete` — `backend/internal/plugins/settings.go:151`
+- [x] `internal/plugins.EnrichProduct` *(method)* — `backend/internal/plugins/registry.go:391`
+- [x] `internal/plugins.SettingsWithTime` *(method)* — `backend/internal/plugins/settings.go:21`
+- [x] `internal/plugins.Settings` *(method)* — `backend/internal/plugins/settings.go:16`
+- [x] `internal/plugins.EncodeSettings` *(method)* — `backend/internal/plugins/settings.go:44`
+- [x] `internal/plugins.MergeSettings` — `backend/internal/plugins/settings.go:58`
+- [x] `internal/plugins.MaskSettings` — `backend/internal/plugins/settings.go:131`
+- [x] `internal/plugins.SettingsComplete` — `backend/internal/plugins/settings.go:151`
 
 ### `internal/orderintake` (17 functions)
 
-- [ ] `internal/orderintake.normalizeOptions` — `backend/internal/orderintake/lines.go:54`
-- [ ] `internal/orderintake.optionsKey` — `backend/internal/orderintake/lines.go:65`
-- [ ] `internal/orderintake.BuildLines` — `backend/internal/orderintake/lines.go:20`
+- [x] `internal/orderintake.normalizeOptions` — `backend/internal/orderintake/lines.go:54`
+- [x] `internal/orderintake.optionsKey` — `backend/internal/orderintake/lines.go:65`
+- [x] `internal/orderintake.BuildLines` — `backend/internal/orderintake/lines.go:20`
 - [ ] `internal/orderintake.OptionSchema` — `backend/internal/orderintake/options.go:11`
 - [ ] `internal/orderintake.selectedOptionFields` — `backend/internal/orderintake/options.go:23`
 - [ ] `internal/orderintake.optionLabel` — `backend/internal/orderintake/options.go:67`
 - [ ] `internal/orderintake.New` — `backend/internal/orderintake/orderintake.go:35`
 - [ ] `internal/orderintake.CheckoutChannel` — `backend/internal/orderintake/orderintake.go:102`
 - [ ] `internal/orderintake.CounterChannel` — `backend/internal/orderintake/orderintake.go:120`
-- [ ] `internal/orderintake.refuseFields` — `backend/internal/orderintake/problems.go:21`
+- [x] `internal/orderintake.refuseFields` — `backend/internal/orderintake/problems.go:21`
 - [ ] `internal/orderintake.shippingCents` *(method)* — `backend/internal/orderintake/orderintake.go:410`
 - [ ] `internal/orderintake.Place` *(method)* — `backend/internal/orderintake/orderintake.go:144`
-- [ ] `internal/orderintake.refuse` — `backend/internal/orderintake/problems.go:17`
+- [x] `internal/orderintake.refuse` — `backend/internal/orderintake/problems.go:17`
 - [ ] `internal/orderintake.ChangeStatus` *(method)* — `backend/internal/orderintake/orderintake.go:335`
-- [ ] `internal/orderintake.Error` *(method)* — `backend/internal/orderintake/problems.go:13`
-- [ ] `internal/orderintake.ShippingCents` — `backend/internal/orderintake/shipping.go:13`
-- [ ] `internal/orderintake.NoShipping` — `backend/internal/orderintake/shipping.go:21`
+- [x] `internal/orderintake.Error` *(method)* — `backend/internal/orderintake/problems.go:13`
+- [x] `internal/orderintake.ShippingCents` — `backend/internal/orderintake/shipping.go:13`
+- [x] `internal/orderintake.NoShipping` — `backend/internal/orderintake/shipping.go:21`
 
 ### `internal/productrules` (9 functions)
 
-- [ ] `internal/productrules.NormalizeAttributes` — `backend/internal/productrules/attributes.go:50`
-- [ ] `internal/productrules.PlainText` — `backend/internal/productrules/productrules.go:74`
-- [ ] `internal/productrules.validOptionValue` — `backend/internal/productrules/attributes.go:127`
-- [ ] `internal/productrules.ValidateAttributes` — `backend/internal/productrules/attributes.go:75`
-- [ ] `internal/productrules.ValidName` — `backend/internal/productrules/productrules.go:36`
-- [ ] `internal/productrules.ValidPrice` — `backend/internal/productrules/productrules.go:42`
-- [ ] `internal/productrules.ValidStock` — `backend/internal/productrules/productrules.go:47`
-- [ ] `internal/productrules.ValidImageID` — `backend/internal/productrules/productrules.go:52`
-- [ ] `internal/productrules.ValidImagePath` — `backend/internal/productrules/productrules.go:59`
+- [x] `internal/productrules.NormalizeAttributes` — `backend/internal/productrules/attributes.go:50`
+- [x] `internal/productrules.PlainText` — `backend/internal/productrules/productrules.go:74`
+- [x] `internal/productrules.validOptionValue` — `backend/internal/productrules/attributes.go:127`
+- [x] `internal/productrules.ValidateAttributes` — `backend/internal/productrules/attributes.go:75`
+- [x] `internal/productrules.ValidName` — `backend/internal/productrules/productrules.go:36`
+- [x] `internal/productrules.ValidPrice` — `backend/internal/productrules/productrules.go:42`
+- [x] `internal/productrules.ValidStock` — `backend/internal/productrules/productrules.go:47`
+- [x] `internal/productrules.ValidImageID` — `backend/internal/productrules/productrules.go:52`
+- [x] `internal/productrules.ValidImagePath` — `backend/internal/productrules/productrules.go:59`
 
 ### `internal/storefront` (13 functions)
 
-- [ ] `internal/storefront.Default` — `backend/internal/storefront/theme.go:64`
-- [ ] `internal/storefront.normalizePalette` — `backend/internal/storefront/theme.go:157`
-- [ ] `internal/storefront.Normalize` — `backend/internal/storefront/theme.go:124`
-- [ ] `internal/storefront.Parse` — `backend/internal/storefront/theme.go:111`
-- [ ] `internal/storefront.Encode` — `backend/internal/storefront/theme.go:167`
-- [ ] `internal/storefront.contains` — `backend/internal/storefront/theme.go:332`
-- [ ] `internal/storefront.hasControl` — `backend/internal/storefront/theme.go:320`
-- [ ] `internal/storefront.validImagePath` — `backend/internal/storefront/theme.go:313`
-- [ ] `internal/storefront.luminance` — `backend/internal/storefront/theme.go:295`
-- [ ] `internal/storefront.ContrastRatio` — `backend/internal/storefront/theme.go:282`
-- [ ] `internal/storefront.validatePalette` — `backend/internal/storefront/theme.go:247`
-- [ ] `internal/storefront.Validate` — `backend/internal/storefront/theme.go:176`
-- [ ] `internal/storefront.ParseLenient` — `backend/internal/storefront/theme.go:341`
+- [x] `internal/storefront.Default` — `backend/internal/storefront/theme.go:64`
+- [x] `internal/storefront.normalizePalette` — `backend/internal/storefront/theme.go:157`
+- [x] `internal/storefront.Normalize` — `backend/internal/storefront/theme.go:124`
+- [x] `internal/storefront.Parse` — `backend/internal/storefront/theme.go:111`
+- [x] `internal/storefront.Encode` — `backend/internal/storefront/theme.go:167`
+- [x] `internal/storefront.contains` — `backend/internal/storefront/theme.go:332`
+- [x] `internal/storefront.hasControl` — `backend/internal/storefront/theme.go:320`
+- [x] `internal/storefront.validImagePath` — `backend/internal/storefront/theme.go:313`
+- [x] `internal/storefront.luminance` — `backend/internal/storefront/theme.go:295`
+- [x] `internal/storefront.ContrastRatio` — `backend/internal/storefront/theme.go:282`
+- [x] `internal/storefront.validatePalette` — `backend/internal/storefront/theme.go:247`
+- [x] `internal/storefront.Validate` — `backend/internal/storefront/theme.go:176`
+- [x] `internal/storefront.ParseLenient` — `backend/internal/storefront/theme.go:341`
 
 ### `internal/httpapi` (156 functions)
 
@@ -464,14 +476,14 @@ Differences are only acceptable when behaviour is unobservable at the HTTP/API b
 - [ ] `internal/httpapi.currentAuth` — `backend/internal/httpapi/middleware.go:311`
 - [ ] `internal/httpapi.newRateLimiter` — `backend/internal/httpapi/ratelimit.go:27`
 - [ ] `internal/httpapi.Handler` *(method)* — `backend/internal/httpapi/router.go:82`
-- [ ] `internal/httpapi.problem` — `backend/internal/httpapi/respond.go:26`
-- [ ] `internal/httpapi.writeJSON` — `backend/internal/httpapi/respond.go:44`
-- [ ] `internal/httpapi.writeProblem` — `backend/internal/httpapi/respond.go:55`
-- [ ] `internal/httpapi.writeError` — `backend/internal/httpapi/respond.go:63`
+- [x] `internal/httpapi.problem` — `backend/internal/httpapi/respond.go:26`
+- [x] `internal/httpapi.writeJSON` — `backend/internal/httpapi/respond.go:44`
+- [x] `internal/httpapi.writeProblem` — `backend/internal/httpapi/respond.go:55`
+- [x] `internal/httpapi.writeError` — `backend/internal/httpapi/respond.go:63`
 - [ ] `internal/httpapi.pluginHandler` *(method)* — `backend/internal/httpapi/router.go:209`
 - [ ] `internal/httpapi.mountPluginRoutes` *(method)* — `backend/internal/httpapi/router.go:183`
 - [ ] `internal/httpapi.allow` *(method)* — `backend/internal/httpapi/ratelimit.go:38`
-- [ ] `internal/httpapi.clientIP` — `backend/internal/httpapi/respond.go:120`
+- [x] `internal/httpapi.clientIP` — `backend/internal/httpapi/respond.go:120`
 - [ ] `internal/httpapi.rateLimit` *(method)* — `backend/internal/httpapi/ratelimit.go:104`
 - [ ] `internal/httpapi.routes` *(method)* — `backend/internal/httpapi/router.go:95`
 - [ ] `internal/httpapi.New` — `backend/internal/httpapi/router.go:36`
@@ -499,8 +511,8 @@ Differences are only acceptable when behaviour is unobservable at the HTTP/API b
 - [ ] `internal/httpapi.toOrderItems` — `backend/internal/httpapi/dto.go:240`
 - [ ] `internal/httpapi.toOrder` — `backend/internal/httpapi/dto.go:196`
 - [ ] `internal/httpapi.fmtTime` — `backend/internal/httpapi/dto.go:274`
-- [ ] `internal/httpapi.problemFields` — `backend/internal/httpapi/respond.go:30`
-- [ ] `internal/httpapi.runeLen` — `backend/internal/httpapi/validate.go:13`
+- [x] `internal/httpapi.problemFields` — `backend/internal/httpapi/respond.go:30`
+- [x] `internal/httpapi.runeLen` — `backend/internal/httpapi/validate.go:13`
 - [ ] `internal/httpapi.handleAdminOrders` *(method)* — `backend/internal/httpapi/handlers_admin.go:19`
 - [ ] `internal/httpapi.writeIntakeError` — `backend/internal/httpapi/respond.go:69`
 - [ ] `internal/httpapi.handleOrderStatus` *(method)* — `backend/internal/httpapi/handlers_admin.go:60`
@@ -516,8 +528,8 @@ Differences are only acceptable when behaviour is unobservable at the HTTP/API b
 - [ ] `internal/httpapi.normalizeProductAttributes` — `backend/internal/httpapi/product_options.go:103`
 - [ ] `internal/httpapi.parseSaleWindow` — `backend/internal/httpapi/handlers_admin_products.go:497`
 - [ ] `internal/httpapi.slugTaken` *(method)* — `backend/internal/httpapi/handlers_admin_products.go:486`
-- [ ] `internal/httpapi.trimAll` — `backend/internal/httpapi/validate.go:83`
-- [ ] `internal/httpapi.validSlug` — `backend/internal/httpapi/validate.go:28`
+- [x] `internal/httpapi.trimAll` — `backend/internal/httpapi/validate.go:83`
+- [x] `internal/httpapi.validSlug` — `backend/internal/httpapi/validate.go:28`
 - [ ] `internal/httpapi.validateProduct` — `backend/internal/httpapi/handlers_admin_products.go:558`
 - [ ] `internal/httpapi.attributeFields` — `backend/internal/httpapi/product_options.go:74`
 - [ ] `internal/httpapi.optionKeyFields` — `backend/internal/httpapi/product_options.go:60`
@@ -528,12 +540,12 @@ Differences are only acceptable when behaviour is unobservable at the HTTP/API b
 - [ ] `internal/httpapi.filterFieldProblems` — `backend/internal/httpapi/handlers_admin_products.go:534`
 - [ ] `internal/httpapi.handleUpdateProduct` *(method)* — `backend/internal/httpapi/handlers_admin_products.go:186`
 - [ ] `internal/httpapi.handleArchiveProduct` *(method)* — `backend/internal/httpapi/handlers_admin_products.go:450`
-- [ ] `internal/httpapi.normalizedAlgerianMobile` — `backend/internal/httpapi/validate.go:39`
-- [ ] `internal/httpapi.validAlgerianMobile` — `backend/internal/httpapi/validate.go:67`
+- [x] `internal/httpapi.normalizedAlgerianMobile` — `backend/internal/httpapi/validate.go:39`
+- [x] `internal/httpapi.validAlgerianMobile` — `backend/internal/httpapi/validate.go:67`
 - [ ] `internal/httpapi.handleCounterSale` *(method)* — `backend/internal/httpapi/handlers_admin_sales.go:28`
 - [ ] `internal/httpapi.newSession` *(method)* — `backend/internal/httpapi/handlers_auth.go:218`
 - [ ] `internal/httpapi.setSessionCookie` *(method)* — `backend/internal/httpapi/middleware.go:220`
-- [ ] `internal/httpapi.validEmail` — `backend/internal/httpapi/validate.go:17`
+- [x] `internal/httpapi.validEmail` — `backend/internal/httpapi/validate.go:17`
 - [ ] `internal/httpapi.handleRegister` *(method)* — `backend/internal/httpapi/handlers_auth.go:21`
 - [ ] `internal/httpapi.handleLogin` *(method)* — `backend/internal/httpapi/handlers_auth.go:106`
 - [ ] `internal/httpapi.clearSessionCookie` *(method)* — `backend/internal/httpapi/middleware.go:233`
@@ -578,7 +590,7 @@ Differences are only acceptable when behaviour is unobservable at the HTTP/API b
 - [ ] `internal/httpapi.parseWilayaCode` — `backend/internal/httpapi/handlers_shipping.go:357`
 - [ ] `internal/httpapi.handleShippingCommunes` *(method)* — `backend/internal/httpapi/handlers_shipping.go:36`
 - [ ] `internal/httpapi.handleShippingDesks` *(method)* — `backend/internal/httpapi/handlers_shipping.go:50`
-- [ ] `internal/httpapi.truncateRunes` — `backend/internal/httpapi/validate.go:72`
+- [x] `internal/httpapi.truncateRunes` — `backend/internal/httpapi/validate.go:72`
 - [ ] `internal/httpapi.writeCourierError` *(method)* — `backend/internal/httpapi/handlers_shipping.go:326`
 - [ ] `internal/httpapi.courierCall` — `backend/internal/httpapi/handlers_shipping.go:316`
 - [ ] `internal/httpapi.currentUserID` — `backend/internal/httpapi/handlers_shipping.go:375`
@@ -598,8 +610,8 @@ Differences are only acceptable when behaviour is unobservable at the HTTP/API b
 - [ ] `internal/httpapi.requireAdmin` *(method)* — `backend/internal/httpapi/middleware.go:279`
 - [ ] `internal/httpapi.requireStaff` *(method)* — `backend/internal/httpapi/middleware.go:296`
 - [ ] `internal/httpapi.adminMutationLimit` *(method)* — `backend/internal/httpapi/ratelimit.go:122`
-- [ ] `internal/httpapi.decodeJSON` — `backend/internal/httpapi/respond.go:78`
-- [ ] `internal/httpapi.validPhone` — `backend/internal/httpapi/validate.go:32`
+- [x] `internal/httpapi.decodeJSON` — `backend/internal/httpapi/respond.go:78`
+- [x] `internal/httpapi.validPhone` — `backend/internal/httpapi/validate.go:32`
 
 ### `internal/plugins/ai` (20 functions)
 
@@ -696,12 +708,12 @@ Differences are only acceptable when behaviour is unobservable at the HTTP/API b
 
 ### `internal/plugins/pcbuilder` (6 functions)
 
-- [ ] `internal/plugins/pcbuilder.toPartsProduct` — `backend/internal/plugins/pcbuilder/parts.go:150`
-- [ ] `internal/plugins/pcbuilder.buildPartsResponse` — `backend/internal/plugins/pcbuilder/parts.go:92`
+- [x] `internal/plugins/pcbuilder.toPartsProduct` — `backend/internal/plugins/pcbuilder/parts.go:150`
+- [x] `internal/plugins/pcbuilder.buildPartsResponse` — `backend/internal/plugins/pcbuilder/parts.go:92`
 - [ ] `internal/plugins/pcbuilder.handleParts` *(method)* — `backend/internal/plugins/pcbuilder/parts.go:54`
-- [ ] `internal/plugins/pcbuilder.New` — `backend/internal/plugins/pcbuilder/pcbuilder.go:18`
-- [ ] `internal/plugins/pcbuilder.Manifest` *(method)* — `backend/internal/plugins/pcbuilder/pcbuilder.go:22`
-- [ ] `internal/plugins/pcbuilder.Routes` *(method)* — `backend/internal/plugins/pcbuilder/pcbuilder.go:36`
+- [x] `internal/plugins/pcbuilder.New` — `backend/internal/plugins/pcbuilder/pcbuilder.go:18`
+- [x] `internal/plugins/pcbuilder.Manifest` *(method)* — `backend/internal/plugins/pcbuilder/pcbuilder.go:22`
+- [x] `internal/plugins/pcbuilder.Routes` *(method)* — `backend/internal/plugins/pcbuilder/pcbuilder.go:36`
 
 ### `internal/plugins/phone` (26 functions)
 
@@ -734,11 +746,11 @@ Differences are only acceptable when behaviour is unobservable at the HTTP/API b
 
 ### `internal/seed` (5 functions)
 
-- [ ] `internal/seed.seedPluginCatalog` — `backend/internal/seed/plugins.go:69`
-- [ ] `internal/seed.seedCatalog` — `backend/internal/seed/seed.go:177`
-- [ ] `internal/seed.seedOrders` — `backend/internal/seed/seed.go:367`
-- [ ] `internal/seed.seedUsers` — `backend/internal/seed/seed.go:269`
-- [ ] `internal/seed.Run` — `backend/internal/seed/seed.go:32`
+- [x] `internal/seed.seedPluginCatalog` — `backend/internal/seed/plugins.go:69`
+- [x] `internal/seed.seedCatalog` — `backend/internal/seed/seed.go:177`
+- [x] `internal/seed.seedOrders` — `backend/internal/seed/seed.go:367`
+- [x] `internal/seed.seedUsers` — `backend/internal/seed/seed.go:269`
+- [x] `internal/seed.Run` — `backend/internal/seed/seed.go:32`
 
 ### `cmd/api` (1 functions)
 

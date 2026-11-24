@@ -9,10 +9,47 @@ Living plan for the Rust port. The Go tree stays runnable and untouched as the *
 - **Oracle rule:** no file under `backend/` is deleted or modified. Tooling added next to it (for example a `cmd/oracle` harness) is additive and does not change behaviour.
 - **Function unit:** each checkbox is one Go function or method (non-test). Tests are not ported one-to-one; equivalent Rust tests and the differential harness replace them.
 - **Migration branch:** `rust-migrate`. `main` is never committed to from this work.
+- **Ordering:** pure leaf packages first, then the store, plugins, order intake,
+  HTTP layer, seed and binary. A function is only ticked after its differential
+  harness reports zero diffs.
+- **Decision D1 — frontend:** `frontend/` stays SvelteKit. It is the UI layer;
+  the Rust API preserves the HTTP contract so the same UI runs against it.
+- **Decision D2 — auth:** Argon2id via the `argon2` crate keeps the Go PHC
+  format. Sessions move to `tower-sessions` 0.15 with a local libSQL-backed
+  `SessionStore` and the Rust-owned `web_sessions` table. The Go `sessions`
+  table is left alone. Full rationale and versions: `docs/auth.md`.
+- **Decision D3 — desktop:** the Wails Go host in `desktop/` is inventoried
+  (109 functions) and migrated after the API. Its renderer is Svelte/JS and
+  stays.
+- **Oracle harness convention:** each package adds `backend/cmd/oracle-<pkg>/`,
+  a line-delimited JSON adapter around the Go functions. Rust integration
+  tests under `crates/<crate>/tests/differential.rs` spawn it with `go run`.
+  Batch all cases per invocation; per-case `go run` is too slow.
+- **Oracle-only exports:** unexported Go helpers used by the harness are exposed
+  from `backend/internal/<pkg>/oracle_export.go` under `//go:build oracle`, so
+  the normal API binary is unchanged.
+- **Decision D4 — commits:** one commit per package, with the function names in
+  the body. A commit per function cannot compile on its own, which would break
+  bisect and `git checkout` on the migration branch.
+
+## Baseline (Go oracle)
+
+`bench/baseline.json`, 16 workers x 2400 mixed reads on the local libSQL:
+
+| Metric | Go oracle |
+| --- | ---: |
+| Throughput | 6191 req/s |
+| Read p50 / p95 / p99 | 2.44 / 4.16 / 4.92 ms |
+| Login flow p50 / p95 / p99 | 123.1 / 153.1 / 164.8 ms |
+| Peak RSS after reads | 103.2 MiB |
+| Peak RSS incl. Argon2 logins | 553.7 MiB |
+| Binary size | 14,713,389 bytes |
+| Startup to healthy | 0.102 s |
+| hyperfine `curl /api/health` | 3.9 ms mean |
 
 ## Orientation
 
-- Go packages: **23**, non-test functions/methods: **519**.
+- Go packages: **27**, non-test functions/methods: **628**.
 - Rust workspace crates mirror each Go package (`crates/azahar-<package>`), with `azahar-api` as the binary.
 - Package dependency order (leaf-first):
 
@@ -21,7 +58,8 @@ internal/store       <- —
 internal/auditbatch  <- internal/store
 internal/config      <- —
 internal/courier     <- —
-internal/db          <- —
+migrations           <- —
+internal/db          <- migrations
 internal/auth        <- —
 internal/ids         <- —
 internal/orderstatus <- —
@@ -39,7 +77,10 @@ internal/plugins/pcbuilder <- internal/plugins, internal/plugins/pcparts, intern
 internal/plugins/phone <- internal/ids, internal/plugins, internal/store
 internal/seed        <- internal/auth, internal/ids, internal/store
 cmd/api              <- internal/auditbatch, internal/config, internal/courier, internal/db, internal/httpapi, internal/plugins, internal/plugins/ai, internal/plugins/codemode, internal/plugins/oils, internal/plugins/pcbuilder, internal/plugins/pcparts, internal/plugins/phone, internal/seed, internal/store
-migrations           <- —
+cmd/oracle-ids-auth  <- internal/auth, internal/ids
+cmd/oracle-orderstatus-secrets <- internal/orderstatus, internal/secrets
+desktop/internal/api <- —
+desktop              <- desktop/internal/api
 ```
 
 ## Package summary
@@ -50,7 +91,8 @@ migrations           <- —
 | `internal/auditbatch` | 1 | 58 | internal/store |
 | `internal/config` | 9 | 262 | — |
 | `internal/courier` | 44 | 824 | — |
-| `internal/db` | 5 | 196 | — |
+| `migrations` | 0 | 8 | — |
+| `internal/db` | 5 | 196 | migrations |
 | `internal/auth` | 6 | 136 | — |
 | `internal/ids` | 1 | 15 | — |
 | `internal/orderstatus` | 2 | 30 | — |
@@ -68,13 +110,34 @@ migrations           <- —
 | `internal/plugins/phone` | 26 | 758 | internal/ids, internal/plugins, internal/store |
 | `internal/seed` | 5 | 746 | internal/auth, internal/ids, internal/store |
 | `cmd/api` | 1 | 195 | internal/auditbatch, internal/config, internal/courier, internal/db, internal/httpapi, internal/plugins, internal/plugins/ai, internal/plugins/codemode, internal/plugins/oils, internal/plugins/pcbuilder, internal/plugins/pcparts, internal/plugins/phone, internal/seed, internal/store |
-| `migrations` | 0 | 8 | — |
+| `cmd/oracle-ids-auth` | 2 | 112 | internal/auth, internal/ids |
+| `cmd/oracle-orderstatus-secrets` | 2 | 94 | internal/orderstatus, internal/secrets |
+| `desktop/internal/api` | 86 | 1763 | — |
+| `desktop` | 19 | 269 | desktop/internal/api |
 
 ## Subagent log
 
 | # | Role | Assignment | Status | Outcome |
 | ---: | --- | --- | --- | --- |
-| 1 | architect | call graph, crate layout, ordering | in progress | produced this inventory |
+| 1 | architect | call graph, crate layout, ordering | done | `MIGRATION.md` + `MIGRATION.json`, 27 packages / 628 functions |
+| 2 | benchmark engineer | baseline harness and numbers | done | `bench/bench.py`, `bench/baseline.json`, Go micro-benchmarks |
+| 3 | implementer | `ids`, `auth` | running | — |
+| 4 | implementer | `config` | running | — |
+| 5 | implementer | `orderstatus`, `secrets` | running | — |
+| 6 | implementer | `storefront` | running | — |
+| 7 | implementer | `courier` | done | 42 functions, 365 differential cases |
+| 8 | implementer | `store` orders/metrics/images/audit | running | files written, tests in progress |
+| 9 | implementer | `store` products/categories | done | 18 functions, 56 differential comparisons |
+| 10 | differential tester | store basics | running | — |
+| 11 | implementer | `storefront` | done | 13 functions, 1,280 proptest cases |
+| 12 | implementer | plugin core + oils + pcparts | running | — |
+| 13 | implementer | `seed` | running | — |
+| 14 | reviewer | auth/config/id/secrets/status | done | 4 approve, auth changes sent back |
+| 15 | reviewer | courier/store/respond/db | running | — |
+| 16 | reviewer | storefront/intake/audit/bench | running | — |
+| 17 | auth specialist | tower-sessions + Turso | done | `auth_turso` login/me/logout/expiry/rotation pass |
+| 18 | implementer | HTTP core + auth handlers | running | — |
+| 19 | implementer | auth review fixes | running | — |
 
 Status values: `queued`, `running`, `review`, `done`, `failed`, `rebriefed`.
 
@@ -83,8 +146,13 @@ Status values: `queued`, `running`, `review`, `done`, `failed`, `rebriefed`.
 Differences are only acceptable when behaviour is unobservable at the HTTP/API boundary or is a documented security improvement. Each entry needs a justification.
 
 | Item | Difference | Justification |
-| --- | --- | --- |
-| — | — | — |
+| --- | --- | --- | --- |
+| Sessions | Rust stores tower-sessions records in `web_sessions`; the Go oracle keeps `sessions`. Sessions are not shared between the two services. | Replacing the hand-rolled token/session code is the point of D2. A cutover needs one re-login; the old table is left untouched for the oracle. |
+| Argon2 `m < 8*p` | Go clamps memory up to `8*threads` and verifies such hashes; Rust's `argon2` crate rejects the parameters, so `verify_password` returns false. | `HashPassword` always emits `m=65536,t=3,p=4`, so no account created by this codebase is affected. Accepting impossible parameters is a security tightening. Pinned by a differential fixture. |
+| Login session cleanup | Go deletes every session for the same user agent and purges expired rows at login; tower-sessions rotates only the current session. | Both invalidate the session ID on login. The Rust layer exposes `delete_expired` for a scheduled cleanup; the API wiring schedules it. |
+| Non-UTF-8 env | Rust `env::var_os` values are decoded lossily; Go preserves raw bytes. | Not reachable through the JSON API; config values are UTF-8 in every deployment path. |
+| Courier transport wording | reqwest error strings differ from Go `net/http`; both map to the same typed transport error. | Never rendered to API clients. |
+| Storefront Unicode errors | Error-text escaping uses Unicode 16.0 category tables vs Go's 17.0 for code points added in 17.0. | Accept/validate behaviour is unchanged; only the text of an error for a newly assigned code point can differ. |
 
 ## Checklist
 
@@ -190,15 +258,15 @@ Differences are only acceptable when behaviour is unobservable at the HTTP/API b
 
 ### `internal/config` (9 functions)
 
-- [ ] `internal/config.IsProduction` *(method)* — `backend/internal/config/config.go:218`
-- [ ] `internal/config.getbool` — `backend/internal/config/config.go:240`
-- [ ] `internal/config.getenv` — `backend/internal/config/config.go:233`
-- [ ] `internal/config.getint` — `backend/internal/config/config.go:252`
-- [ ] `internal/config.Load` — `backend/internal/config/config.go:42`
-- [ ] `internal/config.DSN` *(method)* — `backend/internal/config/config.go:187`
-- [ ] `internal/config.CourierCredentialValues` *(method)* — `backend/internal/config/config.go:206`
-- [ ] `internal/config.IsDevelopment` *(method)* — `backend/internal/config/config.go:222`
-- [ ] `internal/config.AdminSessionTTL` *(method)* — `backend/internal/config/config.go:226`
+- [x] `internal/config.IsProduction` *(method)* — `backend/internal/config/config.go:218`
+- [x] `internal/config.getbool` — `backend/internal/config/config.go:240`
+- [x] `internal/config.getenv` — `backend/internal/config/config.go:233`
+- [x] `internal/config.getint` — `backend/internal/config/config.go:252`
+- [x] `internal/config.Load` — `backend/internal/config/config.go:42`
+- [x] `internal/config.DSN` *(method)* — `backend/internal/config/config.go:187`
+- [x] `internal/config.CourierCredentialValues` *(method)* — `backend/internal/config/config.go:206`
+- [x] `internal/config.IsDevelopment` *(method)* — `backend/internal/config/config.go:222`
+- [x] `internal/config.AdminSessionTTL` *(method)* — `backend/internal/config/config.go:226`
 
 ### `internal/courier` (44 functions)
 
@@ -247,6 +315,9 @@ Differences are only acceptable when behaviour is unobservable at the HTTP/API b
 - [ ] `internal/courier.loadCommuneSnapshot` — `backend/internal/courier/snapshot.go:35`
 - [ ] `internal/courier.wilayas` *(method)* — `backend/internal/courier/snapshot.go:51`
 
+### `migrations` (0 functions)
+
+
 ### `internal/db` (5 functions)
 
 - [ ] `internal/db.Open` — `backend/internal/db/db.go:17`
@@ -266,18 +337,18 @@ Differences are only acceptable when behaviour is unobservable at the HTTP/API b
 
 ### `internal/ids` (1 functions)
 
-- [ ] `internal/ids.New` — `backend/internal/ids/ids.go:9`
+- [x] `internal/ids.New` — `backend/internal/ids/ids.go:9`
 
 ### `internal/orderstatus` (2 functions)
 
-- [ ] `internal/orderstatus.Known` — `backend/internal/orderstatus/orderstatus.go:23`
-- [ ] `internal/orderstatus.CanTransition` — `backend/internal/orderstatus/orderstatus.go:28`
+- [x] `internal/orderstatus.Known` — `backend/internal/orderstatus/orderstatus.go:23`
+- [x] `internal/orderstatus.CanTransition` — `backend/internal/orderstatus/orderstatus.go:28`
 
 ### `internal/secrets` (3 functions)
 
-- [ ] `internal/secrets.New` — `backend/internal/secrets/box.go:25`
-- [ ] `internal/secrets.Encrypt` *(method)* — `backend/internal/secrets/box.go:29`
-- [ ] `internal/secrets.Decrypt` *(method)* — `backend/internal/secrets/box.go:46`
+- [x] `internal/secrets.New` — `backend/internal/secrets/box.go:25`
+- [x] `internal/secrets.Encrypt` *(method)* — `backend/internal/secrets/box.go:29`
+- [x] `internal/secrets.Decrypt` *(method)* — `backend/internal/secrets/box.go:46`
 
 ### `internal/plugins` (41 functions)
 
@@ -673,6 +744,124 @@ Differences are only acceptable when behaviour is unobservable at the HTTP/API b
 
 - [ ] `cmd/api.main` — `backend/cmd/api/main.go:29`
 
-### `migrations` (0 functions)
+### `cmd/oracle-ids-auth` (2 functions)
 
+- [ ] `cmd/oracle-ids-auth.handle` — `backend/cmd/oracle-ids-auth/main.go:35`
+- [ ] `cmd/oracle-ids-auth.main` — `backend/cmd/oracle-ids-auth/main.go:74`
+
+### `cmd/oracle-orderstatus-secrets` (2 functions)
+
+- [ ] `cmd/oracle-orderstatus-secrets.handle` — `backend/cmd/oracle-orderstatus-secrets/main.go:64`
+- [ ] `cmd/oracle-orderstatus-secrets.main` — `backend/cmd/oracle-orderstatus-secrets/main.go:26`
+
+### `desktop/internal/api` (86 functions)
+
+- [ ] `desktop/internal/api.envEnabled` — `desktop/internal/api/session.go:231`
+- [ ] `desktop/internal/api.canonicalOrigin` — `desktop/internal/api/urls.go:160`
+- [ ] `desktop/internal/api.containsControl` — `desktop/internal/api/urls.go:211`
+- [ ] `desktop/internal/api.newError` — `desktop/internal/api/types.go:72`
+- [ ] `desktop/internal/api.validationError` — `desktop/internal/api/types.go:81`
+- [ ] `desktop/internal/api.invalidAPIURL` — `desktop/internal/api/urls.go:70`
+- [ ] `desktop/internal/api.normalizeAPIURL` — `desktop/internal/api/urls.go:15`
+- [ ] `desktop/internal/api.sessionScope` — `desktop/internal/api/session.go:98`
+- [ ] `desktop/internal/api.defaultSecretStore` — `desktop/internal/api/session.go:214`
+- [ ] `desktop/internal/api.deviceHash` — `desktop/internal/api/client.go:104`
+- [ ] `desktop/internal/api.Load` *(method)* — `desktop/internal/api/session.go:43`
+- [ ] `desktop/internal/api.validCookieValue` — `desktop/internal/api/session.go:263`
+- [ ] `desktop/internal/api.Load` *(method)* — `desktop/internal/api/session.go:114`
+- [ ] `desktop/internal/api.Load` *(method)* — `desktop/internal/api/session.go:153`
+- [ ] `desktop/internal/api.Load` *(method)* — `desktop/internal/api/session.go:184`
+- [ ] `desktop/internal/api.loadSession` *(method)* — `desktop/internal/api/session.go:276`
+- [ ] `desktop/internal/api.normalizeHost` — `desktop/internal/api/urls.go:119`
+- [ ] `desktop/internal/api.parseHostIP` — `desktop/internal/api/urls.go:153`
+- [ ] `desktop/internal/api.isLoopbackHost` — `desktop/internal/api/urls.go:130`
+- [ ] `desktop/internal/api.isLocalHost` — `desktop/internal/api/urls.go:139`
+- [ ] `desktop/internal/api.validateTransportAddress` — `desktop/internal/api/urls.go:123`
+- [ ] `desktop/internal/api.apiHost` — `desktop/internal/api/urls.go:83`
+- [ ] `desktop/internal/api.decodeSetting` — `desktop/internal/api/client.go:204`
+- [ ] `desktop/internal/api.loadLegacySettings` — `desktop/internal/api/client.go:184`
+- [ ] `desktop/internal/api.invalidOrigin` — `desktop/internal/api/urls.go:74`
+- [ ] `desktop/internal/api.normalizeOrigin` — `desktop/internal/api/urls.go:45`
+- [ ] `desktop/internal/api.writePrivateFile` — `desktop/internal/api/session.go:390`
+- [ ] `desktop/internal/api.saveSettings` *(method)* — `desktop/internal/api/client.go:212`
+- [ ] `desktop/internal/api.loadSettings` *(method)* — `desktop/internal/api/client.go:109`
+- [ ] `desktop/internal/api.newClientWithStoreFactory` — `desktop/internal/api/client.go:60`
+- [ ] `desktop/internal/api.NewClient` — `desktop/internal/api/client.go:47`
+- [ ] `desktop/internal/api.newClientWithSecrets` — `desktop/internal/api/client.go:54`
+- [ ] `desktop/internal/api.settingsConsentAllowed` — `desktop/internal/api/urls.go:111`
+- [ ] `desktop/internal/api.Info` *(method)* — `desktop/internal/api/client.go:220`
+- [ ] `desktop/internal/api.clearImageCacheLocked` *(method)* — `desktop/internal/api/client.go:394`
+- [ ] `desktop/internal/api.networkConsentError` — `desktop/internal/api/urls.go:252`
+- [ ] `desktop/internal/api.consentHostForUpdate` — `desktop/internal/api/urls.go:94`
+- [ ] `desktop/internal/api.Delete` *(method)* — `desktop/internal/api/session.go:80`
+- [ ] `desktop/internal/api.Delete` *(method)* — `desktop/internal/api/session.go:141`
+- [ ] `desktop/internal/api.Delete` *(method)* — `desktop/internal/api/session.go:171`
+- [ ] `desktop/internal/api.Delete` *(method)* — `desktop/internal/api/session.go:203`
+- [ ] `desktop/internal/api.deleteStoredSession` *(method)* — `desktop/internal/api/session.go:344`
+- [ ] `desktop/internal/api.cookieFromSetCookie` — `desktop/internal/api/session.go:249`
+- [ ] `desktop/internal/api.Save` *(method)* — `desktop/internal/api/session.go:62`
+- [ ] `desktop/internal/api.Save` *(method)* — `desktop/internal/api/session.go:133`
+- [ ] `desktop/internal/api.Save` *(method)* — `desktop/internal/api/session.go:167`
+- [ ] `desktop/internal/api.Save` *(method)* — `desktop/internal/api/session.go:193`
+- [ ] `desktop/internal/api.persistSession` *(method)* — `desktop/internal/api/session.go:326`
+- [ ] `desktop/internal/api.absorbCookies` *(method)* — `desktop/internal/api/session.go:289`
+- [ ] `desktop/internal/api.isTimeout` — `desktop/internal/api/request.go:352`
+- [ ] `desktop/internal/api.networkFailure` — `desktop/internal/api/request.go:344`
+- [ ] `desktop/internal/api.active` *(method)* — `desktop/internal/api/session.go:245`
+- [ ] `desktop/internal/api.requestHeadersLocked` *(method)* — `desktop/internal/api/request.go:213`
+- [ ] `desktop/internal/api.responseTooLarge` — `desktop/internal/api/request.go:336`
+- [ ] `desktop/internal/api.settingsChangedError` — `desktop/internal/api/request.go:340`
+- [ ] `desktop/internal/api.execute` *(method)* — `desktop/internal/api/request.go:168`
+- [ ] `desktop/internal/api.invalidPath` — `desktop/internal/api/urls.go:207`
+- [ ] `desktop/internal/api.validateAPIPath` — `desktop/internal/api/urls.go:171`
+- [ ] `desktop/internal/api.targetURL` *(method)* — `desktop/internal/api/urls.go:220`
+- [ ] `desktop/internal/api.Health` *(method)* — `desktop/internal/api/health.go:39`
+- [ ] `desktop/internal/api.resolveOrigin` *(method)* — `desktop/internal/api/client.go:361`
+- [ ] `desktop/internal/api.settingsResult` *(method)* — `desktop/internal/api/client.go:314`
+- [ ] `desktop/internal/api.UpdateSettings` *(method)* — `desktop/internal/api/client.go:239`
+- [ ] `desktop/internal/api.WindowBounds` *(method)* — `desktop/internal/api/client.go:333`
+- [ ] `desktop/internal/api.SaveWindowBounds` *(method)* — `desktop/internal/api/client.go:347`
+- [ ] `desktop/internal/api.firewallGuide` — `desktop/internal/api/firewall.go:9`
+- [ ] `desktop/internal/api.FirewallGuide` *(method)* — `desktop/internal/api/firewall.go:5`
+- [ ] `desktop/internal/api.ensureOrigin` *(method)* — `desktop/internal/api/health.go:8`
+- [ ] `desktop/internal/api.invalidImage` — `desktop/internal/api/image.go:109`
+- [ ] `desktop/internal/api.storeImage` *(method)* — `desktop/internal/api/image.go:77`
+- [ ] `desktop/internal/api.image` *(method)* — `desktop/internal/api/image.go:32`
+- [ ] `desktop/internal/api.Image` *(method)* — `desktop/internal/api/image.go:24`
+- [ ] `desktop/internal/api.isCSRFEndpoint` — `desktop/internal/api/request.go:60`
+- [ ] `desktop/internal/api.clearCSRF` *(method)* — `desktop/internal/api/session.go:373`
+- [ ] `desktop/internal/api.decodeJSON` — `desktop/internal/api/request.go:325`
+- [ ] `desktop/internal/api.encodeRequestBody` — `desktop/internal/api/request.go:151`
+- [ ] `desktop/internal/api.activeCSRF` *(method)* — `desktop/internal/api/session.go:353`
+- [ ] `desktop/internal/api.storeCSRF` *(method)* — `desktop/internal/api/session.go:362`
+- [ ] `desktop/internal/api.ensureCSRF` *(method)* — `desktop/internal/api/request.go:247`
+- [ ] `desktop/internal/api.errorCode` — `desktop/internal/api/request.go:313`
+- [ ] `desktop/internal/api.errorFromResult` — `desktop/internal/api/request.go:287`
+- [ ] `desktop/internal/api.request` *(method)* — `desktop/internal/api/request.go:75`
+- [ ] `desktop/internal/api.Request` *(method)* — `desktop/internal/api/request.go:49`
+- [ ] `desktop/internal/api.ClearSession` *(method)* — `desktop/internal/api/session.go:379`
+- [ ] `desktop/internal/api.Error` *(method)* — `desktop/internal/api/types.go:43`
+- [ ] `desktop/internal/api.validateServerAddress` — `desktop/internal/api/urls.go:78`
+
+### `desktop` (19 functions)
+
+- [ ] `desktop.profileDirectory` — `desktop/main.go:112`
+- [ ] `desktop.NewApp` — `desktop/main.go:100`
+- [ ] `desktop.context` *(method)* — `desktop/main.go:133`
+- [ ] `desktop.windowBounds` *(method)* — `desktop/main.go:224`
+- [ ] `desktop.main` — `desktop/main.go:33`
+- [ ] `desktop.securityHeaders` — `desktop/main.go:81`
+- [ ] `desktop.startup` *(method)* — `desktop/main.go:127`
+- [ ] `desktop.clampWindowSize` — `desktop/main.go:198`
+- [ ] `desktop.screenPositionAllowed` — `desktop/main.go:151`
+- [ ] `desktop.domReady` *(method)* — `desktop/main.go:139`
+- [ ] `desktop.beforeClose` *(method)* — `desktop/main.go:180`
+- [ ] `desktop.Info` *(method)* — `desktop/main.go:228`
+- [ ] `desktop.Health` *(method)* — `desktop/main.go:232`
+- [ ] `desktop.Request` *(method)* — `desktop/main.go:236`
+- [ ] `desktop.Image` *(method)* — `desktop/main.go:240`
+- [ ] `desktop.UpdateSettings` *(method)* — `desktop/main.go:244`
+- [ ] `desktop.ClearSession` *(method)* — `desktop/main.go:248`
+- [ ] `desktop.FirewallGuide` *(method)* — `desktop/main.go:252`
+- [ ] `desktop.OpenExternal` *(method)* — `desktop/main.go:256`
 

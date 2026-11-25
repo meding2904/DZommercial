@@ -4,6 +4,7 @@ use axum::extract::State;
 use axum::http::{HeaderMap, HeaderValue, header};
 use axum::response::Response;
 use chrono::{SecondsFormat, Utc};
+use serde::Serialize;
 use serde_json::json;
 use time::OffsetDateTime;
 use tower_sessions::cookie::{Cookie, SameSite};
@@ -16,17 +17,28 @@ const CSRF_TOKEN_BYTES: usize = 32;
 const CSRF_TOKEN_LENGTH: usize = CSRF_TOKEN_BYTES * 2;
 const CSRF_COOKIE_AGE_SECS: i64 = 7 * 24 * 60 * 60;
 
+/// Fields are declared in the alphabetical order the previous `json!` map
+/// emitted, so the wire format does not change.
+#[derive(Serialize)]
+struct HealthBody<'a> {
+    env: &'a str,
+    origin: &'a str,
+    server_time: String,
+    service: &'static str,
+    status: &'static str,
+}
+
 /// `GET /api/health`: a probe that never touches the database.
 pub async fn health(State(state): State<AppState>) -> Response {
     json_response(
         200,
-        &json!({
-            "status": "ok",
-            "service": "azahar-api",
-            "env": state.cfg.app_env,
-            "origin": state.cfg.app_origin,
-            "server_time": Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true),
-        }),
+        &HealthBody {
+            env: &state.cfg.app_env,
+            origin: &state.cfg.app_origin,
+            server_time: Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true),
+            service: "azahar-api",
+            status: "ok",
+        },
     )
 }
 

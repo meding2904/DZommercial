@@ -94,24 +94,54 @@ impl IntoResponse for ApiProblem {
 
 /// Serialise with Go `encoding/json` escaping and a trailing newline.
 pub fn encode_json<T: Serialize>(payload: &T) -> String {
-    let raw = serde_json::to_string(payload).unwrap_or_else(|_| "null".to_string());
-    let mut out = String::with_capacity(raw.len() + 1);
-    for character in raw.chars() {
-        match character {
-            '<' => out.push_str("\\u003c"),
-            '>' => out.push_str("\\u003e"),
-            '&' => out.push_str("\\u0026"),
-            '\u{2028}' => out.push_str("\\u2028"),
-            '\u{2029}' => out.push_str("\\u2029"),
-            other => out.push(other),
-        }
+    String::from_utf8(encode_json_vec(payload)).unwrap_or_else(|_| "null\n".to_string())
+}
+
+/// The byte form used by [`json_response`].
+///
+/// serde emits UTF-8, so the HTML and line-separator characters can be
+/// replaced at the byte level. The common response has none of them: it is
+/// serialised once and gets its newline, without a second full-size allocation
+/// or a character-by-character pass.
+pub fn encode_json_vec<T: Serialize>(payload: &T) -> Vec<u8> {
+    let mut raw = serde_json::to_vec(payload).unwrap_or_else(|_| b"null".to_vec());
+    let needs_escape = raw.iter().any(|byte| matches!(byte, b'<' | b'>' | b'&'))
+        || raw
+            .windows(3)
+            .any(|window| matches!(window, [0xE2, 0x80, 0xA8 | 0xA9]));
+    if !needs_escape {
+        raw.push(b'\n');
+        return raw;
     }
-    out.push('\n');
+
+    let mut out = Vec::with_capacity(raw.len() + 8);
+    let mut index = 0;
+    while index < raw.len() {
+        match raw[index] {
+            b'<' => out.extend_from_slice(b"\\u003c"),
+            b'>' => out.extend_from_slice(b"\\u003e"),
+            b'&' => out.extend_from_slice(b"\\u0026"),
+            0xE2 if raw.get(index + 1) == Some(&0x80)
+                && matches!(raw.get(index + 2), Some(0xA8 | 0xA9)) =>
+            {
+                if raw[index + 2] == 0xA8 {
+                    out.extend_from_slice(b"\\u2028");
+                } else {
+                    out.extend_from_slice(b"\\u2029");
+                }
+                index += 3;
+                continue;
+            }
+            byte => out.push(byte),
+        }
+        index += 1;
+    }
+    out.push(b'\n');
     out
 }
 
 pub fn json_response<T: Serialize>(status: u16, payload: &T) -> Response {
-    let body = encode_json(payload);
+    let body = encode_json_vec(payload);
     (
         StatusCode::from_u16(status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR),
         [(header::CONTENT_TYPE, "application/json; charset=utf-8")],
@@ -141,6 +171,19 @@ mod tests {
         assert_eq!(
             encode_json(&payload),
             "{\"message\":\"\\u003cb\\u003ea \\u0026 b\\u003c/b\\u003e\"}\n"
+        );
+        assert_eq!(
+            encode_json_vec(&payload),
+            b"{\"message\":\"\\u003cb\\u003ea \\u0026 b\\u003c/b\\u003e\"}\n"
+        );
+    }
+
+    #[test]
+    fn line_separators_are_escaped_and_other_unicode_is_untouched() {
+        let payload = serde_json::json!({"text": "a\u{2028}b\u{2029}c \u{00e9}\u{1f600}"});
+        assert_eq!(
+            encode_json(&payload),
+            "{\"text\":\"a\\u2028b\\u2029c \u{00e9}\u{1f600}\"}\n"
         );
     }
 

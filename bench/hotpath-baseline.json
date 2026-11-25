@@ -1,0 +1,93 @@
+{
+  "label": "rust-before",
+  "generated_at": "2026-11-25T13:55:39Z",
+  "binary": {
+    "path": "/home/mohamed/Projects/DZommercial/target/release/azahar-api",
+    "bytes": 27026808
+  },
+  "server": {
+    "startup_seconds": 0.052,
+    "pinned_cpu": 0
+  },
+  "environment": {
+    "connections": 32,
+    "requests_per_run": 12000,
+    "warmup_requests": 1200,
+    "runs": 3,
+    "unique_ips": 4096,
+    "database": "http://127.0.0.1:8880"
+  },
+  "runs": [
+    {
+      "connections": 32,
+      "requests": 12000,
+      "elapsed_seconds": 1.016,
+      "throughput_rps": 11812.8,
+      "latency_ms": {
+        "p50": 2.612,
+        "p95": 3.388,
+        "p99": 3.883,
+        "mean": 2.7,
+        "max": 5.13
+      },
+      "status_counts": {
+        "200": 12000
+      },
+      "all_succeeded": true,
+      "server_cpu_seconds": 0.38,
+      "server_cpu_ms_per_request": 0.0317,
+      "peak_rss_kb": 19596
+    },
+    {
+      "connections": 32,
+      "requests": 12000,
+      "elapsed_seconds": 1.032,
+      "throughput_rps": 11629.0,
+      "latency_ms": {
+        "p50": 2.62,
+        "p95": 3.37,
+        "p99": 3.966,
+        "mean": 2.715,
+        "max": 26.563
+      },
+      "status_counts": {
+        "200": 12000
+      },
+      "all_succeeded": true,
+      "server_cpu_seconds": 0.4,
+      "server_cpu_ms_per_request": 0.0333,
+      "peak_rss_kb": 19596
+    },
+    {
+      "connections": 32,
+      "requests": 12000,
+      "elapsed_seconds": 1.049,
+      "throughput_rps": 11443.8,
+      "latency_ms": {
+        "p50": 2.664,
+        "p95": 3.718,
+        "p99": 4.423,
+        "mean": 2.787,
+        "max": 5.78
+      },
+      "status_counts": {
+        "200": 12000
+      },
+      "all_succeeded": true,
+      "server_cpu_seconds": 0.38,
+      "server_cpu_ms_per_request": 0.0317,
+      "peak_rss_kb": 19596
+    }
+  ],
+  "summary": {
+    "throughput_rps_median": 11629.0,
+    "throughput_rps_min": 11443.8,
+    "throughput_rps_max": 11812.8,
+    "server_cpu_ms_per_request_median": 0.0317,
+    "server_cpu_ms_per_request_min": 0.0317,
+    "server_cpu_ms_per_request_max": 0.0333,
+    "latency_p50_ms_median": 2.62,
+    "latency_p95_ms_median": 3.388,
+    "latency_p99_ms_median": 3.966
+  }
+}

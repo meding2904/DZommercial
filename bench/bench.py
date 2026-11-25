@@ -266,9 +266,10 @@ def peak_rss_kb(pid: int) -> int:
 def hyperfine(command: str, runs: int) -> dict[str, object] | None:
     binary = Path("/tmp/hyperfine")
     if not binary.exists():
-        binary = Path(shutil_which("hyperfine") or "")
-    if not binary or not binary.exists():
-        return None
+        found = shutil_which("hyperfine")
+        if not found:
+            return None
+        binary = Path(found)
     output = Path("/tmp/azahar-hyperfine.json")
     try:
         subprocess.run(
@@ -308,7 +309,7 @@ def main() -> int:
     parser.add_argument("--port", type=int, default=18080)
     parser.add_argument("--workers", type=int, default=16)
     parser.add_argument("--requests", type=int, default=2400)
-    parser.add_argument("--login-requests", type=int, default=24)
+    parser.add_argument("--login-requests", type=int, default=40)
     parser.add_argument("--env", action="append", default=[], help="KEY=VALUE passed to the server")
     args = parser.parse_args()
 

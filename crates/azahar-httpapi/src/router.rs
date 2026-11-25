@@ -150,10 +150,12 @@ pub fn build_router(
         .route_layer(from_fn(middleware::require_staff))
         .route_layer(from_fn_with_state(state.clone(), middleware::require_user));
 
-    Router::new()
+    // Anonymous catalogue and content routes never read the session. Keeping
+    // them out of the session layer avoids a session allocation and cookie
+    // parse on the hottest responses.
+    let public_routes = Router::new()
         .route("/api/health", get(handlers_client::health))
         .route("/api/csrf", get(handlers_client::csrf))
-        .route("/api/auth/logout", post(handlers_auth::logout))
         .route(
             "/api/categories",
             get(handlers_catalog::categories).layer(from_fn_with_state(
@@ -193,7 +195,10 @@ pub fn build_router(
         .route("/api/shipping/wilayas", get(handlers_shipping::wilayas))
         .route("/api/shipping/communes", get(handlers_shipping::communes))
         .route("/api/shipping/desks", get(handlers_shipping::desks))
-        .route("/api/orders/{token}", get(handlers_orders::by_token))
+        .route("/api/orders/{token}", get(handlers_orders::by_token));
+
+    let session_routes = Router::new()
+        .route("/api/auth/logout", post(handlers_auth::logout))
         .merge(credential_routes)
         .merge(signed_in_routes)
         .merge(admin_routes)
@@ -204,10 +209,13 @@ pub fn build_router(
         ))
         .merge(crate::handlers_shipments::shipment_routes())
         .merge(extra)
+        .layer(sessions);
+
+    public_routes
+        .merge(session_routes)
         .fallback(not_found)
         .method_not_allowed_fallback(method_not_allowed)
         .with_state(state.clone())
-        .layer(sessions)
         .layer(from_fn_with_state(
             CacheHandle::new(cache),
             invalidate_read_cache_on_write,

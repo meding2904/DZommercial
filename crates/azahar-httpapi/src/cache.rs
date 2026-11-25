@@ -6,10 +6,10 @@
 //! (2-5 seconds) so a checkout still re-reads stock and price.
 
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
-use axum::body::{Body, HttpBody as _, to_bytes};
+use axum::body::{Body, Bytes, HttpBody as _, to_bytes};
 use axum::extract::{Request, State};
 use axum::http::{HeaderMap, HeaderValue, Method, StatusCode, header};
 use axum::middleware::Next;
@@ -23,26 +23,33 @@ pub const READ_CACHE_MAX_BYTES: usize = 32 << 20;
 
 /// One cached response. Headers are stored without `X-Request-Id` and `Date`,
 /// exactly like the Go entry.
+///
+/// `body` is a ref-counted slice: a cache hit hands the same bytes to a new
+/// response instead of copying them. The product list is around 64 KiB, so the
+/// copy was the largest per-hit allocation.
 #[derive(Debug, Clone)]
 pub struct CacheEntry {
     pub status: StatusCode,
     pub headers: HeaderMap,
-    pub body: Vec<u8>,
+    pub body: Bytes,
     pub expires: Instant,
 }
 
 #[derive(Debug)]
 struct Inner {
-    entries: HashMap<String, CacheEntry>,
+    entries: HashMap<String, Arc<CacheEntry>>,
     max_entries: usize,
     max_bytes: usize,
     bytes: usize,
 }
 
-/// A bounded, expiry-ordered response cache.
+/// A bounded response cache.
+///
+/// Lookups take a read lock, so concurrent cache hits do not queue behind each
+/// other. Expiry and insertion are the only writers.
 #[derive(Debug)]
 pub struct ReadCache {
-    inner: Mutex<Inner>,
+    inner: RwLock<Inner>,
 }
 
 impl Default for ReadCache {
@@ -67,7 +74,7 @@ impl ReadCache {
             max_entries
         };
         Self {
-            inner: Mutex::new(Inner {
+            inner: RwLock::new(Inner {
                 entries: HashMap::new(),
                 max_entries,
                 max_bytes,
@@ -78,26 +85,39 @@ impl ReadCache {
 
     /// Looks up a live entry. An expired entry is removed and reported missing.
     #[must_use]
-    pub fn get(&self, key: &str) -> Option<CacheEntry> {
+    pub fn get(&self, key: &str) -> Option<Arc<CacheEntry>> {
         self.get_at(key, Instant::now())
     }
 
     /// Explicit-clock lookup used by the TTL tests.
     #[must_use]
-    pub fn get_at(&self, key: &str, now: Instant) -> Option<CacheEntry> {
-        let mut inner = self.lock();
-        let entry = inner.entries.get(key)?;
-        if entry.expires <= now {
-            let removed = inner.entries.remove(key).expect("entry exists");
-            inner.bytes -= removed.body.len();
-            return None;
+    pub fn get_at(&self, key: &str, now: Instant) -> Option<Arc<CacheEntry>> {
+        {
+            let inner = self.read();
+            match inner.entries.get(key) {
+                Some(entry) if entry.expires > now => return Some(Arc::clone(entry)),
+                Some(_) => {}
+                None => return None,
+            }
         }
-        Some(entry.clone())
+
+        // The entry expired. Re-check under the write lock: another request may
+        // have replaced it between the two locks.
+        let mut inner = self.write();
+        if inner
+            .entries
+            .get(key)
+            .is_some_and(|entry| entry.expires <= now)
+            && let Some(removed) = inner.entries.remove(key)
+        {
+            inner.bytes -= removed.body.len();
+        }
+        None
     }
 
     /// Inserts or replaces one entry, evicting the earliest expiry first.
     pub fn put(&self, key: String, entry: CacheEntry) {
-        let mut inner = self.lock();
+        let mut inner = self.write();
         if let Some(previous) = inner.entries.remove(&key) {
             inner.bytes -= previous.body.len();
         }
@@ -117,12 +137,12 @@ impl ReadCache {
             inner.bytes -= removed.body.len();
         }
         inner.bytes += size;
-        inner.entries.insert(key, entry);
+        inner.entries.insert(key, Arc::new(entry));
     }
 
     /// Drops every entry; called before every write request.
     pub fn clear(&self) {
-        let mut inner = self.lock();
+        let mut inner = self.write();
         inner.entries.clear();
         inner.bytes = 0;
     }
@@ -130,7 +150,7 @@ impl ReadCache {
     /// Number of live entries, including not-yet-purged expired rows.
     #[must_use]
     pub fn len(&self) -> usize {
-        self.lock().entries.len()
+        self.read().entries.len()
     }
 
     #[must_use]
@@ -138,9 +158,15 @@ impl ReadCache {
         self.len() == 0
     }
 
-    fn lock(&self) -> std::sync::MutexGuard<'_, Inner> {
+    fn read(&self) -> std::sync::RwLockReadGuard<'_, Inner> {
         self.inner
-            .lock()
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
+    fn write(&self) -> std::sync::RwLockWriteGuard<'_, Inner> {
+        self.inner
+            .write()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 }
@@ -176,16 +202,18 @@ pub async fn cache_read(State(state): State<CacheState>, request: Request, next:
         return next.run(request).await;
     }
 
+    // Borrow the key while checking the cache; only a miss needs an owned copy
+    // for the insert after the handler has run.
     let key = request
         .uri()
         .path_and_query()
-        .map(|value| value.as_str().to_string())
-        .unwrap_or_else(|| request.uri().path().to_string());
+        .map(|value| value.as_str())
+        .unwrap_or_else(|| request.uri().path());
 
-    if let Some(entry) = state.cache.get(&key) {
-        let mut response = Response::new(Body::from(entry.body));
+    if let Some(entry) = state.cache.get(key) {
+        let mut response = Response::new(Body::from(entry.body.clone()));
         *response.status_mut() = entry.status;
-        *response.headers_mut() = entry.headers;
+        *response.headers_mut() = entry.headers.clone();
         if let Some(RequestId(id)) = request.extensions().get::<RequestId>()
             && let Ok(value) = HeaderValue::from_str(id)
         {
@@ -194,6 +222,7 @@ pub async fn cache_read(State(state): State<CacheState>, request: Request, next:
         return response;
     }
 
+    let key = key.to_string();
     let response = next.run(request).await;
     if response.status() != StatusCode::OK {
         return response;
@@ -241,7 +270,7 @@ pub async fn cache_read(State(state): State<CacheState>, request: Request, next:
         CacheEntry {
             status: parts.status,
             headers: parts.headers.clone(),
-            body: body.to_vec(),
+            body: body.clone(),
             expires: Instant::now() + state.ttl,
         },
     );
@@ -282,7 +311,7 @@ mod tests {
         CacheEntry {
             status: StatusCode::OK,
             headers,
-            body: body.as_bytes().to_vec(),
+            body: Bytes::copy_from_slice(body.as_bytes()),
             expires,
         }
     }
@@ -310,6 +339,17 @@ mod tests {
         assert!(cache.get_at("a", now).is_none());
         assert!(cache.get_at("b", now).is_some());
         assert!(cache.get_at("c", now).is_some());
+    }
+
+    #[test]
+    fn repeated_lookups_share_the_cached_body() {
+        let cache = ReadCache::new(8);
+        let now = Instant::now();
+        cache.put("a".to_string(), entry("one", now + Duration::from_secs(5)));
+
+        let first = cache.get_at("a", now).expect("first");
+        let second = cache.get_at("a", now).expect("second");
+        assert!(Arc::ptr_eq(&first, &second), "hits must not copy the body");
     }
 
     #[test]

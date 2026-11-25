@@ -30,6 +30,7 @@ help:
 	@echo "  make loadtest  run a short read probe against the API"
 	@echo "  make rust-check  fmt, clippy, and the whole Rust test suite"
 	@echo "  make rust-bench  build the Rust API and write bench/after.json"
+	@echo "  make rust-hotpath  keep-alive throughput probe, writes bench/hotpath.json"
 	@echo "  make kiri-up   build and run the three containers with Kiri"
 	@echo "  make kiri-local run host-built Go artifacts in Kiri containers (builder fallback)"
 	@echo "  make kiri-rust run the Rust API + web through Kiri"
@@ -89,6 +90,10 @@ rust-bench:
 	cargo build --release -p azahar-api
 	python3 bench/bench.py --bin target/release/azahar-api --label rust --out bench/after.json
 
+rust-hotpath:
+	cargo build --release -p azahar-api
+	python3 bench/hotpath.py --bin target/release/azahar-api --label rust --out bench/hotpath.json
+
 oracle-diff:
 	cargo test --workspace --tests -- --nocapture
 
@@ -98,7 +103,9 @@ go-oracle-seam:
 
 check:
 	cd frontend && APP_ENV=development pnpm check && pnpm test:security && pnpm test:framework
-	cd backend && APP_ENV=development go vet ./... && APP_ENV=development go test ./...
+	# The oracle commands import helpers from oracle_export.go files that are
+	# only built with this tag; without it vet sees the symbols as undefined.
+	cd backend && APP_ENV=development go vet -tags oracle ./... && APP_ENV=development go test -tags oracle ./...
 	$(MAKE) desktop-check
 
 desktop-sync:

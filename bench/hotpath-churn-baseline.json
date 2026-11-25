@@ -1,0 +1,53 @@
+{
+  "label": "rust-before-churn",
+  "generated_at": "2026-11-25T13:55:50Z",
+  "binary": {
+    "path": "/home/mohamed/Projects/DZommercial/target/release/azahar-api",
+    "bytes": 27026808
+  },
+  "server": {
+    "startup_seconds": 0.052,
+    "pinned_cpu": 0
+  },
+  "environment": {
+    "connections": 16,
+    "requests_per_run": 20000,
+    "warmup_requests": 200,
+    "runs": 1,
+    "unique_ips": 20000,
+    "database": "http://127.0.0.1:8880"
+  },
+  "runs": [
+    {
+      "connections": 16,
+      "requests": 20000,
+      "elapsed_seconds": 1.712,
+      "throughput_rps": 11680.7,
+      "latency_ms": {
+        "p50": 1.319,
+        "p95": 1.509,
+        "p99": 2.424,
+        "mean": 1.367,
+        "max": 4.375
+      },
+      "status_counts": {
+        "200": 20000
+      },
+      "all_succeeded": true,
+      "server_cpu_seconds": 0.78,
+      "server_cpu_ms_per_request": 0.039,
+      "peak_rss_kb": 19152
+    }
+  ],
+  "summary": {
+    "throughput_rps_median": 11680.7,
+    "throughput_rps_min": 11680.7,
+    "throughput_rps_max": 11680.7,
+    "server_cpu_ms_per_request_median": 0.039,
+    "server_cpu_ms_per_request_min": 0.039,
+    "server_cpu_ms_per_request_max": 0.039,
+    "latency_p50_ms_median": 1.319,
+    "latency_p95_ms_median": 1.509,
+    "latency_p99_ms_median": 2.424
+  }
+}

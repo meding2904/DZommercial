@@ -445,6 +445,10 @@ mod tests {
 /// Access log in the same fields as the Go `logRequests` middleware, with
 /// order tokens redacted. The request id is attached by `request_id`.
 pub async fn log_requests(request: Request, next: Next) -> Response {
+    if !tracing::enabled!(tracing::Level::INFO) {
+        return next.run(request).await;
+    }
+
     let started = std::time::Instant::now();
     let method = request.method().clone();
     let path = redacted_path(request.uri().path());

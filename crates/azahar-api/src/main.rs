@@ -1,5 +1,7 @@
 //! Azahar API server, the Rust port of `backend/cmd/api`.
 
+mod logging;
+
 use std::collections::BTreeMap;
 use std::process::ExitCode;
 use std::sync::Arc;
@@ -17,20 +19,28 @@ use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
 async fn main() -> ExitCode {
+    let log_writer = logging::LogWriter::new();
     tracing_subscriber::fmt()
         .json()
+        .with_writer(log_writer.clone())
         .with_env_filter(
-            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
+            // The session layer opens an info span for every request it sees.
+            // It carries no fields of its own, so keep its warnings and errors
+            // and drop the per-request span noise.
+            EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| EnvFilter::new("info,tower_sessions=warn")),
         )
         .init();
 
-    match run().await {
+    let status = match run().await {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
             error!(error = %error, "azahar-api stopped");
             ExitCode::FAILURE
         }
-    }
+    };
+    log_writer.flush();
+    status
 }
 
 async fn run() -> anyhow::Result<()> {

@@ -4,8 +4,8 @@
 Usage:
     python3 bench/charts.py [--results bench/k6-results.json] [--out docs/charts]
 
-Writes PNGs to docs/charts/. Uses the storefront's shipped palette so the charts
-look like they belong to the project rather than a default plotting theme.
+Writes five PNGs to docs/charts/: latency, throughput, capacity, memory and
+binary size. Uses the storefront's shipped palette.
 """
 
 from __future__ import annotations
@@ -48,24 +48,32 @@ plt.rcParams.update(
 
 def load(path: Path) -> dict:
     document = json.loads(path.read_text())
-    if "read" not in document:
-        raise SystemExit(f"{path} is not a k6 results document")
+    for key in ("read", "capacity", "footprint", "login"):
+        if key not in document:
+            raise SystemExit(f"{path} has no {key} results")
     return document
 
 
-def bar_labels(ax, bars, values, suffix="", decimals=0):
+def bar_labels(axis, bars, values, suffix="", decimals=0, fontsize=8):
     for bar, value in zip(bars, values):
         text = f"{value:,.{decimals}f}{suffix}"
-        ax.annotate(
+        axis.annotate(
             text,
             xy=(bar.get_x() + bar.get_width() / 2, bar.get_height()),
             xytext=(0, 6),
             textcoords="offset points",
             ha="center",
             va="bottom",
-            fontsize=8,
+            fontsize=fontsize,
             color=INK,
         )
+
+
+def by_label(runs, label):
+    for run in runs:
+        if run["label"] == label:
+            return run
+    raise SystemExit(f"missing run {label!r}")
 
 
 def latency_chart(results: dict, out: Path) -> None:
@@ -84,7 +92,7 @@ def latency_chart(results: dict, out: Path) -> None:
         left.bar(offsets, values, width, color=colors[index], label=run["label"])
     left.set_xticks(list(positions), [label for _, label in metrics])
     left.set_ylabel("milliseconds")
-    left.set_title("Read mix, latency", loc="left", fontsize=13, color=INK, pad=12)
+    left.set_title("Single client, read latency", loc="left", fontsize=13, color=INK, pad=12)
     left.set_ylim(0, max(run["latency_ms"][key] for run in read for key, _ in metrics) * 1.25)
     left.legend(frameon=False, loc="upper left", fontsize=8)
 
@@ -102,10 +110,10 @@ def latency_chart(results: dict, out: Path) -> None:
         )
     right.set_xticks(list(positions), [label for _, label in metrics])
     right.set_ylabel("milliseconds")
-    right.set_title("Login flow, latency", loc="left", fontsize=13, color=INK, pad=12)
+    right.set_title("Single client, login flow", loc="left", fontsize=13, color=INK, pad=12)
     right.set_ylim(0, max(run["flow_ms"][key] for run in login for key, _ in metrics) * 1.25)
 
-    figure.suptitle("k6 keep-alive latency", x=0.02, ha="left", fontsize=15)
+    figure.suptitle("k6 latency, single-client probe", x=0.02, ha="left", fontsize=15)
     figure.tight_layout(rect=(0, 0, 1, 0.93))
     figure.savefig(out, bbox_inches="tight")
     plt.close(figure)
@@ -113,61 +121,41 @@ def latency_chart(results: dict, out: Path) -> None:
 
 def throughput_chart(results: dict, out: Path) -> None:
     read = results["read"]
-    login = results["login"]
-    figure, (left, right) = plt.subplots(1, 2, figsize=(10.5, 4.4), dpi=160)
+    capacity = results["capacity"]["read"]
+    go_single = by_label(read, "Go oracle")["throughput_rps"]
+    rust_single = by_label(read, "Rust after")["throughput_rps"]
+    go_capacity = by_label(capacity, "Go oracle")["throughput_rps"]
+    rust_capacity = by_label(capacity, "Rust after")["throughput_rps"]
 
-    colors = [MUTED, BEFORE, ACCENT]
-    values = [run["throughput_rps"] for run in read]
-    bars = left.bar(
-        [run["label"] for run in read],
-        values,
-        width=0.5,
-        color=colors,
+    figure, axis = plt.subplots(figsize=(8.2, 4.4), dpi=160)
+    groups = ["1 k6 process", "10 k6 processes"]
+    positions = range(len(groups))
+    width = 0.34
+    labels = ["Go oracle", "Rust after"]
+    values = ([go_single, go_capacity], [rust_single, rust_capacity])
+    colors = [MUTED, ACCENT]
+    legend_bars = []
+    for index in range(2):
+        offsets = [position + (index - 0.5) * width for position in positions]
+        bars = axis.bar(offsets, values[index], width, color=colors[index], label=labels[index])
+        legend_bars.append(bars)
+        bar_labels(axis, bars, values[index], " req/s", 0)
+
+    axis.set_xticks(list(positions), groups)
+    axis.set_ylabel("requests per second")
+    axis.set_title("Read throughput, client ceiling vs capacity", loc="left", fontsize=13, color=INK, pad=12)
+    axis.set_ylim(0, max(go_capacity, rust_capacity) * 1.25)
+    axis.yaxis.set_major_formatter(FuncFormatter(lambda value, _: f"{value:,.0f}"))
+    figure.legend(
+        legend_bars,
+        labels,
+        loc="upper center",
+        ncol=2,
+        frameon=False,
+        bbox_to_anchor=(0.5, 0.02),
     )
-    bar_labels(left, bars, values, " req/s", 0)
-    left.set_title("Read mix throughput", loc="left", fontsize=13, color=INK, pad=12)
-    left.set_ylim(0, max(values + [1]) * 1.25)
-    left.yaxis.set_major_formatter(FuncFormatter(lambda value, _: f"{value:,.0f}"))
-
-    values = [run["throughput_logins_per_s"] for run in login]
-    bars = right.bar(
-        [run["label"] for run in login],
-        values,
-        width=0.5,
-        color=[MUTED, ACCENT],
-    )
-    bar_labels(right, bars, values, " logins/s", 2)
-    right.set_title("Login throughput", loc="left", fontsize=13, color=INK, pad=12)
-    right.set_ylim(0, max(values + [1]) * 1.25)
-
-    figure.suptitle("k6 keep-alive throughput", x=0.02, ha="left", fontsize=15)
-    figure.tight_layout(rect=(0, 0, 1, 0.92))
-    figure.savefig(out, bbox_inches="tight")
-    plt.close(figure)
-
-
-def cpu_chart(results: dict, out: Path) -> None:
-    figure, (left, right) = plt.subplots(1, 2, figsize=(10.5, 4.4), dpi=160)
-    panels = (
-        (left, results["read"], "Public read mix", [MUTED, BEFORE, ACCENT]),
-        (right, results["churn"], "20,000 rotated addresses", [BEFORE, ACCENT]),
-    )
-    for axis, runs, title, colors in panels:
-        values = [run["cpu_ms_per_request"] * 1000 for run in runs]
-        bars = axis.bar([run["label"] for run in runs], values, width=0.5, color=colors)
-        bar_labels(axis, bars, values, " µs", 1)
-        axis.set_title(title, loc="left", fontsize=13, color=INK, pad=12)
-        axis.set_ylabel("server CPU, microseconds per request")
-        axis.set_ylim(0, max(values + [1]) * 1.25)
-        axis.tick_params(axis="x", labelsize=9)
-
-    figure.suptitle(
-        "Server CPU per read request, k6 keep-alive probe",
-        x=0.02,
-        ha="left",
-        fontsize=15,
-    )
-    figure.tight_layout(rect=(0, 0, 1, 0.92))
+    figure.suptitle("k6 read throughput", x=0.02, ha="left", fontsize=15)
+    figure.tight_layout(rect=(0, 0.05, 1, 0.92))
     figure.savefig(out, bbox_inches="tight")
     plt.close(figure)
 
@@ -183,6 +171,7 @@ def capacity_chart(results: dict, out: Path) -> None:
     width = 0.34
     labels = ["Go oracle", "Rust after"]
     legend_bars = []
+
     for index in range(2):
         values = [runs[index]["throughput_rps"] for _, runs in groups]
         offsets = [position + (index - 0.5) * width for position in positions]
@@ -209,7 +198,10 @@ def capacity_chart(results: dict, out: Path) -> None:
     right.set_xticks(list(positions), [label for label, _ in groups])
     right.set_ylabel("server CPU, microseconds per request")
     right.set_title("Server CPU", loc="left", fontsize=13, color=INK, pad=12)
-    right.set_ylim(0, max(run["cpu_ms_per_request"] for _, runs in groups for run in runs) * 1000 * 1.25)
+    right.set_ylim(
+        0,
+        max(run["cpu_ms_per_request"] for _, runs in groups for run in runs) * 1000 * 1.25,
+    )
 
     figure.legend(
         legend_bars,
@@ -232,35 +224,38 @@ def capacity_chart(results: dict, out: Path) -> None:
 
 def memory_chart(results: dict, out: Path) -> None:
     footprint = results["footprint"]
-    metrics = [
-        ("Reads only", "peak_rss_after_reads_mb"),
-        ("Reads + logins", "peak_rss_mb"),
-    ]
-    colors = [MUTED, BEFORE, ACCENT]
-    positions = range(len(metrics))
-    width = 0.26
-    figure, axis = plt.subplots(figsize=(7.6, 4.4), dpi=160)
-    for index, run in enumerate(footprint):
-        values = [run[key] for _, key in metrics]
-        offsets = [position + (index - 1) * width for position in positions]
-        bars = axis.bar(
-            offsets,
-            values,
-            width,
-            color=colors[index],
-            label=run["label"],
-        )
-        bar_labels(axis, bars, values, " MiB", 1)
-    axis.set_xticks(list(positions), [label for label, _ in metrics])
+    go = by_label(footprint, "Go oracle")
+    rust = by_label(footprint, "Rust after")
+    groups = ["1 k6 process", "10 k6 processes"]
+    positions = range(len(groups))
+    width = 0.34
+    labels = ["Go oracle", "Rust after"]
+    values = (
+        [go["peak_rss_after_reads_mb"], go["peak_rss_capacity_mb"]],
+        [rust["peak_rss_after_reads_mb"], rust["peak_rss_capacity_mb"]],
+    )
+    colors = [MUTED, ACCENT]
+    figure, axis = plt.subplots(figsize=(8.2, 4.4), dpi=160)
+    legend_bars = []
+    for index in range(2):
+        offsets = [position + (index - 0.5) * width for position in positions]
+        bars = axis.bar(offsets, values[index], width, color=colors[index], label=labels[index])
+        legend_bars.append(bars)
+        bar_labels(axis, bars, values[index], " MiB", 1)
+    axis.set_xticks(list(positions), groups)
     axis.set_ylabel("peak resident memory, MiB")
     axis.set_title("Peak memory", loc="left", fontsize=13, color=INK, pad=12)
-    axis.set_ylim(
-        0,
-        max(run[key] for run in footprint for _, key in metrics) * 1.25,
+    axis.set_ylim(0, max(max(values[0]), max(values[1])) * 1.25)
+    figure.legend(
+        legend_bars,
+        labels,
+        loc="upper center",
+        ncol=2,
+        frameon=False,
+        bbox_to_anchor=(0.5, 0.02),
     )
-    axis.legend(frameon=False, loc="upper left", fontsize=8)
     figure.suptitle("Server memory", x=0.02, ha="left", fontsize=15)
-    figure.tight_layout(rect=(0, 0, 1, 0.92))
+    figure.tight_layout(rect=(0, 0.05, 1, 0.92))
     figure.savefig(out, bbox_inches="tight")
     plt.close(figure)
 
@@ -295,14 +290,12 @@ def main() -> int:
     results = load(Path(args.results))
     destination = Path(args.out)
     destination.mkdir(parents=True, exist_ok=True)
-
     latency_chart(results, destination / "latency.png")
     throughput_chart(results, destination / "throughput.png")
-    cpu_chart(results, destination / "cpu-per-request.png")
     capacity_chart(results, destination / "capacity.png")
     memory_chart(results, destination / "memory.png")
     size_chart(results, destination / "binary-size.png")
-    print(f"wrote 6 charts to {destination}")
+    print(f"wrote 5 charts to {destination}")
     return 0
 
 

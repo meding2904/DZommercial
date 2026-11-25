@@ -1,16 +1,16 @@
 {
-  "method": "Grafana k6; server pinned to CPU 0, k6 to CPU 1; server CPU is utime+stime from /proc/<pid>/stat around each run",
+  "method": "Grafana k6; single-client runs pin the server to CPU 0 and one k6 process to CPU 1. Capacity runs pin the server to CPUs 0-1 and ten k6 processes to CPUs 2-11. Server CPU is utime+stime from /proc/<pid>/stat around each run.",
   "read": [
     {
       "label": "Go oracle",
       "source": "k6-go-read.json",
-      "throughput_rps": 12117.2,
+      "throughput_rps": 10574.2,
       "latency_ms": {
-        "p50": 3.561,
-        "p95": 10.196,
-        "p99": 13.322
+        "p50": 4.062,
+        "p95": 11.448,
+        "p99": 15.06
       },
-      "cpu_ms_per_request": 0.0422
+      "cpu_ms_per_request": 0.047
     },
     {
       "label": "Rust before",
@@ -26,13 +26,13 @@
     {
       "label": "Rust after",
       "source": "k6-rust-read.json",
-      "throughput_rps": 12819.7,
+      "throughput_rps": 13108.1,
       "latency_ms": {
-        "p50": 3.386,
-        "p95": 9.844,
-        "p99": 12.821
+        "p50": 3.375,
+        "p95": 9.625,
+        "p99": 12.502
       },
-      "cpu_ms_per_request": 0.0236
+      "cpu_ms_per_request": 0.022
     }
   ],
   "churn": [
@@ -54,7 +54,7 @@
       "latency_ms": {
         "p50": 3.333,
         "p95": 9.606,
-        "p99": 12.520
+        "p99": 12.52
       },
       "cpu_ms_per_request": 0.0241
     }
@@ -89,58 +89,86 @@
       {
         "label": "Go oracle",
         "source": "k6-capacity-go.json",
-        "throughput_rps": 22550.9,
-        "cpu_ms_per_request": 0.0668,
-        "server_core_fraction": 1.506,
-        "failed_requests": 0
+        "throughput_rps": 23195.9,
+        "cpu_ms_per_request": 0.0642,
+        "server_core_fraction": 1.49,
+        "failed_requests": 0,
+        "peak_rss_kb": 155192,
+        "latency_ms": {
+          "p50_median": 13.578,
+          "p95_median": 26.51,
+          "p99_median": 41.687,
+          "p99_max": 42.843
+        }
       },
       {
         "label": "Rust after",
         "source": "k6-capacity-rust.json",
-        "throughput_rps": 45760.7,
-        "cpu_ms_per_request": 0.0352,
-        "server_core_fraction": 1.613,
-        "failed_requests": 0
+        "throughput_rps": 46291.5,
+        "cpu_ms_per_request": 0.0355,
+        "server_core_fraction": 1.642,
+        "failed_requests": 0,
+        "peak_rss_kb": 37564,
+        "latency_ms": {
+          "p50_median": 9.416,
+          "p95_median": 18.121,
+          "p99_median": 24.159,
+          "p99_max": 25.321
+        }
       }
     ],
     "churn": [
       {
         "label": "Go oracle",
         "source": "k6-capacity-go-churn.json",
-        "throughput_rps": 6847.8,
-        "cpu_ms_per_request": 0.1927,
-        "server_core_fraction": 1.319,
-        "failed_requests": 0
+        "throughput_rps": 7116.9,
+        "cpu_ms_per_request": 0.183,
+        "server_core_fraction": 1.302,
+        "failed_requests": 0,
+        "peak_rss_kb": 157920,
+        "latency_ms": {
+          "p50_median": 69.333,
+          "p95_median": 78.568,
+          "p99_median": 98.461,
+          "p99_max": 100.233
+        }
       },
       {
         "label": "Rust after",
         "source": "k6-capacity-rust-churn.json",
-        "throughput_rps": 45103.0,
-        "cpu_ms_per_request": 0.036,
-        "server_core_fraction": 1.624,
-        "failed_requests": 0
+        "throughput_rps": 44649.9,
+        "cpu_ms_per_request": 0.0362,
+        "server_core_fraction": 1.617,
+        "failed_requests": 0,
+        "peak_rss_kb": 38776,
+        "latency_ms": {
+          "p50_median": 10.12,
+          "p95_median": 19.468,
+          "p99_median": 26.941,
+          "p99_max": 27.928
+        }
       }
     ]
   },
   "footprint": [
     {
       "label": "Go oracle",
-      "peak_rss_after_reads_mb": 100.1,
-      "peak_rss_mb": 539.0,
+      "peak_rss_after_reads_mb": 145.2,
+      "peak_rss_capacity_mb": 151.6,
       "binary_bytes": 14713389,
       "startup_seconds": 0.255
     },
     {
       "label": "Rust before",
       "peak_rss_after_reads_mb": 20.8,
-      "peak_rss_mb": 276.6,
+      "peak_rss_capacity_mb": null,
       "binary_bytes": 26937080,
       "startup_seconds": 0.355
     },
     {
       "label": "Rust after",
-      "peak_rss_after_reads_mb": 17.0,
-      "peak_rss_mb": 273.2,
+      "peak_rss_after_reads_mb": 17.9,
+      "peak_rss_capacity_mb": 36.7,
       "binary_bytes": 20542784,
       "startup_seconds": 0.052
     }

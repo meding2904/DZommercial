@@ -69,32 +69,29 @@ the charts.
 
 | Metric | Go oracle | Rust before | Rust after |
 | --- | ---: | ---: | ---: |
-| Read throughput | 12,117 req/s | 13,044 req/s | 12,820 req/s |
-| Read p50 / p95 / p99 | 3.56 / 10.20 / 13.32 ms | 3.30 / 9.67 / 12.77 ms | 3.39 / 9.84 / 12.82 ms |
-| Server CPU per read | 42.2 µs | 33.7 µs | 23.6 µs |
-| Peak RSS after reads | 100.1 MiB | 20.8 MiB | 17.0 MiB |
-| Peak RSS including logins | 539.0 MiB | 276.6 MiB | 273.2 MiB |
+| Read throughput | 10,574 req/s | 13,044 req/s | 13,108 req/s |
+| Read p50 / p95 / p99 | 4.06 / 11.45 / 15.06 ms | 3.30 / 9.67 / 12.77 ms | 3.38 / 9.62 / 12.50 ms |
+| Server CPU per read | 47.0 µs | 33.7 µs | 22.0 µs |
+| Peak RSS after reads | 145.2 MiB | 20.8 MiB | 17.9 MiB |
 | Release binary | 14.7 MB | 26.9 MB | 20.5 MB |
 | Startup to healthy | 0.255 s | 0.355 s | 0.052 s |
 
 The read path includes the in-process read cache on both sides. Server CPU was
 read from `/proc/<pid>/stat` around each k6 run; it is the comparison metric
-because k6 saturates one core at roughly 12–13k requests/s. The 20,000-address
-churn path drops from 57.1 µs to 24.1 µs (`docs/charts/cpu-per-request.png`).
-Login uses the same Argon2id parameters (64 MiB, 3 passes, 4 lanes); four
-concurrent hashes dominate its wall-clock tail, so the read mix is the capacity
-signal. These are single runs, not a capacity claim. Runtime memory is about a
-sixth of Go; the binary is larger because the Rust release build keeps symbols
-while the Go build keeps DWARF. The request-path diagram is
-`docs/diagrams/request-path.svg`.
+because k6 saturates one core at roughly 11–13k requests/s. Login uses the same
+Argon2id parameters (64 MiB, 3 passes, 4 lanes); four concurrent hashes dominate
+its wall-clock tail, so the read mix is the capacity signal. These are single
+runs, not a capacity claim. Runtime memory is about an eighth of Go; the binary
+is larger because the Rust release build keeps symbols while the Go build keeps
+DWARF. The request-path diagram is `docs/diagrams/request-path.svg`.
 
 `bench/k6-capacity.sh` moves the bottleneck back to the server: ten k6 processes
 on cores 2–11 against the server on cores 0–1
 (`docs/charts/capacity.png`). With the 9,999-address pool Rust reaches
-45,761 req/s against 22,551 for Go; with 200,000 addresses it reaches 45,103
-against 6,848. The first run exposed a cache-refill stampede that returned
+46,292 req/s against 23,196 for Go; with 200,000 addresses it reaches 44,650
+against 7,117. The first run exposed a cache-refill stampede that returned
 HTTP 500s; cache misses now coalesce per key, and the recorded runs have zero
-failures. The Rust capacity run uses 1.61 of its two server cores, so 45.8k
+failures. The Rust capacity run uses 1.64 of its two server cores, so 46.3k
 req/s is a lower bound.
 
 ## Auth

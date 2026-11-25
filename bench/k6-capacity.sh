@@ -55,6 +55,10 @@ cpu_ticks() {
     awk '{print $14+$15}' "/proc/$SERVER_PID/stat"
 }
 
+peak_rss() {
+    awk '/VmHWM/ {print $2}' "/proc/$SERVER_PID/status" 2>/dev/null || true
+}
+
 before=$(cpu_ticks)
 run_started=$(date +%s.%N)
 pids=()
@@ -74,15 +78,16 @@ done
 wait "${pids[@]}"
 run_finished=$(date +%s.%N)
 after=$(cpu_ticks)
+rss=$(peak_rss)
 ticks=$(getconf CLK_TCK)
 
 python3 - "$LABEL" "$CLIENTS" "$VUS" "$DURATION" "$startup" "$run_started" \
-    "$run_finished" "$before" "$after" "$ticks" "$OUT" <<'EOF'
+    "$run_finished" "$before" "$after" "$ticks" "$rss" "$OUT" <<'EOF'
 import json
 import sys
 from pathlib import Path
 
-(label, clients, vus, duration, startup, started, finished, before, after, ticks, out) = sys.argv[1:]
+(label, clients, vus, duration, startup, started, finished, before, after, ticks, rss, out) = sys.argv[1:]
 label = label
 clients = int(clients)
 vus = int(vus)
@@ -94,21 +99,38 @@ wall = finished - started
 requests = 0
 failed = 0
 summaries = []
+p50s = []
+p95s = []
+p99s = []
 for index in range(clients):
     path = Path(f"/tmp/k6-capacity-{label}-{index}.json")
     if not path.exists():
         raise SystemExit(f"missing k6 summary: {path}")
     metrics = json.loads(path.read_text())["metrics"]
     count = metrics["http_reqs"]["count"]
+    duration_metrics = metrics["http_req_duration"]
     requests += count
     failed += metrics["http_req_failed"]["value"] * count
+    p50s.append(duration_metrics["med"])
+    p95s.append(duration_metrics["p(95)"])
+    p99s.append(duration_metrics["p(99)"])
     summaries.append(
         {
             "requests": count,
             "throughput_rps": round(metrics["http_reqs"]["rate"], 1),
-            "p99_ms": round(metrics["http_req_duration"]["p(99)"], 3),
+            "p99_ms": round(duration_metrics["p(99)"], 3),
         }
     )
+
+
+def median(values):
+    values = sorted(values)
+    middle = len(values) // 2
+    if len(values) % 2:
+        return values[middle]
+    return (values[middle - 1] + values[middle]) / 2
+
+
 document = {
     "label": label,
     "clients": clients,
@@ -116,17 +138,25 @@ document = {
     "duration": duration,
     "wall_seconds": round(wall, 3),
     "startup_seconds": round(startup, 3),
+    "peak_rss_kb": int(rss) if rss else 0,
     "requests": int(requests),
     "throughput_rps": round(requests / wall, 1),
     "failed_requests": int(round(failed)),
     "server_cpu_seconds": round(cpu_seconds, 3),
     "server_cpu_ms_per_request": round(cpu_seconds * 1000 / requests, 4),
     "server_core_fraction": round(cpu_seconds / wall, 3),
+    "latency_ms": {
+        "p50_median": round(median(p50s), 3),
+        "p95_median": round(median(p95s), 3),
+        "p99_median": round(median(p99s), 3),
+        "p99_max": round(max(p99s), 3),
+    },
     "clients_detail": summaries,
 }
 Path(out).write_text(json.dumps(document, indent=2) + "\n")
 print(json.dumps({key: document[key] for key in (
     "label", "clients", "wall_seconds", "requests", "throughput_rps",
     "failed_requests", "server_cpu_ms_per_request", "server_core_fraction",
+    "peak_rss_kb", "latency_ms",
 )}, indent=2))
 EOF

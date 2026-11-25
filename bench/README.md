@@ -54,9 +54,9 @@ The raw k6 summary exports are `bench/k6-*.json`.
 
 | Scenario | Metric | Go oracle | Rust before | Rust after |
 | --- | --- | ---: | ---: | ---: |
-| Read mix | Throughput | 12,117 req/s | 13,044 req/s | 12,820 req/s |
-| Read mix | p50 / p95 / p99 | 3.56 / 10.20 / 13.32 ms | 3.30 / 9.67 / 12.77 ms | 3.39 / 9.84 / 12.82 ms |
-| Read mix | Server CPU | 42.2 µs | 33.7 µs | 23.6 µs |
+| Read mix | Throughput | 10,574 req/s | 13,044 req/s | 13,108 req/s |
+| Read mix | p50 / p95 / p99 | 4.06 / 11.45 / 15.06 ms | 3.30 / 9.67 / 12.77 ms | 3.38 / 9.62 / 12.50 ms |
+| Read mix | Server CPU | 47.0 µs | 33.7 µs | 22.0 µs |
 | 20k addresses | Server CPU | — | 57.1 µs | 24.1 µs |
 
 Run conditions: server pinned to CPU 0, k6 to CPU 1, 50 VUs, 20 s, 8,192
@@ -70,25 +70,24 @@ Capacity with ten k6 processes on cores 2–11 and the server on cores 0–1:
 
 | Scenario | Metric | Go oracle | Rust after |
 | --- | --- | ---: | ---: |
-| 9,999 addresses | Throughput | 22,551 req/s | 45,761 req/s |
-| 9,999 addresses | Server CPU | 66.8 µs | 35.2 µs |
-| 200,000 addresses | Throughput | 6,848 req/s | 45,103 req/s |
-| 200,000 addresses | Server CPU | 192.7 µs | 36.0 µs |
+| 9,999 addresses | Throughput | 23,196 req/s | 46,292 req/s |
+| 9,999 addresses | Server CPU | 64.2 µs | 35.5 µs |
+| 200,000 addresses | Throughput | 7,117 req/s | 44,650 req/s |
+| 200,000 addresses | Server CPU | 183.0 µs | 36.2 µs |
 
-The Rust run still uses 1.61 of its two server cores, so its throughput is a
+The Rust run still uses 1.64 of its two server cores, so its throughput is a
 lower bound. The first capacity attempt produced 537 HTTP 500s on the Rust
 server when a cache expiry stampeded the single libSQL connection; cache misses
 now coalesce per key, and the recorded capacity runs have zero failures.
 
 ## Charts
 
-`bench/charts.py` renders six PNGs from `bench/k6-results.json`:
+`bench/charts.py` renders five PNGs from `bench/k6-results.json`:
 
-- `latency.png` — read and login p50/p95/p99
-- `throughput.png` — read and login throughput
-- `cpu-per-request.png` — server CPU per read, normal and churn
+- `latency.png` — single-client read and login p50/p95/p99
+- `throughput.png` — single-client vs ten-client throughput
 - `capacity.png` — multi-client throughput and server CPU
-- `memory.png` — peak RSS after reads and after logins
+- `memory.png` — peak RSS for one and ten k6 clients
 - `binary-size.png` — release binary size
 
 The script needs Python 3 and `matplotlib`. `make diagrams` needs Graphviz.

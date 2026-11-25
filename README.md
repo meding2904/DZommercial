@@ -609,33 +609,28 @@ same script.
 
 | Metric | Go oracle | Rust before | Rust after |
 | --- | ---: | ---: | ---: |
-| Read throughput | 12,117 req/s | 13,044 req/s | 12,820 req/s |
-| Read p50 / p95 / p99 | 3.56 / 10.20 / 13.32 ms | 3.30 / 9.67 / 12.77 ms | 3.39 / 9.84 / 12.82 ms |
-| Server CPU per read | 42.2 µs | 33.7 µs | 23.6 µs |
-| Peak RSS after reads | 100.1 MiB | 20.8 MiB | 17.0 MiB |
-| Peak RSS including logins | 539.0 MiB | 276.6 MiB | 273.2 MiB |
+| Read throughput | 10,574 req/s | 13,044 req/s | 13,108 req/s |
+| Read p50 / p95 / p99 | 4.06 / 11.45 / 15.06 ms | 3.30 / 9.67 / 12.77 ms | 3.38 / 9.62 / 12.50 ms |
+| Server CPU per read | 47.0 µs | 33.7 µs | 22.0 µs |
+| Peak RSS after reads | 145.2 MiB | 20.8 MiB | 17.9 MiB |
 | Release binary | 14.7 MB | 26.9 MB | 20.5 MB |
 | Startup to healthy | 0.255 s | 0.355 s | 0.052 s |
 
 ![Read and login latency](docs/charts/latency.png)
 
-![Throughput](docs/charts/throughput.png)
-
-![Server CPU per read request](docs/charts/cpu-per-request.png)
+![Read throughput](docs/charts/throughput.png)
 
 ![Peak memory](docs/charts/memory.png)
 
 ![Binary size](docs/charts/binary-size.png)
 
-The read path is at parity with Go; the final Rust build spends 23.6 µs of server
-CPU per request against 33.7 µs before the hot-path work and 42.2 µs for Go. The
-20,000-address churn path drops from 57.1 µs to 24.1 µs. The Rust server uses
-about a sixth of the resident memory. `bench/k6-login.js` covers the login flow;
-four concurrent Argon2id hashes dominate its wall-clock tail, so the read mix is
-the capacity signal. Peak memory, binary size and startup are process
-measurements around the same binaries, not k6 metrics. These are single runs on a
-shared development machine, not a capacity claim. The Rust binary remains larger
-because it keeps symbols, while the Go build keeps DWARF.
+The single-client probe is client-bound: the final Rust build spends 22.0 µs of
+server CPU per request against 33.7 µs before the hot-path work and 47.0 µs for
+Go. `bench/k6-login.js` covers the login flow; four concurrent Argon2id hashes
+dominate its wall-clock tail, so the read mix is the capacity signal. Peak memory,
+binary size and startup are process measurements around the same binaries, not
+k6 metrics. These are single runs on a shared development machine. The Rust
+binary remains larger because it keeps symbols, while the Go build keeps DWARF.
 
 ### Capacity
 
@@ -645,14 +640,14 @@ moves the bottleneck back to the server:
 
 | Scenario | Go oracle | Rust after |
 | --- | ---: | ---: |
-| 9,999 addresses | 22,551 req/s | 45,761 req/s |
-| 200,000 addresses | 6,848 req/s | 45,103 req/s |
+| 9,999 addresses | 23,196 req/s | 46,292 req/s |
+| 200,000 addresses | 7,117 req/s | 44,650 req/s |
 
 ![Server capacity](docs/charts/capacity.png)
 
-The Rust run still uses only 1.61 of its two server cores, so 45.8k req/s is a
-lower bound. The 200k-address Go run spends 192.7 µs per request in the
-rate-limiter scan; Rust's batched eviction keeps it at 36.0 µs. The first
+The Rust run still uses only 1.64 of its two server cores, so 46.3k req/s is a
+lower bound. The 200k-address Go run spends 183.0 µs per request in the
+rate-limiter scan; Rust's batched eviction keeps it at 36.2 µs. The first
 capacity run also exposed a cache-refill stampede that produced 537 HTTP 500s on
 the Rust server; cache misses now coalesce per key, and the recorded runs have
 zero failures.

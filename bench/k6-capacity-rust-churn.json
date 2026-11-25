@@ -3,64 +3,71 @@
   "clients": 10,
   "vus_per_client": 50,
   "duration": "15s",
-  "wall_seconds": 15.675,
-  "startup_seconds": 0.127,
-  "requests": 707004,
-  "throughput_rps": 45103.0,
+  "wall_seconds": 15.364,
+  "startup_seconds": 0.155,
+  "peak_rss_kb": 38776,
+  "requests": 685981,
+  "throughput_rps": 44649.9,
   "failed_requests": 0,
-  "server_cpu_seconds": 25.45,
-  "server_cpu_ms_per_request": 0.036,
-  "server_core_fraction": 1.624,
+  "server_cpu_seconds": 24.85,
+  "server_cpu_ms_per_request": 0.0362,
+  "server_core_fraction": 1.617,
+  "latency_ms": {
+    "p50_median": 10.12,
+    "p95_median": 19.468,
+    "p99_median": 26.941,
+    "p99_max": 27.928
+  },
   "clients_detail": [
     {
-      "requests": 71826,
-      "throughput_rps": 4785.3,
-      "p99_ms": 24.486
+      "requests": 68697,
+      "throughput_rps": 4577.2,
+      "p99_ms": 26.421
     },
     {
-      "requests": 69331,
-      "throughput_rps": 4619.7,
-      "p99_ms": 25.878
+      "requests": 67026,
+      "throughput_rps": 4467.3,
+      "p99_ms": 27.007
     },
     {
-      "requests": 70947,
-      "throughput_rps": 4726.6,
-      "p99_ms": 25.048
+      "requests": 69104,
+      "throughput_rps": 4604.5,
+      "p99_ms": 26.978
     },
     {
-      "requests": 70900,
-      "throughput_rps": 4723.9,
-      "p99_ms": 24.805
+      "requests": 69273,
+      "throughput_rps": 4615.3,
+      "p99_ms": 26.744
     },
     {
-      "requests": 70126,
-      "throughput_rps": 4671.1,
-      "p99_ms": 25.874
+      "requests": 67952,
+      "throughput_rps": 4526.9,
+      "p99_ms": 27.928
     },
     {
-      "requests": 69876,
-      "throughput_rps": 4654.6,
-      "p99_ms": 26.019
+      "requests": 68652,
+      "throughput_rps": 4572.8,
+      "p99_ms": 27.072
     },
     {
-      "requests": 71353,
-      "throughput_rps": 4754.2,
-      "p99_ms": 25.095
+      "requests": 69235,
+      "throughput_rps": 4613.4,
+      "p99_ms": 25.988
     },
     {
-      "requests": 70722,
-      "throughput_rps": 4712.5,
-      "p99_ms": 25.327
+      "requests": 67890,
+      "throughput_rps": 4524.7,
+      "p99_ms": 27.454
     },
     {
-      "requests": 71210,
-      "throughput_rps": 4743.5,
-      "p99_ms": 24.909
+      "requests": 69069,
+      "throughput_rps": 4602.0,
+      "p99_ms": 26.297
     },
     {
-      "requests": 70713,
-      "throughput_rps": 4712.1,
-      "p99_ms": 25.843
+      "requests": 69083,
+      "throughput_rps": 4603.3,
+      "p99_ms": 26.903
     }
   ]
 }

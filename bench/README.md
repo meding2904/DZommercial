@@ -1,6 +1,6 @@
 # Benchmarks
 
-Grafana k6 drives the load. Two scripts cover the server paths:
+Grafana k6 drives the load. Three scripts cover the server paths:
 
 - `k6-read.js` — 50 VUs for 20 s across `/api/products`, `/api/categories`,
   `/api/plugins`, `/api/storefront/theme`, one product and `/api/health`, with a
@@ -8,12 +8,14 @@ Grafana k6 drives the load. Two scripts cover the server paths:
   the way and measures the HTTP path (routing, cache, JSON).
 - `k6-login.js` — 4 VUs × 10 CSRF → login → `/api/auth/me` flows. It exercises
   Argon2id, session creation and the authenticated read.
+- `k6-capacity.js` — the same read mix without checks or response bodies, used
+  by `k6-capacity.sh` to run several k6 processes at once and saturate the
+  server.
 
-Both scripts use keep-alive connections. k6 itself saturates one core at roughly
-12–13k requests/s on the development machine, so the number that compares
-implementations is **server CPU per request**, read from `/proc/<pid>/stat`
-around the run. The charts and tables also report latency and throughput, but
-the client ceiling applies to those.
+The single-process read and login scripts are client-bound: one k6 core
+saturates at roughly 12–13k requests/s, so **server CPU per request** is the
+comparison metric there. The capacity runner spreads k6 across the client cores
+and pins the server to its own cores, which exposes the server ceiling.
 
 ## Run them
 
@@ -23,6 +25,7 @@ make dev-api                # Go oracle on :8080 (or run the Rust API there)
 
 make k6-read                # API_URL defaults to http://127.0.0.1:8080
 make k6-login
+make k6-capacity            # ten k6 processes, server on cores 0-1
 python3 bench/charts.py     # writes docs/charts/*.png
 make diagrams               # renders docs/diagrams/request-path.svg
 ```
@@ -36,6 +39,12 @@ make k6-read API_URL=http://127.0.0.1:18080 K6_VUS=50 K6_DURATION=20s K6_IP_POOL
 `IP_POOL` below 10,000 measures the normal read path. Above 10,000 exercises
 rate-limiter bucket eviction; the 20,000-address churn rows in
 `bench/k6-results.json` come from the earlier churn runs.
+
+`k6-capacity.sh` starts its own server. `SERVER_CPUS` (default `0-1`) selects the
+server cores, `CLIENT_CPU_START`/`CLIENT_CPU_COUNT` (default `2`/`10`) spread the
+k6 processes, and `CLIENTS`, `VUS`, `DURATION` and `IP_POOL` override the load.
+It writes `bench/k6-capacity-<label>.json` with aggregate throughput, server CPU
+per request and per-client summaries.
 
 ## Results
 
@@ -57,13 +66,28 @@ not a capacity claim. The k6 login comparison is included in
 `k6-results.json`, but four concurrent Argon2id hashes make its wall-clock tail
 noisy; the per-login CPU numbers are the more useful login signal.
 
+Capacity with ten k6 processes on cores 2–11 and the server on cores 0–1:
+
+| Scenario | Metric | Go oracle | Rust after |
+| --- | --- | ---: | ---: |
+| 9,999 addresses | Throughput | 22,551 req/s | 45,761 req/s |
+| 9,999 addresses | Server CPU | 66.8 µs | 35.2 µs |
+| 200,000 addresses | Throughput | 6,848 req/s | 45,103 req/s |
+| 200,000 addresses | Server CPU | 192.7 µs | 36.0 µs |
+
+The Rust run still uses 1.61 of its two server cores, so its throughput is a
+lower bound. The first capacity attempt produced 537 HTTP 500s on the Rust
+server when a cache expiry stampeded the single libSQL connection; cache misses
+now coalesce per key, and the recorded capacity runs have zero failures.
+
 ## Charts
 
-`bench/charts.py` renders five PNGs from `bench/k6-results.json`:
+`bench/charts.py` renders six PNGs from `bench/k6-results.json`:
 
 - `latency.png` — read and login p50/p95/p99
 - `throughput.png` — read and login throughput
 - `cpu-per-request.png` — server CPU per read, normal and churn
+- `capacity.png` — multi-client throughput and server CPU
 - `memory.png` — peak RSS after reads and after logins
 - `binary-size.png` — release binary size
 

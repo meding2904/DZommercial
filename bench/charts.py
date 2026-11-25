@@ -172,6 +172,64 @@ def cpu_chart(results: dict, out: Path) -> None:
     plt.close(figure)
 
 
+def capacity_chart(results: dict, out: Path) -> None:
+    capacity = results["capacity"]
+    figure, (left, right) = plt.subplots(1, 2, figsize=(10.5, 4.4), dpi=160)
+    groups = (
+        ("9,999 addresses", capacity["read"]),
+        ("200,000 addresses", capacity["churn"]),
+    )
+    positions = range(len(groups))
+    width = 0.34
+    labels = ["Go oracle", "Rust after"]
+    legend_bars = []
+    for index in range(2):
+        values = [runs[index]["throughput_rps"] for _, runs in groups]
+        offsets = [position + (index - 0.5) * width for position in positions]
+        bars = left.bar(
+            offsets,
+            values,
+            width,
+            color=[MUTED, ACCENT][index],
+            label=labels[index],
+        )
+        legend_bars.append(bars)
+        bar_labels(left, bars, values, " req/s", 0)
+    left.set_xticks(list(positions), [label for label, _ in groups])
+    left.set_ylabel("requests per second")
+    left.set_title("Throughput", loc="left", fontsize=13, color=INK, pad=12)
+    left.set_ylim(0, max(run["throughput_rps"] for _, runs in groups for run in runs) * 1.25)
+    left.yaxis.set_major_formatter(FuncFormatter(lambda value, _: f"{value:,.0f}"))
+
+    for index in range(2):
+        values = [runs[index]["cpu_ms_per_request"] * 1000 for _, runs in groups]
+        offsets = [position + (index - 0.5) * width for position in positions]
+        bars = right.bar(offsets, values, width, color=[MUTED, ACCENT][index])
+        bar_labels(right, bars, values, " µs", 1)
+    right.set_xticks(list(positions), [label for label, _ in groups])
+    right.set_ylabel("server CPU, microseconds per request")
+    right.set_title("Server CPU", loc="left", fontsize=13, color=INK, pad=12)
+    right.set_ylim(0, max(run["cpu_ms_per_request"] for _, runs in groups for run in runs) * 1000 * 1.25)
+
+    figure.legend(
+        legend_bars,
+        labels,
+        loc="upper center",
+        ncol=2,
+        frameon=False,
+        bbox_to_anchor=(0.5, 0.02),
+    )
+    figure.suptitle(
+        "Server capacity, 10 k6 processes on 10 client cores",
+        x=0.02,
+        ha="left",
+        fontsize=15,
+    )
+    figure.tight_layout(rect=(0, 0.05, 1, 0.92))
+    figure.savefig(out, bbox_inches="tight")
+    plt.close(figure)
+
+
 def memory_chart(results: dict, out: Path) -> None:
     footprint = results["footprint"]
     metrics = [
@@ -241,9 +299,10 @@ def main() -> int:
     latency_chart(results, destination / "latency.png")
     throughput_chart(results, destination / "throughput.png")
     cpu_chart(results, destination / "cpu-per-request.png")
+    capacity_chart(results, destination / "capacity.png")
     memory_chart(results, destination / "memory.png")
     size_chart(results, destination / "binary-size.png")
-    print(f"wrote 5 charts to {destination}")
+    print(f"wrote 6 charts to {destination}")
     return 0
 
 

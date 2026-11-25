@@ -88,6 +88,15 @@ sixth of Go; the binary is larger because the Rust release build keeps symbols
 while the Go build keeps DWARF. The request-path diagram is
 `docs/diagrams/request-path.svg`.
 
+`bench/k6-capacity.sh` moves the bottleneck back to the server: ten k6 processes
+on cores 2–11 against the server on cores 0–1
+(`docs/charts/capacity.png`). With the 9,999-address pool Rust reaches
+45,761 req/s against 22,551 for Go; with 200,000 addresses it reaches 45,103
+against 6,848. The first run exposed a cache-refill stampede that returned
+HTTP 500s; cache misses now coalesce per key, and the recorded runs have zero
+failures. The Rust capacity run uses 1.61 of its two server cores, so 45.8k
+req/s is a lower bound.
+
 ## Auth
 
 Argon2id PHC strings are byte-compatible in both directions, including dummy

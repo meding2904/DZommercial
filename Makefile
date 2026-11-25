@@ -10,7 +10,7 @@ WAILS_TAG_FLAGS = $(if $(strip $(WAILS_TAGS)),-tags "$(WAILS_TAGS)")
 VERSION ?= 2.0.0
 DESKTOP_GOARCH ?= $(shell go env GOARCH)
 
-.PHONY: help dev-db dev-api dev-web check desktop-sync desktop-check desktop-deps build smoke kiri-up kiri-local kiri-rust kiri-down desktop desktop-build desktop-package desktop-rust desktop-rust-build desktop-smoke loadtest rust-check rust-test k6-read k6-login charts diagrams oracle-diff go-oracle-seam
+.PHONY: help dev-db dev-api dev-web check desktop-sync desktop-check desktop-deps build smoke kiri-up kiri-local kiri-rust kiri-down desktop desktop-build desktop-package desktop-rust desktop-rust-build desktop-smoke loadtest rust-check rust-test k6-read k6-login k6-capacity charts diagrams oracle-diff go-oracle-seam
 
 help:
 	@echo "Azahar demo store"
@@ -31,6 +31,7 @@ help:
 	@echo "  make rust-check  fmt, clippy, and the whole Rust test suite"
 	@echo "  make k6-read   k6 read mix against $(API_URL)"
 	@echo "  make k6-login  k6 login flow against $(API_URL)"
+	@echo "  make k6-capacity  ten k6 processes against a two-core server"
 	@echo "  make charts    render docs/charts/*.png from bench/k6-results.json"
 	@echo "  make diagrams  render docs/diagrams/*.svg (needs Graphviz)"
 	@echo "  make kiri-up   build and run the three containers with Kiri"
@@ -92,6 +93,10 @@ k6-read:
 
 k6-login:
 	k6 run -e BASE_URL=$(API_URL) -e VUS=4 -e ITERATIONS=10 bench/k6-login.js
+
+k6-capacity:
+	cargo build --release -p azahar-api
+	./bench/k6-capacity.sh target/release/azahar-api rust
 
 charts:
 	python3 bench/charts.py

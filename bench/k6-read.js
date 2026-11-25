@@ -14,6 +14,7 @@ import { check } from 'k6';
 const BASE = __ENV.BASE_URL || 'http://127.0.0.1:18100';
 const VUS = Number(__ENV.VUS || 50);
 const IP_POOL = Number(__ENV.IP_POOL || 8192);
+const IP_OFFSET = Number(__ENV.IP_OFFSET || 0);
 
 const PATHS = [
   '/api/products',
@@ -34,6 +35,7 @@ export const options = {
     },
   },
   summaryTrendStats: ['avg', 'min', 'med', 'p(90)', 'p(95)', 'p(99)', 'max'],
+  discardResponseBodies: __ENV.DISCARD_BODIES === '1',
 };
 
 function addressFor(serial) {
@@ -42,8 +44,9 @@ function addressFor(serial) {
 
 export default function () {
   // 104729 is prime, so multiplying ITER by it walks the whole pool before
-  // repeating and keeps one VU's window from overlapping another's.
-  const serial = ((__VU * 7919 + __ITER * 104729) % IP_POOL) + 1;
+  // repeating and keeps one VU's window from overlapping another's. IP_OFFSET
+  // lets several k6 processes share the pool without sharing a counter.
+  const serial = ((IP_OFFSET + __VU * 7919 + __ITER * 104729) % IP_POOL) + 1;
   const path = PATHS[(__VU * 7 + __ITER) % PATHS.length];
   const response = http.get(`${BASE}${path}`, {
     headers: {

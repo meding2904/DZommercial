@@ -1,0 +1,66 @@
+{
+  "label": "rust-clean",
+  "clients": 10,
+  "vus_per_client": 50,
+  "duration": "10s",
+  "wall_seconds": 10.645,
+  "startup_seconds": 0.124,
+  "requests": 487103,
+  "throughput_rps": 45760.7,
+  "failed_requests": 0,
+  "server_cpu_seconds": 17.17,
+  "server_cpu_ms_per_request": 0.0352,
+  "server_core_fraction": 1.613,
+  "clients_detail": [
+    {
+      "requests": 49520,
+      "throughput_rps": 4948.1,
+      "p99_ms": 23.154
+    },
+    {
+      "requests": 47821,
+      "throughput_rps": 4779.5,
+      "p99_ms": 23.947
+    },
+    {
+      "requests": 49016,
+      "throughput_rps": 4897.5,
+      "p99_ms": 23.9
+    },
+    {
+      "requests": 48560,
+      "throughput_rps": 4852.5,
+      "p99_ms": 22.883
+    },
+    {
+      "requests": 48874,
+      "throughput_rps": 4883.3,
+      "p99_ms": 24.326
+    },
+    {
+      "requests": 48913,
+      "throughput_rps": 4887.3,
+      "p99_ms": 24.666
+    },
+    {
+      "requests": 48792,
+      "throughput_rps": 4875.4,
+      "p99_ms": 23.213
+    },
+    {
+      "requests": 48133,
+      "throughput_rps": 4809.4,
+      "p99_ms": 23.777
+    },
+    {
+      "requests": 49509,
+      "throughput_rps": 4947.7,
+      "p99_ms": 23.595
+    },
+    {
+      "requests": 47965,
+      "throughput_rps": 4793.2,
+      "p99_ms": 24.113
+    }
+  ]
+}

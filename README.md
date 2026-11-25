@@ -637,6 +637,26 @@ measurements around the same binaries, not k6 metrics. These are single runs on 
 shared development machine, not a capacity claim. The Rust binary remains larger
 because it keeps symbols, while the Go build keeps DWARF.
 
+### Capacity
+
+The 50-VU comparison above is client-bound on one k6 process. `make k6-capacity`
+pins the server to cores 0–1 and runs ten k6 processes on cores 2–11, which
+moves the bottleneck back to the server:
+
+| Scenario | Go oracle | Rust after |
+| --- | ---: | ---: |
+| 9,999 addresses | 22,551 req/s | 45,761 req/s |
+| 200,000 addresses | 6,848 req/s | 45,103 req/s |
+
+![Server capacity](docs/charts/capacity.png)
+
+The Rust run still uses only 1.61 of its two server cores, so 45.8k req/s is a
+lower bound. The 200k-address Go run spends 192.7 µs per request in the
+rate-limiter scan; Rust's batched eviction keeps it at 36.0 µs. The first
+capacity run also exposed a cache-refill stampede that produced 537 HTTP 500s on
+the Rust server; cache misses now coalesce per key, and the recorded runs have
+zero failures.
+
 ### Run the Rust API through Kiri
 
 The Rust API can replace the Go API inside the same Kiri stack; the database and
@@ -659,6 +679,7 @@ make dev-db     # local Turso/libSQL on :8880
 make dev-api    # Go oracle on :8080; or run the Rust API there
 make k6-read    # API_URL defaults to http://127.0.0.1:8080
 make k6-login
+make k6-capacity  # ten k6 processes, two server cores
 make charts     # writes docs/charts/*.png from bench/k6-results.json
 ```
 

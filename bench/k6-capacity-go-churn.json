@@ -1,0 +1,66 @@
+{
+  "label": "go",
+  "clients": 10,
+  "vus_per_client": 50,
+  "duration": "15s",
+  "wall_seconds": 15.696,
+  "startup_seconds": 0.232,
+  "requests": 107482,
+  "throughput_rps": 6847.8,
+  "failed_requests": 0,
+  "server_cpu_seconds": 20.71,
+  "server_cpu_ms_per_request": 0.1927,
+  "server_core_fraction": 1.319,
+  "clients_detail": [
+    {
+      "requests": 10759,
+      "throughput_rps": 714.2,
+      "p99_ms": 121.422
+    },
+    {
+      "requests": 10536,
+      "throughput_rps": 699.4,
+      "p99_ms": 121.935
+    },
+    {
+      "requests": 10506,
+      "throughput_rps": 697.4,
+      "p99_ms": 125.274
+    },
+    {
+      "requests": 10880,
+      "throughput_rps": 722.2,
+      "p99_ms": 117.067
+    },
+    {
+      "requests": 11195,
+      "throughput_rps": 743.1,
+      "p99_ms": 123.25
+    },
+    {
+      "requests": 11212,
+      "throughput_rps": 744.2,
+      "p99_ms": 117.777
+    },
+    {
+      "requests": 10547,
+      "throughput_rps": 700.0,
+      "p99_ms": 119.997
+    },
+    {
+      "requests": 10542,
+      "throughput_rps": 699.8,
+      "p99_ms": 126.098
+    },
+    {
+      "requests": 10444,
+      "throughput_rps": 693.6,
+      "p99_ms": 126.299
+    },
+    {
+      "requests": 10861,
+      "throughput_rps": 720.9,
+      "p99_ms": 117.467
+    }
+  ]
+}

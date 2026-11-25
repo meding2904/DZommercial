@@ -6,7 +6,7 @@
 //! (2-5 seconds) so a checkout still re-reads stock and price.
 
 use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant};
 
 use axum::body::{Body, Bytes, HttpBody as _, to_bytes};
@@ -14,6 +14,7 @@ use axum::extract::{Request, State};
 use axum::http::{HeaderMap, HeaderValue, Method, StatusCode, header};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
+use tokio::sync::watch;
 
 use crate::middleware::{REQUEST_ID_HEADER, RequestId};
 
@@ -46,10 +47,13 @@ struct Inner {
 /// A bounded response cache.
 ///
 /// Lookups take a read lock, so concurrent cache hits do not queue behind each
-/// other. Expiry and insertion are the only writers.
+/// other. Expiry and insertion are the only writers. `fills` coalesces misses:
+/// when an entry expires under load, one request queries the database and the
+/// others wait for its result instead of stampeding the connection.
 #[derive(Debug)]
 pub struct ReadCache {
     inner: RwLock<Inner>,
+    fills: Mutex<HashMap<String, watch::Sender<bool>>>,
 }
 
 impl Default for ReadCache {
@@ -80,7 +84,42 @@ impl ReadCache {
                 max_bytes,
                 bytes: 0,
             }),
+            fills: Mutex::new(HashMap::new()),
         }
+    }
+
+    /// Registers interest in a key that is being filled.
+    ///
+    /// The first caller becomes the leader and must run the handler; everyone
+    /// else waits for the leader to publish the result. The returned guard
+    /// notifies waiters when the leader drops it, including on an early return.
+    pub fn begin_fill(self: &Arc<Self>, key: &str) -> FillGuard {
+        let mut fills = self
+            .fills
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if let Some(sender) = fills.get(key) {
+            return FillGuard {
+                cache: Arc::clone(self),
+                leader: None,
+                receiver: sender.subscribe(),
+            };
+        }
+        let (sender, receiver) = watch::channel(false);
+        fills.insert(key.to_owned(), sender.clone());
+        FillGuard {
+            cache: Arc::clone(self),
+            leader: Some((key.to_owned(), sender)),
+            receiver,
+        }
+    }
+
+    fn finish_fill(&self, key: &str, sender: &watch::Sender<bool>) {
+        let _ = sender.send(true);
+        self.fills
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .remove(key);
     }
 
     /// Looks up a live entry. An expired entry is removed and reported missing.
@@ -171,6 +210,37 @@ impl ReadCache {
     }
 }
 
+/// One request's claim on an in-flight cache fill.
+pub struct FillGuard {
+    cache: Arc<ReadCache>,
+    leader: Option<(String, watch::Sender<bool>)>,
+    receiver: watch::Receiver<bool>,
+}
+
+impl FillGuard {
+    /// Whether this request must run the handler and publish the result.
+    #[must_use]
+    pub fn is_leader(&self) -> bool {
+        self.leader.is_some()
+    }
+
+    /// Waits until the leader has published a result (or failed).
+    pub async fn wait(&mut self) {
+        if *self.receiver.borrow() {
+            return;
+        }
+        let _ = self.receiver.changed().await;
+    }
+}
+
+impl Drop for FillGuard {
+    fn drop(&mut self) {
+        if let Some((key, sender)) = self.leader.take() {
+            self.cache.finish_fill(&key, &sender);
+        }
+    }
+}
+
 /// The cache handle shared by the invalidation layer and every route layer.
 #[derive(Clone, Debug)]
 pub struct CacheHandle(pub Arc<ReadCache>);
@@ -211,18 +281,26 @@ pub async fn cache_read(State(state): State<CacheState>, request: Request, next:
         .unwrap_or_else(|| request.uri().path());
 
     if let Some(entry) = state.cache.get(key) {
-        let mut response = Response::new(Body::from(entry.body.clone()));
-        *response.status_mut() = entry.status;
-        *response.headers_mut() = entry.headers.clone();
-        if let Some(RequestId(id)) = request.extensions().get::<RequestId>()
-            && let Ok(value) = HeaderValue::from_str(id)
-        {
-            response.headers_mut().insert(REQUEST_ID_HEADER, value);
-        }
-        return response;
+        return cached_response(&entry, &request);
     }
 
     let key = key.to_string();
+    let guard = loop {
+        let mut guard = state.cache.begin_fill(&key);
+        if guard.is_leader() {
+            // A fill may have completed between the lookup above and our
+            // registration; prefer its result over a second database read.
+            if let Some(entry) = state.cache.get(&key) {
+                return cached_response(&entry, &request);
+            }
+            break guard;
+        }
+        guard.wait().await;
+        if let Some(entry) = state.cache.get(&key) {
+            return cached_response(&entry, &request);
+        }
+    };
+    let _guard = guard;
     let response = next.run(request).await;
     if response.status() != StatusCode::OK {
         return response;
@@ -275,6 +353,18 @@ pub async fn cache_read(State(state): State<CacheState>, request: Request, next:
         },
     );
     Response::from_parts(parts, Body::from(body))
+}
+
+fn cached_response(entry: &CacheEntry, request: &Request) -> Response {
+    let mut response = Response::new(Body::from(entry.body.clone()));
+    *response.status_mut() = entry.status;
+    *response.headers_mut() = entry.headers.clone();
+    if let Some(RequestId(id)) = request.extensions().get::<RequestId>()
+        && let Ok(value) = HeaderValue::from_str(id)
+    {
+        response.headers_mut().insert(REQUEST_ID_HEADER, value);
+    }
+    response
 }
 
 /// `invalidateReadCacheOnWrite`: every POST/PUT/PATCH/DELETE clears the cache
@@ -402,6 +492,46 @@ mod tests {
         assert_eq!(first, "body 1");
         assert_eq!(second, "body 1");
         assert_eq!(hits.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn concurrent_misses_fill_the_cache_once() {
+        let cache = Arc::new(ReadCache::new(8));
+        let hits = Arc::new(AtomicUsize::new(0));
+        let counter = hits.clone();
+        let app = caching_route(
+            "/slow",
+            get(move || {
+                let counter = counter.clone();
+                async move {
+                    counter.fetch_add(1, Ordering::SeqCst);
+                    tokio::time::sleep(Duration::from_millis(50)).await;
+                    "body"
+                }
+            }),
+            &cache,
+        );
+
+        let mut tasks = Vec::new();
+        for _ in 0..8 {
+            let app = app.clone();
+            tasks.push(tokio::spawn(async move {
+                let request = Request::builder()
+                    .uri("/slow")
+                    .body(Body::empty())
+                    .expect("request");
+                let response = app.oneshot(request).await.expect("response");
+                let body = to_bytes(response.into_body(), usize::MAX)
+                    .await
+                    .expect("body");
+                assert_eq!(body.as_ref(), b"body");
+            }));
+        }
+        for task in tasks {
+            task.await.expect("request task");
+        }
+        assert_eq!(hits.load(Ordering::SeqCst), 1, "one fill per key");
+        assert_eq!(cache.len(), 1);
     }
 
     #[tokio::test]

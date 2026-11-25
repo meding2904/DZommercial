@@ -37,11 +37,14 @@ help:
 
 dev-db:
 	@if ! command -v kiri >/dev/null; then echo "kiri is not installed"; exit 1; fi
-	@if kiri ps --format '{{.Names}}' 2>/dev/null | grep -qx azahar-db; then \
+	@if kiri ps --format '{{.Names}} {{.Ports}}' 2>/dev/null | grep -q '^azahar-db .*8880->'; then \
 		echo "azahar-db is already running on $(TURSO_URL)"; \
 	elif kiri ps -a --format '{{.Names}}' 2>/dev/null | grep -qx azahar-db; then \
-		kiri start azahar-db >/dev/null; \
-		echo "azahar-db restarted on $(TURSO_URL)"; \
+		kiri rm -f azahar-db >/dev/null; \
+		kiri run -d --name azahar-db -p 8880:8080 -v azahar-db:/data \
+			--entrypoint /bin/sqld ghcr.io/tursodatabase/libsql-server:latest \
+			--http-listen-addr 0.0.0.0:8080 -d /data >/dev/null; \
+		echo "azahar-db recreated on $(TURSO_URL)"; \
 	else \
 		kiri volume create azahar-db >/dev/null 2>&1 || true; \
 		kiri run -d --name azahar-db -p 8880:8080 -v azahar-db:/data \

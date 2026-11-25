@@ -75,8 +75,14 @@ for name in azahar-web azahar-api azahar-db; do
 	fi
 done
 
+DB_PUBLISH=()
+if [[ "$APP_ENV" != "production" ]]; then
+	DB_PUBLISH=(-p 127.0.0.1:8880:8080)
+fi
+
 echo "Starting the Turso/libSQL server..."
 kiri run -d --name azahar-db --network azahar-net \
+	"${DB_PUBLISH[@]}" \
 	-v azahar-db:/data \
 	--entrypoint /bin/sqld ghcr.io/tursodatabase/libsql-server:latest \
 	--http-listen-addr 0.0.0.0:8080 -d /data >/dev/null

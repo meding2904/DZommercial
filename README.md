@@ -627,6 +627,21 @@ single runs on a shared development machine, not a capacity claim. The binary is
 larger because the Rust release build keeps its symbols, as the Go build keeps
 DWARF.
 
+### Run the Rust API through Kiri
+
+The Rust API can replace the Go API inside the same Kiri stack; the database and
+SvelteKit app are unchanged:
+
+```sh
+make kiri-rust
+# prints the app, admin gate and demo logins
+./deploy/kiri-down.sh   # stop all three containers
+```
+
+`deploy/kiri-rust.sh` builds `target/release/azahar-api` and the frontend, then
+runs the database, the Rust API (mounted into `distroless/cc`) and the web app on
+the `azahar-net` network. Use `make kiri-local` for the Go oracle equivalent.
+
 ### Run the benchmarks
 
 ```sh

@@ -10,7 +10,7 @@ WAILS_TAG_FLAGS = $(if $(strip $(WAILS_TAGS)),-tags "$(WAILS_TAGS)")
 VERSION ?= 2.0.0
 DESKTOP_GOARCH ?= $(shell go env GOARCH)
 
-.PHONY: help dev-db dev-api dev-web check desktop-sync desktop-check desktop-deps build smoke kiri-up kiri-local kiri-down desktop desktop-build desktop-package desktop-rust desktop-rust-build desktop-smoke loadtest rust-check rust-test bench-baseline rust-bench oracle-diff go-oracle-seam
+.PHONY: help dev-db dev-api dev-web check desktop-sync desktop-check desktop-deps build smoke kiri-up kiri-local kiri-rust kiri-down desktop desktop-build desktop-package desktop-rust desktop-rust-build desktop-smoke loadtest rust-check rust-test bench-baseline rust-bench oracle-diff go-oracle-seam
 
 help:
 	@echo "Azahar demo store"
@@ -31,7 +31,8 @@ help:
 	@echo "  make rust-check  fmt, clippy, and the whole Rust test suite"
 	@echo "  make rust-bench  build the Rust API and write bench/after.json"
 	@echo "  make kiri-up   build and run the three containers with Kiri"
-	@echo "  make kiri-local run host-built artifacts in Kiri containers (builder fallback)"
+	@echo "  make kiri-local run host-built Go artifacts in Kiri containers (builder fallback)"
+	@echo "  make kiri-rust run the Rust API + web through Kiri"
 	@echo "  make kiri-down stop the containers, keep the database volume"
 
 dev-db:
@@ -156,6 +157,9 @@ kiri-up:
 
 kiri-local:
 	./deploy/kiri-local.sh
+
+kiri-rust:
+	./deploy/kiri-rust.sh
 
 kiri-down:
 	./deploy/kiri-down.sh

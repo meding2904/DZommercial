@@ -48,6 +48,8 @@ uses a release `cargo build`; both sizes are reported as produced.
 - Go micro-benchmarks are in `bench/baseline-micro.txt` (`go test -bench`).
 
 Charts generated from these documents live in `docs/charts/`.
+`bench/k6-cpu.json` holds the server CPU values measured around the k6 runs;
+`python3 bench/charts.py` renders them as `cpu-per-request.png`.
 
 ## k6
 

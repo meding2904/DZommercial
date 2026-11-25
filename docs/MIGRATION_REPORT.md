@@ -66,19 +66,25 @@ per side on the development machine. `bench/baseline.json` and
 
 | Metric | Go oracle | Rust |
 | --- | ---: | ---: |
-| Read throughput | 6,106 req/s | 6,276 req/s |
-| Read p50 / p95 / p99 | 2.49 / 4.07 / 5.01 ms | 2.39 / 4.14 / 5.11 ms |
-| Login p50 / p95 / p99 | 480.0 / 926.1 / 983.2 ms | 158.1 / 161.4 / 162.0 ms |
-| Peak RSS after reads | 100.1 MiB | 20.8 MiB |
-| Peak RSS including logins | 539.0 MiB | 276.6 MiB |
-| Release binary | 14.7 MB | 26.9 MB |
-| Startup to healthy | 0.255 s | 0.355 s |
+| Read throughput | 6,106 req/s | 6,207 req/s |
+| Read p50 / p95 / p99 | 2.49 / 4.07 / 5.01 ms | 2.43 / 4.16 / 5.06 ms |
+| Login p50 / p95 / p99 | 480.0 / 926.1 / 983.2 ms | 159.4 / 265.9 / 313.9 ms |
+| Peak RSS after reads | 100.1 MiB | 17.0 MiB |
+| Peak RSS including logins | 539.0 MiB | 273.2 MiB |
+| Release binary | 14.7 MB | 20.5 MB |
+| Startup to healthy | 0.255 s | 0.052 s |
 
 The read path includes the in-process read cache on both sides. Login uses the
 same Argon2id parameters (64 MiB, 3 passes, 4 lanes); the Go tail is dominated by
 CPU contention from four concurrent hashes. These are single runs, not a
 capacity claim. Runtime memory is about a sixth of Go; the binary is larger
 because the Rust release build keeps symbols while the Go build keeps DWARF.
+
+The keep-alive k6 probe (`bench/k6-read.js`) measures server CPU directly and is
+plotted in `docs/charts/cpu-per-request.png`: public reads cost 23.6 µs of server
+CPU per request against 33.7 µs before the hot-path work, and the
+20,000-address churn path costs 24.1 µs against 57.1 µs. The request-path
+diagram is `docs/diagrams/request-path.svg`.
 
 ## Auth
 

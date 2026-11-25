@@ -1,0 +1,43 @@
+{
+  "method": "server utime+stime from /proc/<pid>/stat around each k6 run; 50 VUs, 20 s, server pinned to CPU 0 and k6 to CPU 1",
+  "generated_at": "2026-11-25T14:50:00Z",
+  "read": [
+    {
+      "label": "Rust before",
+      "source": "k6-before-read.json",
+      "throughput_rps": 13044.5,
+      "p99_ms": 12.77,
+      "cpu_ms_per_request": 0.0337
+    },
+    {
+      "label": "Go oracle",
+      "source": "k6-go-read.json",
+      "throughput_rps": 12117.2,
+      "p99_ms": 13.32,
+      "cpu_ms_per_request": 0.0422
+    },
+    {
+      "label": "Rust after",
+      "source": "k6-rust-read.json",
+      "throughput_rps": 12819.7,
+      "p99_ms": 12.82,
+      "cpu_ms_per_request": 0.0236
+    }
+  ],
+  "churn": [
+    {
+      "label": "Rust before",
+      "source": "k6-before-churn.json",
+      "throughput_rps": 12283.6,
+      "p99_ms": 13.48,
+      "cpu_ms_per_request": 0.0571
+    },
+    {
+      "label": "Rust after",
+      "source": "k6-after-churn.json",
+      "throughput_rps": 13111.3,
+      "p99_ms": 12.52,
+      "cpu_ms_per_request": 0.0241
+    }
+  ]
+}

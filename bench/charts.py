@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Render the before/after charts from bench/baseline.json and bench/after.json.
+"""Render the benchmark charts from the bench documents.
 
 Usage:
     python3 bench/charts.py [--baseline bench/baseline.json] [--after bench/after.json]
+                            [--k6-cpu bench/k6-cpu.json]
 
 Writes PNGs to docs/charts/. Uses the storefront's shipped palette so the charts
 look like they belong to the project rather than a default plotting theme.
@@ -23,6 +24,7 @@ from matplotlib.ticker import FuncFormatter
 ROOT = Path(__file__).resolve().parents[1]
 INK = "#2c2325"
 MUTED = "#6a5d5e"
+BEFORE = "#8d7f7a"
 GROUND = "#f6f0eb"
 ACCENT = "#9a3c4c"
 PANEL = "#ebe0d9"
@@ -173,6 +175,34 @@ def memory_chart(before: dict, after: dict, out: Path) -> None:
     plt.close(figure)
 
 
+def cpu_chart(k6: dict, out: Path) -> None:
+    """Server CPU per request from the k6 keep-alive runs."""
+    figure, (left, right) = plt.subplots(1, 2, figsize=(10.5, 4.4), dpi=160)
+    panels = (
+        (left, k6["read"], "Public read mix", [BEFORE, MUTED, ACCENT]),
+        (right, k6["churn"], "20,000 rotated addresses", [BEFORE, ACCENT]),
+    )
+    for axis, runs, title, colors in panels:
+        labels = [run["label"] for run in runs]
+        values = [run["cpu_ms_per_request"] * 1000 for run in runs]
+        bars = axis.bar(labels, values, width=0.5, color=colors)
+        bar_labels(axis, bars, values, " µs", 1)
+        axis.set_title(title, loc="left", fontsize=13, color=INK, pad=12)
+        axis.set_ylabel("server CPU, microseconds per request")
+        axis.set_ylim(0, max(values + [1]) * 1.25)
+        axis.tick_params(axis="x", labelsize=9)
+
+    figure.suptitle(
+        "Server CPU per read request, k6 keep-alive probe",
+        x=0.02,
+        ha="left",
+        fontsize=15,
+    )
+    figure.tight_layout(rect=(0, 0, 1, 0.92))
+    figure.savefig(out, bbox_inches="tight")
+    plt.close(figure)
+
+
 def size_chart(before: dict, after: dict, out: Path) -> None:
     before_bytes = before["binary"]["bytes"]
     after_bytes = after["binary"]["bytes"]
@@ -203,11 +233,13 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--baseline", default=str(ROOT / "bench/baseline.json"))
     parser.add_argument("--after", default=str(ROOT / "bench/after.json"))
+    parser.add_argument("--k6-cpu", default=str(ROOT / "bench/k6-cpu.json"))
     parser.add_argument("--out", default=str(ROOT / "docs/charts"))
     args = parser.parse_args()
 
     before = load(Path(args.baseline))
     after = load(Path(args.after))
+    k6 = json.loads(Path(args.k6_cpu).read_text())
     destination = Path(args.out)
     destination.mkdir(parents=True, exist_ok=True)
 
@@ -215,7 +247,8 @@ def main() -> int:
     throughput_chart(before, after, destination / "throughput.png")
     memory_chart(before, after, destination / "memory.png")
     size_chart(before, after, destination / "binary-size.png")
-    print(f"wrote 4 charts to {destination}")
+    cpu_chart(k6, destination / "cpu-per-request.png")
+    print(f"wrote 5 charts to {destination}")
     return 0
 
 

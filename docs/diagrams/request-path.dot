@@ -1,0 +1,45 @@
+// Request path after the Rust hot-path work.
+//
+//   dot -Tsvg docs/diagrams/request-path.dot -o docs/diagrams/request-path.svg
+//
+// Public reads skip the session layer; session routes keep it inside the
+// global middleware. Admin GETs add the read cache inside their guards.
+digraph request_path {
+  rankdir = LR;
+  graph [bgcolor = "#f6f0eb", pad = "0.25", nodesep = "0.45", ranksep = "0.55"];
+  node [
+    shape = box,
+    style = "rounded,filled",
+    fillcolor = "#ebe0d9",
+    color = "#d8c7bc",
+    fontcolor = "#2c2325",
+    fontname = "DejaVu Sans",
+    fontsize = 11,
+    margin = "0.18,0.10"
+  ];
+  edge [
+    color = "#6a5d5e",
+    fontcolor = "#6a5d5e",
+    fontname = "DejaVu Sans",
+    fontsize = 9,
+    arrowsize = 0.7
+  ];
+
+  client [label = "client", shape = ellipse, fillcolor = "#f6f0eb"];
+  global [
+    label = "security headers\nrequest id\naccess log\npanic guard\nbody limit\ngeneral rate limit\nCSRF check\ncache invalidation"
+  ];
+  public [label = "public routes\ncatalogue · theme\nshipping · order by token"];
+  cache [label = "read cache\n2–5 s TTL"];
+  session [label = "session layer\ntower-sessions → libSQL"];
+  guards [label = "auth guards\nuser · staff · admin"];
+  handler [label = "handler"];
+  database [label = "libSQL", shape = cylinder, fillcolor = "#f6f0eb"];
+
+  client -> global;
+  global -> public [label = "no session"];
+  public -> cache -> handler;
+  global -> session [label = "session routes"];
+  session -> guards -> handler;
+  handler -> database [style = dashed];
+}

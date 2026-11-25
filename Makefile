@@ -10,7 +10,7 @@ WAILS_TAG_FLAGS = $(if $(strip $(WAILS_TAGS)),-tags "$(WAILS_TAGS)")
 VERSION ?= 2.0.0
 DESKTOP_GOARCH ?= $(shell go env GOARCH)
 
-.PHONY: help dev-db dev-api dev-web check desktop-sync desktop-check desktop-deps build smoke kiri-up kiri-local kiri-rust kiri-down desktop desktop-build desktop-package desktop-rust desktop-rust-build desktop-smoke loadtest rust-check rust-test bench-baseline rust-bench k6-read k6-login oracle-diff go-oracle-seam
+.PHONY: help dev-db dev-api dev-web check desktop-sync desktop-check desktop-deps build smoke kiri-up kiri-local kiri-rust kiri-down desktop desktop-build desktop-package desktop-rust desktop-rust-build desktop-smoke loadtest rust-check rust-test bench-baseline rust-bench k6-read k6-login diagrams oracle-diff go-oracle-seam
 
 help:
 	@echo "Azahar demo store"
@@ -33,6 +33,7 @@ help:
 	@echo "  make rust-hotpath  keep-alive throughput probe, writes bench/hotpath.json"
 	@echo "  make k6-read   k6 read mix against $(API_URL)"
 	@echo "  make k6-login  k6 login flow against $(API_URL)"
+	@echo "  make diagrams  render docs/diagrams/*.svg (needs Graphviz)"
 	@echo "  make kiri-up   build and run the three containers with Kiri"
 	@echo "  make kiri-local run host-built Go artifacts in Kiri containers (builder fallback)"
 	@echo "  make kiri-rust run the Rust API + web through Kiri"
@@ -105,6 +106,9 @@ k6-read:
 
 k6-login:
 	k6 run -e BASE_URL=$(API_URL) -e VUS=4 -e ITERATIONS=10 bench/k6-login.js
+
+diagrams:
+	dot -Tsvg docs/diagrams/request-path.dot -o docs/diagrams/request-path.svg
 
 oracle-diff:
 	cargo test --workspace --tests -- --nocapture

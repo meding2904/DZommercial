@@ -1,0 +1,70 @@
+{
+  "label": "rust",
+  "generated_at": "2026-11-24T22:10:01Z",
+  "binary": {
+    "path": "/home/mohamed/Projects/DZommercial/target/release/azahar-api",
+    "bytes": 26937080
+  },
+  "server": {
+    "startup_seconds": 0.355,
+    "peak_rss_after_reads_kb": 21340,
+    "peak_rss_after_reads_mb": 20.8,
+    "peak_rss_kb": 283248,
+    "peak_rss_mb": 276.6
+  },
+  "load": {
+    "read_mix": {
+      "workers": 16,
+      "requests": 2400,
+      "elapsed_seconds": 0.382,
+      "throughput_rps": 6276.0,
+      "latency_ms": {
+        "p50": 2.394,
+        "p95": 4.142,
+        "p99": 5.114,
+        "mean": 2.483,
+        "max": 6.415
+      },
+      "status_counts": {
+        "200": 2400
+      },
+      "errors": 0,
+      "error_sample": [],
+      "all_succeeded": true
+    },
+    "login_flow": {
+      "workers": 4,
+      "requests": 40,
+      "elapsed_seconds": 1.582,
+      "throughput_rps": 25.28,
+      "latency_ms": {
+        "p50": 158.114,
+        "p95": 161.39,
+        "p99": 161.999,
+        "mean": 158.055,
+        "max": 161.999
+      },
+      "outcomes": {
+        "ok": 40
+      },
+      "all_succeeded": true
+    }
+  },
+  "hyperfine": {
+    "health": {
+      "command": "curl -fsS -o /dev/null http://127.0.0.1:18082/api/health",
+      "runs": 10,
+      "mean_seconds": 0.0041,
+      "median_seconds": 0.0039,
+      "stddev_seconds": 0.0004,
+      "min_seconds": 0.0036,
+      "max_seconds": 0.0047
+    }
+  },
+  "environment": {
+    "workers": 16,
+    "requests": 2400,
+    "login_requests": 40,
+    "database": "http://127.0.0.1:8880"
+  }
+}

@@ -1,0 +1,16 @@
+[package]
+name = "azahar-auditbatch"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+azahar-store.workspace = true
+tokio.workspace = true
+tokio-util = { version = "0.7", features = ["rt"] }
+tracing.workspace = true
+
+[dev-dependencies]
+azahar-db.workspace = true
+chrono.workspace = true
+libsql.workspace = true

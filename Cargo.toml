@@ -1,0 +1,85 @@
+[workspace]
+resolver = "3"
+members = [
+  "crates/azahar-api",
+  "crates/azahar-auditbatch",
+  "crates/azahar-auth",
+  "crates/azahar-config",
+  "crates/azahar-courier",
+  "crates/azahar-db",
+  "crates/azahar-desktop",
+  "crates/azahar-desktop-api",
+  "crates/azahar-httpapi",
+  "crates/azahar-ids",
+  "crates/azahar-orderintake",
+  "crates/azahar-orderstatus",
+  "crates/azahar-plugin-ai",
+  "crates/azahar-plugin-codemode",
+  "crates/azahar-plugin-oils",
+  "crates/azahar-plugin-pcbuilder",
+  "crates/azahar-plugin-pcparts",
+  "crates/azahar-plugin-phone",
+  "crates/azahar-plugins",
+  "crates/azahar-productrules",
+  "crates/azahar-secrets",
+  "crates/azahar-seed",
+  "crates/azahar-store",
+  "crates/azahar-storefront",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+rust-version = "1.90"
+
+[workspace.dependencies]
+azahar-auditbatch = { path = "crates/azahar-auditbatch" }
+azahar-auth = { path = "crates/azahar-auth" }
+azahar-config = { path = "crates/azahar-config" }
+azahar-courier = { path = "crates/azahar-courier" }
+azahar-db = { path = "crates/azahar-db" }
+azahar-desktop-api = { path = "crates/azahar-desktop-api" }
+azahar-httpapi = { path = "crates/azahar-httpapi" }
+azahar-ids = { path = "crates/azahar-ids" }
+azahar-orderintake = { path = "crates/azahar-orderintake" }
+azahar-orderstatus = { path = "crates/azahar-orderstatus" }
+azahar-plugin-ai = { path = "crates/azahar-plugin-ai" }
+azahar-plugin-codemode = { path = "crates/azahar-plugin-codemode" }
+azahar-plugin-oils = { path = "crates/azahar-plugin-oils" }
+azahar-plugin-pcbuilder = { path = "crates/azahar-plugin-pcbuilder" }
+azahar-plugin-pcparts = { path = "crates/azahar-plugin-pcparts" }
+azahar-plugin-phone = { path = "crates/azahar-plugin-phone" }
+azahar-plugins = { path = "crates/azahar-plugins" }
+azahar-productrules = { path = "crates/azahar-productrules" }
+azahar-secrets = { path = "crates/azahar-secrets" }
+azahar-seed = { path = "crates/azahar-seed" }
+azahar-store = { path = "crates/azahar-store" }
+azahar-storefront = { path = "crates/azahar-storefront" }
+
+anyhow = "1"
+argon2 = "0.6"
+async-trait = "0.1"
+axum = { version = "0.8", features = ["macros"] }
+base64 = "0.22"
+bytes = "1"
+chrono = { version = "0.4", features = ["serde"] }
+getrandom = "0.3"
+hex = "0.4"
+libsql = "0.10"
+percent-encoding = "2"
+proptest = "1"
+rand = "0.9"
+regex = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+subtle = "2"
+thiserror = "2"
+time = { version = "0.3", features = ["serde"] }
+tokio = { version = "1", features = ["full"] }
+tower = "0.5"
+tower-sessions = "0.15"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+url = "2"

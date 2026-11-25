@@ -1,0 +1,70 @@
+{
+  "label": "go-oracle",
+  "generated_at": "2026-11-24T20:22:56Z",
+  "binary": {
+    "path": "/tmp/azahar-go-diff",
+    "bytes": 14713389
+  },
+  "server": {
+    "startup_seconds": 0.255,
+    "peak_rss_after_reads_kb": 102460,
+    "peak_rss_after_reads_mb": 100.1,
+    "peak_rss_kb": 551956,
+    "peak_rss_mb": 539.0
+  },
+  "load": {
+    "read_mix": {
+      "workers": 16,
+      "requests": 2400,
+      "elapsed_seconds": 0.393,
+      "throughput_rps": 6105.6,
+      "latency_ms": {
+        "p50": 2.493,
+        "p95": 4.072,
+        "p99": 5.01,
+        "mean": 2.568,
+        "max": 6.765
+      },
+      "status_counts": {
+        "200": 2400
+      },
+      "errors": 0,
+      "error_sample": [],
+      "all_succeeded": true
+    },
+    "login_flow": {
+      "workers": 4,
+      "requests": 40,
+      "elapsed_seconds": 4.83,
+      "throughput_rps": 8.28,
+      "latency_ms": {
+        "p50": 479.967,
+        "p95": 926.076,
+        "p99": 983.201,
+        "mean": 480.516,
+        "max": 983.201
+      },
+      "outcomes": {
+        "ok": 40
+      },
+      "all_succeeded": true
+    }
+  },
+  "hyperfine": {
+    "health": {
+      "command": "curl -fsS -o /dev/null http://127.0.0.1:18080/api/health",
+      "runs": 10,
+      "mean_seconds": 0.0041,
+      "median_seconds": 0.0038,
+      "stddev_seconds": 0.0006,
+      "min_seconds": 0.0033,
+      "max_seconds": 0.0054
+    }
+  },
+  "environment": {
+    "workers": 16,
+    "requests": 2400,
+    "login_requests": 40,
+    "database": "http://127.0.0.1:8880"
+  }
+}

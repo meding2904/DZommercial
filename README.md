@@ -151,14 +151,17 @@ for anything real.
 
 ## Desktop admin app
 
-The repository also ships a Wails app for the owner's counter. It is framework code, not part
-of the demo catalogue, and works with any deployment. It is the admin panel only, not a second
-storefront: the ledger, a counter sale, orders, products and stock, customers and staff. A Go
-backend talks to the API directly, and the static renderer has no network access of its own.
-The SvelteKit web app is not in the path.
+The repository also ships an admin desktop app for the owner's counter. It is framework code,
+not part of the demo catalogue, and works with any deployment. It is the admin panel only, not
+a second storefront: the ledger, a counter sale, orders, products and stock, customers and
+staff. The Rust host talks to the API through `azahar-desktop-api`; the static renderer has no
+network access of its own. The SvelteKit web app is not in the path.
 
-`desktop/` holds the Wails project. It uses the same API, roles and audit trail as the web
-admin. The storefront editor, plugin settings and the AI screens remain in the web admin.
+The migration branch has two hosts: the Rust Tauri app in `crates/azahar-desktop` (the port)
+and the original Go Wails app in `desktop/` (kept runnable as the oracle). Both load the same
+static renderer in `desktop/frontend`; the Tauri host injects a `window.go.main.App` bridge so
+the renderer is unchanged. They use the same API, roles and audit trail as the web admin. The
+storefront editor, plugin settings and the AI screens remain in the web admin.
 
 ### Run it
 
@@ -171,6 +174,9 @@ Start the API and the web app first, from the repository root:
 The development start publishes the API on `http://127.0.0.1:8080`. Then open a second terminal:
 
 ```bash
+make desktop-rust   # Rust Tauri host
+make desktop-smoke  # headless Weston smoke test (no display required)
+# or, for the Go oracle:
 make desktop-deps   # first time only, installs the Wails CLI
 make desktop
 ```
@@ -558,6 +564,119 @@ scripts/        health check, admin-gate proof of concept, load probe and screen
 
 The framework ships with cash on delivery only. No card details are collected. The demo
 shop, accounts and admin all run locally.
+
+## Rust port
+
+The server is being migrated from Go to Rust on the `rust-migrate` branch, one
+package at a time, while the Go tree stays runnable as the oracle. The plan,
+ordering and per-function checklist live in `MIGRATION.md`; the auth decision is
+in `docs/auth.md`.
+
+Ported and differential-clean against the Go oracle so far:
+
+- **Foundations** — `ids`, `auth` (Argon2id is byte-compatible both ways),
+  `config`, `secrets`, `orderstatus`, `storefront` theme, `courier`.
+- **Data** — the full `store` package (93 functions), `db` migrations, `seed`,
+  `productrules`, `orderintake` basket/shipping rules and `auditbatch`.
+- **HTTP** — axum server, CSRF, rate limits, health, registration/login/logout,
+  Turso-backed `tower-sessions`, public catalogue/categories/theme/plugins,
+  shipping lookup and order-by-token. The live Go-vs-Rust HTTP diff matches
+  every case, including the plugin manifests, admin reads/mutations, checkout
+  validation/challenge and the AI/code-mode admin routes.
+- **Plugins** — registry/settings framework, oils, PC parts, PC builder,
+  phone IMEI catalog and hooks, AI analyst and code-mode console (plans,
+  preview, validated apply with audit).
+- **Desktop** — `azahar-desktop-api` ports the client, URL/firewall policy,
+  session/CSRF handling, settings, images and keyring abstraction; the Tauri
+  host in `azahar-desktop` replaces Wails and keeps the renderer unchanged.
+
+All scoped Go functions are ported, including the Tauri desktop host. The Tauri
+window is smoke-tested under a headless Weston compositor (clamp runs, close
+saves bounds); physical-display monitor placement, keyring behaviour and the
+headless compositor's shadow offset remain unverified.
+
+### Before and after
+
+The same harness (`bench/bench.py`) ran against both builds: 16 workers × 2400
+mixed public reads with the in-process read cache, and 4 × 40 login flows, on
+the same seeded local libSQL database.
+
+| Metric | Go oracle | Rust |
+| --- | ---: | ---: |
+| Read throughput | 6,106 req/s | 6,276 req/s |
+| Read p50 / p95 / p99 | 2.49 / 4.07 / 5.01 ms | 2.39 / 4.14 / 5.11 ms |
+| Login p50 / p95 / p99 | 480.0 / 926.1 / 983.2 ms | 158.1 / 161.4 / 162.0 ms |
+| Peak RSS after reads | 100.1 MiB | 20.8 MiB |
+| Peak RSS including logins | 539.0 MiB | 276.6 MiB |
+| Release binary | 14.7 MB | 26.9 MB |
+| Startup to healthy | 0.255 s | 0.355 s |
+
+![Read, login and tail latency](docs/charts/latency.png)
+
+![Throughput](docs/charts/throughput.png)
+
+![Peak memory](docs/charts/memory.png)
+
+![Binary size](docs/charts/binary-size.png)
+
+The read path and login medians are at parity or slightly ahead, and the Rust
+server uses about a sixth of the resident memory. Both sides use the same
+Argon2id parameters (64 MiB, 3 passes, 4 lanes), so the login tail reflects CPU
+scheduling under four concurrent hashes as much as the implementation. These are
+single runs on a shared development machine, not a capacity claim. The binary is
+larger because the Rust release build keeps its symbols, as the Go build keeps
+DWARF.
+
+### Run the Rust API through Kiri
+
+The Rust API can replace the Go API inside the same Kiri stack; the database and
+SvelteKit app are unchanged:
+
+```sh
+make kiri-rust
+# prints the app, admin gate and demo logins
+./deploy/kiri-down.sh   # stop all three containers
+```
+
+`deploy/kiri-rust.sh` builds `target/release/azahar-api` and the frontend, then
+runs the database, the Rust API (mounted into `distroless/cc`) and the web app on
+the `azahar-net` network. Use `make kiri-local` for the Go oracle equivalent.
+
+### Run the benchmarks
+
+```sh
+make dev-db          # local Turso/libSQL on :8880
+make bench-baseline  # builds the Go oracle and writes bench/baseline.json
+make rust-bench      # builds the Rust API and writes bench/after.json
+python3 bench/charts.py
+```
+
+`bench/README.md` documents the request counts, the cache caveat and the
+definition of every column.
+
+### Run the oracle diff tests
+
+Every ported function has a Rust test that drives the real Go function through a
+line-delimited JSON oracle under `backend/cmd/oracle-*` and compares outputs:
+
+```sh
+make dev-db
+make oracle-diff   # cargo test --workspace --tests
+```
+
+For an HTTP-level comparison, run the Go oracle on one database and the Rust
+server on another seeded database. The checkout-success case also needs both
+servers started with `AZAHAR_TEST_CAPTCHA_CODE=ABCDE`; build the Go oracle with
+the same seam, without editing the Go tree:
+
+```sh
+make go-oracle-seam   # /tmp/azahar-go-seam
+python3 scripts/httpdiff/httpdiff.py --oracle http://127.0.0.1:18080 \
+    --candidate http://127.0.0.1:18081 --group all
+```
+
+Groups are `core`, `public`, `auth`, `admin` and `all`. Generated ids,
+timestamps and session tokens are normalised before comparison.
 
 ## Upcoming
 

@@ -10,7 +10,7 @@ WAILS_TAG_FLAGS = $(if $(strip $(WAILS_TAGS)),-tags "$(WAILS_TAGS)")
 VERSION ?= 2.0.0
 DESKTOP_GOARCH ?= $(shell go env GOARCH)
 
-.PHONY: help dev-db dev-api dev-web check desktop-sync desktop-check desktop-deps build smoke kiri-up kiri-local kiri-down desktop desktop-build desktop-package loadtest
+.PHONY: help dev-db dev-api dev-web check desktop-sync desktop-check desktop-deps build smoke kiri-up kiri-local kiri-rust kiri-down desktop desktop-build desktop-package desktop-rust desktop-rust-build desktop-smoke loadtest rust-check rust-test bench-baseline rust-bench oracle-diff go-oracle-seam
 
 help:
 	@echo "Azahar demo store"
@@ -22,21 +22,29 @@ help:
 	@echo "  make smoke     call the public API endpoints"
 	@echo "  make desktop-deps  install the Wails CLI"
 	@echo "  make desktop-sync  copy the shared admin domain into the desktop renderer"
-	@echo "  make desktop   run the Wails admin app against the local API"
+	@echo "  make desktop   run the Go Wails admin app (oracle)"
+	@echo "  make desktop-rust  run the Rust Tauri admin app"
+	@echo "  make desktop-smoke  headless Weston smoke test for the Tauri host"
 	@echo "  make desktop-build  build the Wails admin binary"
 	@echo "  make desktop-package  build a Linux tarball with binary, desktop file and icon"
 	@echo "  make loadtest  run a short read probe against the API"
+	@echo "  make rust-check  fmt, clippy, and the whole Rust test suite"
+	@echo "  make rust-bench  build the Rust API and write bench/after.json"
 	@echo "  make kiri-up   build and run the three containers with Kiri"
-	@echo "  make kiri-local run host-built artifacts in Kiri containers (builder fallback)"
+	@echo "  make kiri-local run host-built Go artifacts in Kiri containers (builder fallback)"
+	@echo "  make kiri-rust run the Rust API + web through Kiri"
 	@echo "  make kiri-down stop the containers, keep the database volume"
 
 dev-db:
 	@if ! command -v kiri >/dev/null; then echo "kiri is not installed"; exit 1; fi
-	@if kiri ps --format '{{.Names}}' 2>/dev/null | grep -qx azahar-db; then \
+	@if kiri ps --format '{{.Names}} {{.Ports}}' 2>/dev/null | grep -q '^azahar-db .*8880->'; then \
 		echo "azahar-db is already running on $(TURSO_URL)"; \
 	elif kiri ps -a --format '{{.Names}}' 2>/dev/null | grep -qx azahar-db; then \
-		kiri start azahar-db >/dev/null; \
-		echo "azahar-db restarted on $(TURSO_URL)"; \
+		kiri rm -f azahar-db >/dev/null; \
+		kiri run -d --name azahar-db -p 8880:8080 -v azahar-db:/data \
+			--entrypoint /bin/sqld ghcr.io/tursodatabase/libsql-server:latest \
+			--http-listen-addr 0.0.0.0:8080 -d /data >/dev/null; \
+		echo "azahar-db recreated on $(TURSO_URL)"; \
 	else \
 		kiri volume create azahar-db >/dev/null 2>&1 || true; \
 		kiri run -d --name azahar-db -p 8880:8080 -v azahar-db:/data \
@@ -62,6 +70,31 @@ dev-api:
 
 dev-web:
 	cd frontend && APP_ENV=development INTERNAL_API_URL=$(API_URL) pnpm dev --port 5173
+
+rust-check:
+	cargo fmt --check
+	cargo clippy --workspace --all-targets -- -D warnings
+	cargo test --workspace
+
+rust-test:
+	cargo test --workspace
+
+# Same harness and request counts as bench/after.json. The API must be able to
+# reach the database at TURSO_DATABASE_URL (make dev-db).
+bench-baseline:
+	cd backend && go build -o /tmp/azahar-api ./cmd/api
+	python3 bench/bench.py --bin /tmp/azahar-api --label go-oracle --out bench/baseline.json
+
+rust-bench:
+	cargo build --release -p azahar-api
+	python3 bench/bench.py --bin target/release/azahar-api --label rust --out bench/after.json
+
+oracle-diff:
+	cargo test --workspace --tests -- --nocapture
+
+# Go oracle with the deterministic captcha seam, for the live checkout diff.
+go-oracle-seam:
+	./scripts/build-go-oracle.sh /tmp/azahar-go-seam
 
 check:
 	cd frontend && APP_ENV=development pnpm check && pnpm test:security && pnpm test:framework
@@ -102,6 +135,15 @@ desktop-check:
 		echo "skipping Wails main package checks: install libgtk-3-dev and libwebkit2gtk-4.1-dev"; \
 	fi
 
+desktop-rust:
+	cargo run -p azahar-desktop
+
+desktop-rust-build:
+	cargo build --release -p azahar-desktop
+
+desktop-smoke:
+	./scripts/desktop-smoke.sh
+
 desktop-deps:
 	go install github.com/wailsapp/wails/v2/cmd/wails@v2.17.1
 
@@ -118,6 +160,9 @@ kiri-up:
 
 kiri-local:
 	./deploy/kiri-local.sh
+
+kiri-rust:
+	./deploy/kiri-rust.sh
 
 kiri-down:
 	./deploy/kiri-down.sh

@@ -1,0 +1,15 @@
+[package]
+name = "azahar-plugin-pcbuilder"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+azahar-plugin-pcparts.workspace = true
+azahar-plugins.workspace = true
+azahar-store.workspace = true
+chrono.workspace = true
+serde.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

@@ -318,14 +318,79 @@ pub async fn migration_applied(conn: &Connection, name: &str) -> Result<bool, Db
     Ok(count > 0)
 }
 
-/// The Go runner splits on `;` and drops empty fragments. Keep that behaviour
-/// so the same SQL files apply identically.
+/// Split a SQL script on top-level `;` characters.
+///
+/// Semicolons inside single-quoted strings, quoted identifiers, `--` line
+/// comments and `/* */` block comments do not split, so a trigger body or a
+/// comment stays with its statement. Fragments that are empty or hold only
+/// whitespace and comments are dropped.
 pub fn split_statements(body: &str) -> Vec<String> {
-    body.split(';')
-        .map(str::trim)
-        .filter(|part| !part.is_empty())
-        .map(ToString::to_string)
-        .collect()
+    let bytes = body.as_bytes();
+    let mut statements = Vec::new();
+    let mut start = 0;
+    let mut has_content = false;
+    let mut index = 0;
+    while index < bytes.len() {
+        match bytes[index] {
+            quote @ (b'\'' | b'"' | b'`') => {
+                has_content = true;
+                index += 1;
+                while index < bytes.len() {
+                    if bytes[index] != quote {
+                        index += 1;
+                        continue;
+                    }
+                    if bytes.get(index + 1) == Some(&quote) {
+                        // A doubled quote escapes the quote character.
+                        index += 2;
+                        continue;
+                    }
+                    index += 1;
+                    break;
+                }
+            }
+            b'-' if bytes.get(index + 1) == Some(&b'-') => {
+                index += 2;
+                while index < bytes.len() && bytes[index] != b'\n' {
+                    index += 1;
+                }
+            }
+            b'/' if bytes.get(index + 1) == Some(&b'*') => {
+                index += 2;
+                while index < bytes.len() {
+                    if bytes[index] == b'*' && bytes.get(index + 1) == Some(&b'/') {
+                        index += 2;
+                        break;
+                    }
+                    index += 1;
+                }
+            }
+            b';' => {
+                push_statement(&mut statements, &body[start..index], has_content);
+                has_content = false;
+                start = index + 1;
+                index += 1;
+            }
+            byte => {
+                if !byte.is_ascii_whitespace() {
+                    has_content = true;
+                }
+                index += 1;
+            }
+        }
+    }
+    push_statement(&mut statements, &body[start..], has_content);
+    statements
+}
+
+fn push_statement(statements: &mut Vec<String>, fragment: &str, has_content: bool) {
+    if !has_content {
+        return;
+    }
+    let trimmed = fragment.trim();
+    if !trimmed.is_empty() {
+        statements.push(trimmed.to_owned());
+    }
 }
 
 /// Apply plugin migrations in stable (plugin id, version) order.
@@ -441,6 +506,44 @@ mod tests {
             vec!["CREATE TABLE a (id TEXT)", "SELECT 1"]
         );
         assert!(split_statements("  ;  ").is_empty());
+    }
+
+    #[test]
+    fn split_keeps_semicolons_inside_strings_and_identifiers() {
+        let statements = split_statements("SELECT ';' AS x; SELECT 2;");
+        assert_eq!(statements.len(), 2);
+        assert_eq!(statements[0], "SELECT ';' AS x");
+        assert_eq!(statements[1], "SELECT 2");
+
+        assert_eq!(
+            split_statements("SELECT 'it''s; fine'; SELECT \"a;b\"; SELECT `c;d`;"),
+            vec!["SELECT 'it''s; fine'", "SELECT \"a;b\"", "SELECT `c;d`"]
+        );
+    }
+
+    #[test]
+    fn split_ignores_semicolons_in_line_comments() {
+        assert_eq!(
+            split_statements("-- keep; this\nSELECT 1;"),
+            vec!["-- keep; this\nSELECT 1"]
+        );
+    }
+
+    #[test]
+    fn split_ignores_semicolons_in_block_comments() {
+        assert_eq!(
+            split_statements("SELECT 1; /* a; b */ SELECT 2;"),
+            vec!["SELECT 1", "/* a; b */ SELECT 2"]
+        );
+    }
+
+    #[test]
+    fn split_drops_comment_only_fragments() {
+        assert!(split_statements("-- nothing;\n/* here; too */").is_empty());
+        assert_eq!(
+            split_statements("SELECT 1; -- trailing; note\n;"),
+            vec!["SELECT 1"]
+        );
     }
 
     #[tokio::test]

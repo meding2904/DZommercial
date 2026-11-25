@@ -2109,6 +2109,51 @@ async fn admin_product_update_is_partial_and_archives() {
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
+#[tokio::test]
+async fn admin_product_price_patch_checks_the_sale_window() {
+    let fixture = fixture().await;
+    let admin = login(&fixture.app, ADMIN_EMAIL).await;
+
+    let mut payload = core_product("sale-price-floor");
+    payload["price_cents"] = json!(1_000);
+    payload["sale_price_cents"] = json!(900);
+    payload["sale_starts_at"] = json!("2026-12-01T00:00:00Z");
+    payload["sale_ends_at"] = json!("2026-12-10T00:00:00Z");
+    let (status, _, created) = body_json(
+        send(
+            &fixture.app,
+            authed_json(Method::POST, "/api/admin/products", &admin, &payload),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{created}");
+    let id = created["product"]["id"]
+        .as_str()
+        .expect("product id")
+        .to_string();
+
+    // Dropping the regular price below the stored sale price is a field error.
+    let (status, _, invalid) = body_json(
+        send(
+            &fixture.app,
+            authed_json(
+                Method::PATCH,
+                &format!("/api/admin/products/{id}"),
+                &admin,
+                &json!({"price_cents": 500}),
+            ),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{invalid}");
+    assert_eq!(
+        problem_field(&invalid, "sale_price_cents"),
+        "Enter a sale price above 0 and below the regular price."
+    );
+}
+
 // ---------------------------------------------------------------------------
 // Metrics
 // ---------------------------------------------------------------------------
@@ -2690,6 +2735,30 @@ async fn plugin_settings_mask_merge_and_validate() {
         unreadable["error"]["message"],
         "These settings cannot be read with the current PLUGIN_SECRET_KEY. Enter them again to replace the old values."
     );
+
+    // Writing over an unreadable row is refused before the merge, so the
+    // stored settings are not silently replaced by the submitted subset.
+    let (status, _, refused) = body_json(
+        send(
+            &fixture.app,
+            authed_json(
+                Method::PUT,
+                "/api/admin/plugins/vault/settings",
+                &admin,
+                &json!({"settings": {"api_url": "https://api.example/v3"}}),
+            ),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(status, StatusCode::CONFLICT);
+    assert_eq!(refused["error"]["code"], "plugin_settings_unreadable");
+    let (sealed, _) = fixture
+        .store
+        .plugin_settings("vault")
+        .await
+        .expect("stored settings");
+    assert_eq!(sealed, "garbage", "the stored row is unchanged");
 
     // The admin list reports the same unreadable state.
     let (_, _, list) = get_json(

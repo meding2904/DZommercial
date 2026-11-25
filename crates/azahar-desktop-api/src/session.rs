@@ -7,7 +7,7 @@
 use std::fs::{self, OpenOptions};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::{self, RecvTimeoutError};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -218,20 +218,44 @@ impl SecretStore for KeyringSecretStore {
 }
 
 /// Bound the time a platform keyring call may take.
+///
+/// A thread is spawned per operation because the keyring API has no deadline.
+/// The first timeout marks the store unhealthy and every later load or save
+/// fails immediately instead of spawning another abandoned thread. The process
+/// therefore stays on the file fallback until restart: a keyring that recovers
+/// later cannot resurrect an older credential over the newer file value.
 pub struct TimeoutSecretStore {
     store: Arc<dyn SecretStore>,
     timeout: Duration,
+    healthy: AtomicBool,
 }
 
 impl TimeoutSecretStore {
     pub fn new(store: Arc<dyn SecretStore>, timeout: Duration) -> Self {
-        Self { store, timeout }
+        Self {
+            store,
+            timeout,
+            healthy: AtomicBool::new(true),
+        }
     }
 
+    #[must_use]
+    pub fn is_healthy(&self) -> bool {
+        self.healthy.load(Ordering::SeqCst)
+    }
+
+    /// Run `operation` on a worker thread, bounded by the configured timeout.
+    ///
+    /// An unhealthy store is skipped unless `force` is set, so a hung keyring
+    /// costs one abandoned thread per process instead of one per call.
     fn run<T: Send + 'static>(
         &self,
+        force: bool,
         operation: impl FnOnce(Arc<dyn SecretStore>) -> T + Send + 'static,
     ) -> Result<T, SecretError> {
+        if !force && !self.is_healthy() {
+            return Err(SecretError::timed_out());
+        }
         let store = Arc::clone(&self.store);
         let (sender, receiver) = mpsc::channel();
         thread::spawn(move || {
@@ -239,7 +263,10 @@ impl TimeoutSecretStore {
         });
         match receiver.recv_timeout(self.timeout) {
             Ok(value) => Ok(value),
-            Err(RecvTimeoutError::Timeout) => Err(SecretError::timed_out()),
+            Err(RecvTimeoutError::Timeout) => {
+                self.healthy.store(false, Ordering::SeqCst);
+                Err(SecretError::timed_out())
+            }
             Err(RecvTimeoutError::Disconnected) => {
                 Err(SecretError::new("secret store is not configured"))
             }
@@ -249,16 +276,18 @@ impl TimeoutSecretStore {
 
 impl SecretStore for TimeoutSecretStore {
     fn load(&self) -> Result<Option<String>, SecretError> {
-        self.run(|store| store.load())?
+        self.run(false, |store| store.load())?
     }
 
     fn save(&self, value: &str) -> Result<(), SecretError> {
         let value = value.to_owned();
-        self.run(move |store| store.save(&value))?
+        self.run(false, move |store| store.save(&value))?
     }
 
     fn delete(&self) -> Result<(), SecretError> {
-        self.run(|store| store.delete())?
+        // Sign-out must still ask the keyring to remove the credential, and
+        // must not report success when that attempt times out.
+        self.run(true, |store| store.delete())?
     }
 }
 

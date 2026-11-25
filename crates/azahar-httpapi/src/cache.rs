@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use axum::body::{Body, to_bytes};
+use axum::body::{Body, HttpBody as _, to_bytes};
 use axum::extract::{Request, State};
 use axum::http::{HeaderMap, HeaderValue, Method, StatusCode, header};
 use axum::middleware::Next;
@@ -199,8 +199,32 @@ pub async fn cache_read(State(state): State<CacheState>, request: Request, next:
         return response;
     }
 
+    // A response must announce its size before it is buffered, or a large body
+    // is read into memory only to be rejected afterwards. `Content-Length` is
+    // authoritative when set, but axum adds it after this middleware runs, so
+    // the body's exact size hint stands in for it. When neither is available
+    // the size cannot be bounded, and the body is streamed to the client
+    // untouched.
+    let declared = match response.headers().get(header::CONTENT_LENGTH) {
+        Some(value) => value
+            .to_str()
+            .ok()
+            .and_then(|value| value.parse::<usize>().ok()),
+        None => response
+            .body()
+            .size_hint()
+            .exact()
+            .and_then(|value| usize::try_from(value).ok()),
+    };
+    let Some(declared) = declared else {
+        return response;
+    };
+    if declared > READ_CACHE_MAX_BODY {
+        return response;
+    }
+
     let (mut parts, body) = response.into_parts();
-    let Ok(body) = to_bytes(body, usize::MAX).await else {
+    let Ok(body) = to_bytes(body, READ_CACHE_MAX_BODY.saturating_add(1)).await else {
         // The handler's body could not be collected: never cache a truncated
         // response.
         return crate::middleware::internal_error().into_response();
@@ -332,8 +356,8 @@ mod tests {
         let hits = Arc::new(AtomicUsize::new(0));
         let app = source_router(cache.clone(), hits.clone());
 
-        let first = send_text(app.clone()).await;
-        let second = send_text(app.clone()).await;
+        let first = send_text(app.clone(), "/source").await;
+        let second = send_text(app.clone(), "/source").await;
 
         assert_eq!(first, "body 1");
         assert_eq!(second, "body 1");
@@ -346,7 +370,7 @@ mod tests {
         let hits = Arc::new(AtomicUsize::new(0));
         let app = source_router(cache.clone(), hits.clone());
 
-        assert_eq!(send_text(app.clone()).await, "body 1");
+        assert_eq!(send_text(app.clone(), "/source").await, "body 1");
 
         let write = Request::builder()
             .method(Method::POST)
@@ -355,7 +379,7 @@ mod tests {
             .expect("request");
         app.clone().oneshot(write).await.expect("write response");
 
-        assert_eq!(send_text(app.clone()).await, "body 2");
+        assert_eq!(send_text(app.clone(), "/source").await, "body 2");
         assert_eq!(hits.load(Ordering::SeqCst), 2);
     }
 
@@ -390,6 +414,110 @@ mod tests {
         assert_eq!(hits.load(Ordering::SeqCst), 2);
     }
 
+    #[tokio::test]
+    async fn large_bodies_are_passed_through_without_being_cached() {
+        let cache = Arc::new(ReadCache::new(8));
+        let app = caching_route("/large", get(|| async { "x".repeat(300 << 10) }), &cache);
+
+        let request = Request::builder()
+            .uri("/large")
+            .body(Body::empty())
+            .expect("request");
+        let response = app.oneshot(request).await.expect("response");
+        assert_eq!(response.status(), StatusCode::OK);
+        let length = (300 << 10).to_string();
+        assert_eq!(
+            response
+                .headers()
+                .get(header::CONTENT_LENGTH)
+                .and_then(|value| value.to_str().ok()),
+            Some(length.as_str())
+        );
+        let body = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("body");
+        assert_eq!(body.len(), 300 << 10);
+        assert_eq!(cache.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn bodies_without_a_declared_length_are_passed_through_and_not_cached() {
+        let cache = Arc::new(ReadCache::new(8));
+        let hits = Arc::new(AtomicUsize::new(0));
+        let counter = hits.clone();
+        let app = caching_route(
+            "/streamed",
+            get(move || {
+                let counter = counter.clone();
+                async move {
+                    counter.fetch_add(1, Ordering::SeqCst);
+                    let source = Body::from("streamed body");
+                    Response::new(Body::from_stream(source.into_data_stream()))
+                }
+            }),
+            &cache,
+        );
+
+        for _ in 0..2 {
+            let request = Request::builder()
+                .uri("/streamed")
+                .body(Body::empty())
+                .expect("request");
+            let response = app.clone().oneshot(request).await.expect("response");
+            assert_eq!(response.status(), StatusCode::OK);
+            assert!(response.headers().get(header::CONTENT_LENGTH).is_none());
+            let body = to_bytes(response.into_body(), usize::MAX)
+                .await
+                .expect("body");
+            assert_eq!(body.as_ref(), b"streamed body");
+        }
+        assert_eq!(hits.load(Ordering::SeqCst), 2);
+        assert_eq!(cache.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn small_bodies_are_still_cached() {
+        let cache = Arc::new(ReadCache::new(8));
+        let hits = Arc::new(AtomicUsize::new(0));
+        let counter = hits.clone();
+        let app = caching_route(
+            "/small",
+            get(move || {
+                let counter = counter.clone();
+                async move {
+                    let value = counter.fetch_add(1, Ordering::SeqCst) + 1;
+                    let body = format!("body {value}");
+                    Response::builder()
+                        .header(header::CONTENT_LENGTH, body.len().to_string())
+                        .body(Body::from(body))
+                        .expect("response")
+                }
+            }),
+            &cache,
+        );
+
+        assert_eq!(send_text(app.clone(), "/small").await, "body 1");
+        assert_eq!(send_text(app.clone(), "/small").await, "body 1");
+        assert_eq!(hits.load(Ordering::SeqCst), 1);
+        assert_eq!(cache.len(), 1);
+    }
+
+    /// A router with one cache-read route, so the pass-through tests can build
+    /// their own handler without repeating the layer.
+    fn caching_route(
+        uri: &str,
+        handler: axum::routing::MethodRouter,
+        cache: &Arc<ReadCache>,
+    ) -> Router {
+        Router::new().route(
+            uri,
+            handler.layer(axum::middleware::from_fn_with_state(
+                CacheState::new(cache.clone(), Duration::from_secs(30)),
+                cache_read,
+            )),
+        )
+    }
+
     fn source_router(cache: Arc<ReadCache>, hits: Arc<AtomicUsize>) -> Router {
         let counter = hits.clone();
         Router::new()
@@ -414,9 +542,9 @@ mod tests {
             ))
     }
 
-    async fn send_text(app: Router) -> String {
+    async fn send_text(app: Router, uri: &str) -> String {
         let request = Request::builder()
-            .uri("/source")
+            .uri(uri)
             .body(Body::empty())
             .expect("request");
         let response = app.oneshot(request).await.expect("response");

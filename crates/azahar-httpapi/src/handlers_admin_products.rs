@@ -771,7 +771,15 @@ fn filter_field_problems(
     problems: HashMap<String, String>,
     raw: &RawFields,
 ) -> HashMap<String, String> {
-    let sale_touched = has_any(raw, &["sale_price_cents", "sale_starts_at", "sale_ends_at"]);
+    let sale_touched = has_any(
+        raw,
+        &[
+            "price_cents",
+            "sale_price_cents",
+            "sale_starts_at",
+            "sale_ends_at",
+        ],
+    );
     problems
         .into_iter()
         .filter(|(key, _)| {

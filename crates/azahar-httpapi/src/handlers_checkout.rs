@@ -252,16 +252,8 @@ pub async fn checkout(
         ));
     }
 
-    let wilaya_code = i32::try_from(payload.wilaya_code).unwrap_or_default();
-    let destination = resolve_destination(
-        &state,
-        wilaya_code,
-        &payload.commune_name,
-        &payload.delivery_type,
-        &payload.stop_desk_id,
-    )
-    .await?;
-
+    // The challenge is spent before any courier lookup: an unauthenticated
+    // caller must not cost the delivery map a request.
     if !state.cfg.turnstile_secret.is_empty() {
         match verify_turnstile(&state.cfg.turnstile_secret, &payload.turnstile_token, &ip).await {
             Err(error) => {
@@ -293,6 +285,16 @@ pub async fn checkout(
             ));
         }
     }
+
+    let wilaya_code = i32::try_from(payload.wilaya_code).unwrap_or_default();
+    let destination = resolve_destination(
+        &state,
+        wilaya_code,
+        &payload.commune_name,
+        &payload.delivery_type,
+        &payload.stop_desk_id,
+    )
+    .await?;
 
     let mut customer = azahar_orderintake::Customer {
         name: payload.name,

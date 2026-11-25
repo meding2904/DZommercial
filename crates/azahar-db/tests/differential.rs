@@ -28,6 +28,12 @@ fn oracle_call(
         .unwrap_or_default()
 }
 
+/// Separator and whitespace behaviour only.
+///
+/// The Go oracle splits on every `;`, so quoted and commented semicolons are
+/// intentionally excluded here: the Rust scanner keeps them inside their
+/// statement, and those cases are covered by the unit tests in
+/// `crates/azahar-db/src/lib.rs`.
 #[test]
 fn split_statements_matches_go() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
@@ -47,11 +53,10 @@ fn split_statements_matches_go() {
         "CREATE TABLE a (id TEXT);".to_string(),
         "CREATE TABLE a (id TEXT); ; SELECT 1;".to_string(),
         ";;;".to_string(),
-        "SELECT ';' AS semi;".to_string(),
         "-- comment\nCREATE INDEX i ON t(a);\n".to_string(),
         " \n\t; \n".to_string(),
     ];
-    let alphabet = ['a', ';', ' ', '\n', '\t', '-', '\'', '1'];
+    let alphabet = ['a', ';', ' ', '\n', '\t', '1'];
     let mut state: u64 = 0x1234_5678_9abc_def0;
     for _ in 0..600 {
         state ^= state << 13;

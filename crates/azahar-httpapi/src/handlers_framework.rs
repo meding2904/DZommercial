@@ -303,7 +303,13 @@ pub async fn put_plugin_settings(
 
     let existing = match env.settings(&manifest.id).await {
         Ok(values) => values,
-        Err(SettingsError::Unreadable) => HashMap::new(),
+        Err(SettingsError::Unreadable) => {
+            return Err(problem(
+                409,
+                "plugin_settings_unreadable",
+                "These settings cannot be read with the current PLUGIN_SECRET_KEY. Enter them again to replace the old values.",
+            ));
+        }
         Err(_) => return Err(internal_error()),
     };
     let incoming: HashMap<String, String> = body

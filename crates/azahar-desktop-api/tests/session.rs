@@ -19,6 +19,97 @@ fn session_cookie(value: &str) -> String {
     format!("azahar_session={value}; Path=/")
 }
 
+/// Store whose load never answers before a short timeout, counting calls.
+struct SlowStore {
+    delay: Duration,
+    calls: AtomicUsize,
+}
+
+impl SlowStore {
+    fn new(delay: Duration) -> Arc<Self> {
+        Arc::new(Self {
+            delay,
+            calls: AtomicUsize::new(0),
+        })
+    }
+
+    fn calls(&self) -> usize {
+        self.calls.load(Ordering::SeqCst)
+    }
+}
+
+impl SecretStore for SlowStore {
+    fn load(&self) -> Result<Option<String>, azahar_desktop_api::SecretError> {
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        std::thread::sleep(self.delay);
+        Ok(Some("keyring-session".to_owned()))
+    }
+
+    fn save(&self, _value: &str) -> Result<(), azahar_desktop_api::SecretError> {
+        std::thread::sleep(self.delay);
+        Ok(())
+    }
+
+    fn delete(&self) -> Result<(), azahar_desktop_api::SecretError> {
+        std::thread::sleep(self.delay);
+        Ok(())
+    }
+}
+
+#[test]
+fn timed_out_store_memoizes_failure_and_stops_spawning_threads() {
+    let slow = SlowStore::new(Duration::from_millis(300));
+    let timed = TimeoutSecretStore::new(slow.clone(), Duration::from_millis(15));
+
+    let error = timed.load().expect_err("first load times out");
+    assert!(error.timeout, "{error}");
+    assert!(
+        !timed.is_healthy(),
+        "timeout did not mark the store unhealthy"
+    );
+    let calls = slow.calls();
+
+    let started = SystemTime::now();
+    let error = timed.load().expect_err("second load fails fast");
+    assert!(error.timeout, "{error}");
+    assert!(
+        started.elapsed().unwrap_or_default() < Duration::from_millis(100),
+        "second load waited on the primary again"
+    );
+    assert_eq!(slow.calls(), calls, "second load spawned another thread");
+    assert!(
+        timed.save("value").is_err(),
+        "unhealthy save reported success"
+    );
+    assert_eq!(slow.calls(), calls, "save spawned another thread");
+}
+
+#[test]
+fn fallback_loads_file_after_keyring_timeout() {
+    let slow = SlowStore::new(Duration::from_millis(300));
+    let primary: Arc<dyn SecretStore> = Arc::new(TimeoutSecretStore::new(
+        slow.clone(),
+        Duration::from_millis(15),
+    ));
+    let temp = tempfile::tempdir().unwrap();
+    let file = Arc::new(FileSecretStore::new(temp.path().join("session.json")));
+    file.save("file-session").expect("save file");
+    let store = FallbackSecretStore::new(Some(primary), file);
+
+    let started = SystemTime::now();
+    let loaded = store.load().expect("fallback load");
+    assert_eq!(
+        loaded.as_deref(),
+        Some("file-session"),
+        "keyring value won after it timed out"
+    );
+    assert!(
+        started.elapsed().unwrap_or_default() < Duration::from_millis(100),
+        "fallback load retried the hung keyring"
+    );
+    assert_eq!(slow.calls(), 1, "primary was retried after timing out");
+}
+
 #[test]
 fn cookie_scoping_and_deletion() {
     let calls = Arc::new(AtomicUsize::new(0));

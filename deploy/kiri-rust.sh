@@ -87,7 +87,16 @@ kiri run -d --name azahar-db --network azahar-net \
 	--entrypoint /bin/sqld ghcr.io/tursodatabase/libsql-server:latest \
 	--http-listen-addr 0.0.0.0:8080 -d /data >/dev/null
 
-sleep 4
+if [[ "$APP_ENV" != "production" ]]; then
+	for _ in $(seq 1 30); do
+		if curl -fsS http://127.0.0.1:8880/health >/dev/null 2>&1; then
+			break
+		fi
+		sleep 1
+	done
+else
+	sleep 4
+fi
 
 API_PUBLISH=()
 if [[ "$APP_ENV" != "production" ]]; then

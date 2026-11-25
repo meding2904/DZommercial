@@ -1,0 +1,2 @@
+# GitHub language stats: count the Rust workspace, not the Go oracle.
+*.go linguist-detectable=false

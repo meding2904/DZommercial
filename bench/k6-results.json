@@ -1,0 +1,109 @@
+{
+  "method": "Grafana k6; server pinned to CPU 0, k6 to CPU 1; server CPU is utime+stime from /proc/<pid>/stat around each run",
+  "read": [
+    {
+      "label": "Go oracle",
+      "source": "k6-go-read.json",
+      "throughput_rps": 12117.2,
+      "latency_ms": {
+        "p50": 3.561,
+        "p95": 10.196,
+        "p99": 13.322
+      },
+      "cpu_ms_per_request": 0.0422
+    },
+    {
+      "label": "Rust before",
+      "source": "k6-before-read.json",
+      "throughput_rps": 13044.5,
+      "latency_ms": {
+        "p50": 3.302,
+        "p95": 9.675,
+        "p99": 12.767
+      },
+      "cpu_ms_per_request": 0.0337
+    },
+    {
+      "label": "Rust after",
+      "source": "k6-rust-read.json",
+      "throughput_rps": 12819.7,
+      "latency_ms": {
+        "p50": 3.386,
+        "p95": 9.844,
+        "p99": 12.821
+      },
+      "cpu_ms_per_request": 0.0236
+    }
+  ],
+  "churn": [
+    {
+      "label": "Rust before",
+      "source": "k6-before-churn.json",
+      "throughput_rps": 12283.6,
+      "latency_ms": {
+        "p50": 3.423,
+        "p95": 9.961,
+        "p99": 13.479
+      },
+      "cpu_ms_per_request": 0.0571
+    },
+    {
+      "label": "Rust after",
+      "source": "k6-after-churn.json",
+      "throughput_rps": 13111.3,
+      "latency_ms": {
+        "p50": 3.333,
+        "p95": 9.606,
+        "p99": 12.520
+      },
+      "cpu_ms_per_request": 0.0241
+    }
+  ],
+  "login": [
+    {
+      "label": "Go oracle",
+      "source": "k6-go-login.json",
+      "throughput_logins_per_s": 4.57,
+      "flow_ms": {
+        "p50": 578.5,
+        "p95": 2566.45,
+        "p99": 2743.29
+      },
+      "cpu_ms_per_login": 92.0
+    },
+    {
+      "label": "Rust after",
+      "source": "k6-rust-login.json",
+      "throughput_logins_per_s": 4.24,
+      "flow_ms": {
+        "p50": 600.5,
+        "p95": 2813.05,
+        "p99": 2814.61
+      },
+      "cpu_ms_per_login": 82.0
+    }
+  ],
+  "footprint": [
+    {
+      "label": "Go oracle",
+      "peak_rss_after_reads_mb": 100.1,
+      "peak_rss_mb": 539.0,
+      "binary_bytes": 14713389,
+      "startup_seconds": 0.255
+    },
+    {
+      "label": "Rust before",
+      "peak_rss_after_reads_mb": 20.8,
+      "peak_rss_mb": 276.6,
+      "binary_bytes": 26937080,
+      "startup_seconds": 0.355
+    },
+    {
+      "label": "Rust after",
+      "peak_rss_after_reads_mb": 17.0,
+      "peak_rss_mb": 273.2,
+      "binary_bytes": 20542784,
+      "startup_seconds": 0.052
+    }
+  ]
+}

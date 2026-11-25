@@ -1,12 +1,12 @@
 // Keep-alive read mix for the Azahar API, driven by Grafana k6.
 //
 //   k6 run bench/k6-read.js
-//   BASE_URL=http://127.0.0.1:18100 VUS=50 DURATION=30s \
+//   BASE_URL=http://127.0.0.1:18100 VUS=50 DURATION=20s \
 //     IP_POOL=8192 k6 run bench/k6-read.js
 //
-// Every request carries a rotating X-Forwarded-For address, matching
-// bench.py. Keep IP_POOL below the 10,000-bucket rate-limiter cap to measure
-// the normal read path; raise it above that to exercise bucket eviction.
+// Every request carries a rotating X-Forwarded-For address. Keep IP_POOL
+// below the 10,000-bucket rate-limiter cap to measure the normal read path;
+// raise it above that to exercise bucket eviction.
 
 import http from 'k6/http';
 import { check } from 'k6';
@@ -29,7 +29,7 @@ export const options = {
     reads: {
       executor: 'constant-vus',
       vus: VUS,
-      duration: __ENV.DURATION || '30s',
+      duration: __ENV.DURATION || '20s',
       gracefulStop: '5s',
     },
   },

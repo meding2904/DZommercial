@@ -39,20 +39,12 @@ Living plan for the Rust port. The Go tree stays runnable and untouched as the *
   secret stores, URL/firewall/session/image behavior and the transport contract
   with injected transports; no Secret Service or cross-OS host is available here.
 
-## Baseline (Go oracle)
+## Benchmarks
 
-`bench/baseline.json`, 16 workers x 2400 mixed HTTP reads (the same in-process read cache on both sides):
-
-| Metric | Go oracle |
-| --- | ---: |
-| Throughput | 6191 req/s |
-| Read p50 / p95 / p99 | 2.44 / 4.16 / 4.92 ms |
-| Login flow p50 / p95 / p99 | 123.1 / 153.1 / 164.8 ms |
-| Peak RSS after reads | 103.2 MiB |
-| Peak RSS incl. Argon2 logins | 553.7 MiB |
-| Binary size | 14,713,389 bytes |
-| Startup to healthy | 0.102 s |
-| hyperfine `curl /api/health` | 3.9 ms mean |
+The original baseline harness was replaced by the k6 set under `bench/`.
+Current read-mix numbers are in `bench/k6-results.json` and
+`docs/MIGRATION_REPORT.md`; the raw k6 summaries are `bench/k6-*.json` and the
+charts are in `docs/charts/`.
 
 ## Orientation
 
@@ -127,7 +119,7 @@ desktop              <- desktop/internal/api
 | # | Role | Assignment | Status | Outcome |
 | ---: | --- | --- | --- | --- |
 | 1 | architect | call graph, crate layout, ordering | done | `MIGRATION.md` + `MIGRATION.json`, 27 packages / 628 functions |
-| 2 | benchmark engineer | baseline harness and numbers | done | `bench/bench.py`, `bench/baseline.json`, Go micro-benchmarks |
+| 2 | benchmark engineer | baseline harness and numbers | done | initial baseline harness (later replaced by the k6 set in `bench/`) |
 | 3 | implementer | `ids`, `auth` | running | — |
 | 4 | implementer | `config` | running | — |
 | 5 | implementer | `orderstatus`, `secrets` | running | — |
@@ -159,7 +151,7 @@ desktop              <- desktop/internal/api
 | 31 | implementer | order intake core | done | 9 functions, 47 differential comparisons |
 | 32 | implementer | phone domain/hooks | done | 26 functions total, 354 IMEI + 345 variant cases |
 | 33 | integrator | routes, Turso hooks, full diff | done | 145 httpapi tests, all groups match |
-| 34 | docs/benchmark | charts, README, report | done | `docs/MIGRATION_REPORT.md`, `docs/charts/`, `bench/after.json` |
+| 34 | docs/benchmark | charts, README, report | done | `docs/MIGRATION_REPORT.md`, `docs/charts/`, `bench/k6-results.json` |
 | 35 | implementer | AI analyst plugin | done | 20 functions, 249 oracle comparisons |
 | 36 | implementer | code-mode plugin | done | 55 functions, 352 plan documents + 12 DB scenarios |
 | 37 | implementer | desktop API client | done | 86 functions, 5,930 comparisons |

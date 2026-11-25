@@ -10,7 +10,7 @@ WAILS_TAG_FLAGS = $(if $(strip $(WAILS_TAGS)),-tags "$(WAILS_TAGS)")
 VERSION ?= 2.0.0
 DESKTOP_GOARCH ?= $(shell go env GOARCH)
 
-.PHONY: help dev-db dev-api dev-web check desktop-sync desktop-check desktop-deps build smoke kiri-up kiri-local kiri-rust kiri-down desktop desktop-build desktop-package desktop-rust desktop-rust-build desktop-smoke loadtest rust-check rust-test bench-baseline rust-bench k6-read k6-login diagrams oracle-diff go-oracle-seam
+.PHONY: help dev-db dev-api dev-web check desktop-sync desktop-check desktop-deps build smoke kiri-up kiri-local kiri-rust kiri-down desktop desktop-build desktop-package desktop-rust desktop-rust-build desktop-smoke loadtest rust-check rust-test k6-read k6-login charts diagrams oracle-diff go-oracle-seam
 
 help:
 	@echo "Azahar demo store"
@@ -29,10 +29,9 @@ help:
 	@echo "  make desktop-package  build a Linux tarball with binary, desktop file and icon"
 	@echo "  make loadtest  run a short read probe against the API"
 	@echo "  make rust-check  fmt, clippy, and the whole Rust test suite"
-	@echo "  make rust-bench  build the Rust API and write bench/after.json"
-	@echo "  make rust-hotpath  keep-alive throughput probe, writes bench/hotpath.json"
 	@echo "  make k6-read   k6 read mix against $(API_URL)"
 	@echo "  make k6-login  k6 login flow against $(API_URL)"
+	@echo "  make charts    render docs/charts/*.png from bench/k6-results.json"
 	@echo "  make diagrams  render docs/diagrams/*.svg (needs Graphviz)"
 	@echo "  make kiri-up   build and run the three containers with Kiri"
 	@echo "  make kiri-local run host-built Go artifacts in Kiri containers (builder fallback)"
@@ -83,20 +82,7 @@ rust-check:
 rust-test:
 	cargo test --workspace
 
-# Same harness and request counts as bench/after.json. The API must be able to
-# reach the database at TURSO_DATABASE_URL (make dev-db).
-bench-baseline:
-	cd backend && go build -o /tmp/azahar-api ./cmd/api
-	python3 bench/bench.py --bin /tmp/azahar-api --label go-oracle --out bench/baseline.json
-
-rust-bench:
-	cargo build --release -p azahar-api
-	python3 bench/bench.py --bin target/release/azahar-api --label rust --out bench/after.json
-
-rust-hotpath:
-	cargo build --release -p azahar-api
-	python3 bench/hotpath.py --bin target/release/azahar-api --label rust --out bench/hotpath.json
-
+# k6 drives the load; start the API first (make dev-api or the Rust binary).
 K6_VUS ?= 50
 K6_DURATION ?= 20s
 K6_IP_POOL ?= 8192
@@ -106,6 +92,9 @@ k6-read:
 
 k6-login:
 	k6 run -e BASE_URL=$(API_URL) -e VUS=4 -e ITERATIONS=10 bench/k6-login.js
+
+charts:
+	python3 bench/charts.py
 
 diagrams:
 	dot -Tsvg docs/diagrams/request-path.dot -o docs/diagrams/request-path.svg

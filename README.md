@@ -602,40 +602,40 @@ while session routes keep it inside the global middleware and guards.
 
 ### Before and after
 
-The same harness (`bench/bench.py`) ran against both builds: 16 workers × 2400
-mixed public reads with the in-process read cache, and 4 × 40 login flows, on
-the same seeded local libSQL database.
+`bench/k6-read.js` drives 50 VUs for 20 s against the seeded local libSQL
+database, rotating 8,192 `X-Forwarded-For` addresses across six public routes.
+The Go oracle, the pre-optimization Rust build and the final Rust build ran the
+same script.
 
-| Metric | Go oracle | Rust |
-| --- | ---: | ---: |
-| Read throughput | 6,106 req/s | 6,207 req/s |
-| Read p50 / p95 / p99 | 2.49 / 4.07 / 5.01 ms | 2.43 / 4.16 / 5.06 ms |
-| Login p50 / p95 / p99 | 480.0 / 926.1 / 983.2 ms | 159.4 / 265.9 / 313.9 ms |
-| Peak RSS after reads | 100.1 MiB | 17.0 MiB |
-| Peak RSS including logins | 539.0 MiB | 273.2 MiB |
-| Release binary | 14.7 MB | 20.5 MB |
-| Startup to healthy | 0.255 s | 0.052 s |
+| Metric | Go oracle | Rust before | Rust after |
+| --- | ---: | ---: | ---: |
+| Read throughput | 12,117 req/s | 13,044 req/s | 12,820 req/s |
+| Read p50 / p95 / p99 | 3.56 / 10.20 / 13.32 ms | 3.30 / 9.67 / 12.77 ms | 3.39 / 9.84 / 12.82 ms |
+| Server CPU per read | 42.2 µs | 33.7 µs | 23.6 µs |
+| Peak RSS after reads | 100.1 MiB | 20.8 MiB | 17.0 MiB |
+| Peak RSS including logins | 539.0 MiB | 276.6 MiB | 273.2 MiB |
+| Release binary | 14.7 MB | 26.9 MB | 20.5 MB |
+| Startup to healthy | 0.255 s | 0.355 s | 0.052 s |
 
-![Read, login and tail latency](docs/charts/latency.png)
+![Read and login latency](docs/charts/latency.png)
 
 ![Throughput](docs/charts/throughput.png)
+
+![Server CPU per read request](docs/charts/cpu-per-request.png)
 
 ![Peak memory](docs/charts/memory.png)
 
 ![Binary size](docs/charts/binary-size.png)
 
-![Server CPU per read request](docs/charts/cpu-per-request.png)
-
-The read path and login medians are at parity or ahead, and the Rust server uses
-about a sixth of the resident memory. The connection-per-request harness above is
-client-bound on reads; the k6 keep-alive probe measures the server directly and
-puts the public read path at 23.6 µs of CPU per request against 33.7 µs before
-the hot-path work, and the 20,000-address churn path at 24.1 µs against 57.1 µs.
-Both sides use the same Argon2id parameters (64 MiB, 3 passes, 4 lanes), so the
-login tail reflects CPU scheduling under four concurrent hashes as much as the
-implementation. These are single runs on a shared development machine, not a
-capacity claim. The binary is larger because the Rust release build keeps its
-symbols, as the Go build keeps DWARF.
+The read path is at parity with Go; the final Rust build spends 23.6 µs of server
+CPU per request against 33.7 µs before the hot-path work and 42.2 µs for Go. The
+20,000-address churn path drops from 57.1 µs to 24.1 µs. The Rust server uses
+about a sixth of the resident memory. `bench/k6-login.js` covers the login flow;
+four concurrent Argon2id hashes dominate its wall-clock tail, so the read mix is
+the capacity signal. Peak memory, binary size and startup are process
+measurements around the same binaries, not k6 metrics. These are single runs on a
+shared development machine, not a capacity claim. The Rust binary remains larger
+because it keeps symbols, while the Go build keeps DWARF.
 
 ### Run the Rust API through Kiri
 
@@ -655,14 +655,15 @@ the `azahar-net` network. Use `make kiri-local` for the Go oracle equivalent.
 ### Run the benchmarks
 
 ```sh
-make dev-db          # local Turso/libSQL on :8880
-make bench-baseline  # builds the Go oracle and writes bench/baseline.json
-make rust-bench      # builds the Rust API and writes bench/after.json
-python3 bench/charts.py
+make dev-db     # local Turso/libSQL on :8880
+make dev-api    # Go oracle on :8080; or run the Rust API there
+make k6-read    # API_URL defaults to http://127.0.0.1:8080
+make k6-login
+make charts     # writes docs/charts/*.png from bench/k6-results.json
 ```
 
-`bench/README.md` documents the request counts, the cache caveat and the
-definition of every column.
+`bench/README.md` documents the k6 scripts, request counts, CPU measurement and
+the interpretation of every column.
 
 ### Run the oracle diff tests
 

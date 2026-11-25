@@ -4,8 +4,8 @@
 //   BASE_URL=http://127.0.0.1:18100 VUS=4 ITERATIONS=10 k6 run bench/k6-login.js
 //
 // Each iteration fetches a CSRF token, signs in with the demo customer, and
-// calls /api/auth/me. A per-VU user agent keeps the session layer from
-// deleting another VU's session, as in bench.py.
+// calls /api/auth/me. A per-iteration user agent keeps the session layer from
+// deleting another VU's session.
 
 import http from 'k6/http';
 import { check } from 'k6';

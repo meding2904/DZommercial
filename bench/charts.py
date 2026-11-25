@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""Render the benchmark charts from the bench documents.
+"""Render the k6 benchmark charts from bench/k6-results.json.
 
 Usage:
-    python3 bench/charts.py [--baseline bench/baseline.json] [--after bench/after.json]
-                            [--k6-cpu bench/k6-cpu.json]
+    python3 bench/charts.py [--results bench/k6-results.json] [--out docs/charts]
 
 Writes PNGs to docs/charts/. Uses the storefront's shipped palette so the charts
 look like they belong to the project rather than a default plotting theme.
@@ -49,8 +48,8 @@ plt.rcParams.update(
 
 def load(path: Path) -> dict:
     document = json.loads(path.read_text())
-    if "load" not in document:
-        raise SystemExit(f"{path} is not a bench document")
+    if "read" not in document:
+        raise SystemExit(f"{path} is not a k6 results document")
     return document
 
 
@@ -64,128 +63,98 @@ def bar_labels(ax, bars, values, suffix="", decimals=0):
             textcoords="offset points",
             ha="center",
             va="bottom",
-            fontsize=9,
+            fontsize=8,
             color=INK,
         )
 
 
-def latency_chart(before: dict, after: dict, out: Path) -> None:
-    before_read = before["load"]["read_mix"]["latency_ms"]
-    after_read = after["load"]["read_mix"]["latency_ms"]
-    before_login = before["load"]["login_flow"]["latency_ms"]
-    after_login = after["load"]["login_flow"]["latency_ms"]
+def latency_chart(results: dict, out: Path) -> None:
+    read = results["read"]
+    login = results["login"]
+    metrics = [("p50", "P50"), ("p95", "P95"), ("p99", "P99")]
+    colors = [MUTED, BEFORE, ACCENT]
 
-    figure, (left, right) = plt.subplots(1, 2, figsize=(10.5, 4.6), dpi=160)
-    metrics = ["p50", "p95", "p99"]
+    figure, (left, right) = plt.subplots(1, 2, figsize=(11, 4.6), dpi=160)
+
+    width = 0.26
+    positions = range(len(metrics))
+    for index, run in enumerate(read):
+        values = [run["latency_ms"][key] for key, _ in metrics]
+        offsets = [position + (index - 1) * width for position in positions]
+        left.bar(offsets, values, width, color=colors[index], label=run["label"])
+    left.set_xticks(list(positions), [label for _, label in metrics])
+    left.set_ylabel("milliseconds")
+    left.set_title("Read mix, latency", loc="left", fontsize=13, color=INK, pad=12)
+    left.set_ylim(0, max(run["latency_ms"][key] for run in read for key, _ in metrics) * 1.25)
+    left.legend(frameon=False, loc="upper left", fontsize=8)
+
     width = 0.36
     positions = range(len(metrics))
-    left_values = [before_read[m] for m in metrics]
-    right_values = [after_read[m] for m in metrics]
-    left_before = left.bar(
-        [p - width / 2 for p in positions], left_values, width, color=MUTED, label="Go oracle"
-    )
-    left_after = left.bar(
-        [p + width / 2 for p in positions], right_values, width, color=ACCENT, label="Rust"
-    )
-    left.set_xticks(list(positions), [m.upper() for m in metrics])
-    left.set_ylabel("milliseconds")
-    left.set_title("Public read mix, latency", loc="left", fontsize=13, color=INK, pad=12)
-    bar_labels(left, left_before, left_values, " ms", 2)
-    bar_labels(left, left_after, right_values, " ms", 2)
-    left.set_ylim(0, max(left_values + right_values + [1]) * 1.25)
-
-    positions = range(len(metrics))
-    left_values = [before_login[m] for m in metrics]
-    right_values = [after_login[m] for m in metrics]
-    bars_before = right.bar(
-        [p - width / 2 for p in positions], left_values, width, color=MUTED, label="Go oracle"
-    )
-    bars_after = right.bar(
-        [p + width / 2 for p in positions], right_values, width, color=ACCENT, label="Rust"
-    )
-    right.set_xticks(list(positions), [m.upper() for m in metrics])
+    for index, run in enumerate(login):
+        values = [run["flow_ms"][key] for key, _ in metrics]
+        offsets = [position + (index - 0.5) * width for position in positions]
+        right.bar(
+            offsets,
+            values,
+            width,
+            color=[MUTED, ACCENT][index],
+            label=run["label"],
+        )
+    right.set_xticks(list(positions), [label for _, label in metrics])
     right.set_ylabel("milliseconds")
     right.set_title("Login flow, latency", loc="left", fontsize=13, color=INK, pad=12)
-    bar_labels(right, bars_before, left_values, " ms", 1)
-    bar_labels(right, bars_after, right_values, " ms", 1)
-    right.set_ylim(0, max(left_values + right_values + [1]) * 1.25)
+    right.set_ylim(0, max(run["flow_ms"][key] for run in login for key, _ in metrics) * 1.25)
 
-    figure.legend(
-        [left_before, left_after],
-        ["Go oracle", "Rust"],
-        loc="upper center",
-        ncol=2,
-        frameon=False,
-        bbox_to_anchor=(0.5, 0.02),
-    )
-    figure.suptitle("Latency before and after the Rust port", x=0.02, ha="left", fontsize=15)
-    figure.tight_layout(rect=(0, 0.05, 1, 0.94))
+    figure.suptitle("k6 keep-alive latency", x=0.02, ha="left", fontsize=15)
+    figure.tight_layout(rect=(0, 0, 1, 0.93))
     figure.savefig(out, bbox_inches="tight")
     plt.close(figure)
 
 
-def throughput_chart(before: dict, after: dict, out: Path) -> None:
-    before_rps = before["load"]["read_mix"]["throughput_rps"]
-    after_rps = after["load"]["read_mix"]["throughput_rps"]
-    before_login = before["load"]["login_flow"]["throughput_rps"]
-    after_login = after["load"]["login_flow"]["throughput_rps"]
-
+def throughput_chart(results: dict, out: Path) -> None:
+    read = results["read"]
+    login = results["login"]
     figure, (left, right) = plt.subplots(1, 2, figsize=(10.5, 4.4), dpi=160)
-    for axis, values, title, suffix in (
-        (left, [before_rps, after_rps], "Read mix throughput", " req/s"),
-        (right, [before_login, after_login], "Login throughput", " logins/s"),
-    ):
-        bars = axis.bar(["Go oracle", "Rust"], values, width=0.5, color=[MUTED, ACCENT])
-        bar_labels(axis, bars, values, suffix, 1)
-        axis.set_title(title, loc="left", fontsize=13, color=INK, pad=12)
-        axis.set_ylim(0, max(values + [1]) * 1.25)
-        axis.yaxis.set_major_formatter(FuncFormatter(lambda value, _: f"{value:,.0f}"))
-    figure.suptitle("Throughput before and after the Rust port", x=0.02, ha="left", fontsize=15)
+
+    colors = [MUTED, BEFORE, ACCENT]
+    values = [run["throughput_rps"] for run in read]
+    bars = left.bar(
+        [run["label"] for run in read],
+        values,
+        width=0.5,
+        color=colors,
+    )
+    bar_labels(left, bars, values, " req/s", 0)
+    left.set_title("Read mix throughput", loc="left", fontsize=13, color=INK, pad=12)
+    left.set_ylim(0, max(values + [1]) * 1.25)
+    left.yaxis.set_major_formatter(FuncFormatter(lambda value, _: f"{value:,.0f}"))
+
+    values = [run["throughput_logins_per_s"] for run in login]
+    bars = right.bar(
+        [run["label"] for run in login],
+        values,
+        width=0.5,
+        color=[MUTED, ACCENT],
+    )
+    bar_labels(right, bars, values, " logins/s", 2)
+    right.set_title("Login throughput", loc="left", fontsize=13, color=INK, pad=12)
+    right.set_ylim(0, max(values + [1]) * 1.25)
+
+    figure.suptitle("k6 keep-alive throughput", x=0.02, ha="left", fontsize=15)
     figure.tight_layout(rect=(0, 0, 1, 0.92))
     figure.savefig(out, bbox_inches="tight")
     plt.close(figure)
 
 
-def memory_chart(before: dict, after: dict, out: Path) -> None:
-    metrics = [
-        ("Reads only", "peak_rss_after_reads_mb"),
-        ("Reads + logins", "peak_rss_mb"),
-    ]
-    before_values = [before["server"][key] for _, key in metrics]
-    after_values = [after["server"][key] for _, key in metrics]
-    positions = range(len(metrics))
-    width = 0.36
-    figure, axis = plt.subplots(figsize=(7.2, 4.4), dpi=160)
-    bars_before = axis.bar(
-        [p - width / 2 for p in positions], before_values, width, color=MUTED, label="Go oracle"
-    )
-    bars_after = axis.bar(
-        [p + width / 2 for p in positions], after_values, width, color=ACCENT, label="Rust"
-    )
-    axis.set_xticks(list(positions), [label for label, _ in metrics])
-    axis.set_ylabel("peak resident memory, MiB")
-    axis.set_title("Peak memory", loc="left", fontsize=13, color=INK, pad=12)
-    bar_labels(axis, bars_before, before_values, " MiB", 1)
-    bar_labels(axis, bars_after, after_values, " MiB", 1)
-    axis.set_ylim(0, max(before_values + after_values + [1]) * 1.25)
-    axis.legend(frameon=False, loc="upper left")
-    figure.suptitle("Memory before and after the Rust port", x=0.02, ha="left", fontsize=15)
-    figure.tight_layout(rect=(0, 0, 1, 0.92))
-    figure.savefig(out, bbox_inches="tight")
-    plt.close(figure)
-
-
-def cpu_chart(k6: dict, out: Path) -> None:
-    """Server CPU per request from the k6 keep-alive runs."""
+def cpu_chart(results: dict, out: Path) -> None:
     figure, (left, right) = plt.subplots(1, 2, figsize=(10.5, 4.4), dpi=160)
     panels = (
-        (left, k6["read"], "Public read mix", [BEFORE, MUTED, ACCENT]),
-        (right, k6["churn"], "20,000 rotated addresses", [BEFORE, ACCENT]),
+        (left, results["read"], "Public read mix", [MUTED, BEFORE, ACCENT]),
+        (right, results["churn"], "20,000 rotated addresses", [BEFORE, ACCENT]),
     )
     for axis, runs, title, colors in panels:
-        labels = [run["label"] for run in runs]
         values = [run["cpu_ms_per_request"] * 1000 for run in runs]
-        bars = axis.bar(labels, values, width=0.5, color=colors)
+        bars = axis.bar([run["label"] for run in runs], values, width=0.5, color=colors)
         bar_labels(axis, bars, values, " µs", 1)
         axis.set_title(title, loc="left", fontsize=13, color=INK, pad=12)
         axis.set_ylabel("server CPU, microseconds per request")
@@ -203,27 +172,57 @@ def cpu_chart(k6: dict, out: Path) -> None:
     plt.close(figure)
 
 
-def size_chart(before: dict, after: dict, out: Path) -> None:
-    before_bytes = before["binary"]["bytes"]
-    after_bytes = after["binary"]["bytes"]
-    figure, axis = plt.subplots(figsize=(7.2, 4.2), dpi=160)
+def memory_chart(results: dict, out: Path) -> None:
+    footprint = results["footprint"]
+    metrics = [
+        ("Reads only", "peak_rss_after_reads_mb"),
+        ("Reads + logins", "peak_rss_mb"),
+    ]
+    colors = [MUTED, BEFORE, ACCENT]
+    positions = range(len(metrics))
+    width = 0.26
+    figure, axis = plt.subplots(figsize=(7.6, 4.4), dpi=160)
+    for index, run in enumerate(footprint):
+        values = [run[key] for _, key in metrics]
+        offsets = [position + (index - 1) * width for position in positions]
+        bars = axis.bar(
+            offsets,
+            values,
+            width,
+            color=colors[index],
+            label=run["label"],
+        )
+        bar_labels(axis, bars, values, " MiB", 1)
+    axis.set_xticks(list(positions), [label for label, _ in metrics])
+    axis.set_ylabel("peak resident memory, MiB")
+    axis.set_title("Peak memory", loc="left", fontsize=13, color=INK, pad=12)
+    axis.set_ylim(
+        0,
+        max(run[key] for run in footprint for _, key in metrics) * 1.25,
+    )
+    axis.legend(frameon=False, loc="upper left", fontsize=8)
+    figure.suptitle("Server memory", x=0.02, ha="left", fontsize=15)
+    figure.tight_layout(rect=(0, 0, 1, 0.92))
+    figure.savefig(out, bbox_inches="tight")
+    plt.close(figure)
+
+
+def size_chart(results: dict, out: Path) -> None:
+    footprint = results["footprint"]
+    colors = [MUTED, BEFORE, ACCENT]
+    values = [run["binary_bytes"] / 1_000_000 for run in footprint]
+    figure, axis = plt.subplots(figsize=(7.6, 4.2), dpi=160)
     bars = axis.bar(
-        ["Go oracle", "Rust"],
-        [before_bytes / (1024 * 1024), after_bytes / (1024 * 1024)],
+        [run["label"] for run in footprint],
+        values,
         width=0.5,
-        color=[MUTED, ACCENT],
+        color=colors,
     )
-    bar_labels(
-        axis,
-        bars,
-        [before_bytes / (1024 * 1024), after_bytes / (1024 * 1024)],
-        " MiB",
-        2,
-    )
-    axis.set_ylabel("release binary, MiB")
+    bar_labels(axis, bars, values, " MB", 2)
+    axis.set_ylabel("release binary, MB")
     axis.set_title("Binary size", loc="left", fontsize=13, color=INK, pad=12)
-    axis.set_ylim(0, max(before_bytes, after_bytes) / (1024 * 1024) * 1.25)
-    figure.suptitle("Binary size before and after the Rust port", x=0.02, ha="left", fontsize=15)
+    axis.set_ylim(0, max(values + [1]) * 1.25)
+    figure.suptitle("Release binary", x=0.02, ha="left", fontsize=15)
     figure.tight_layout(rect=(0, 0, 1, 0.92))
     figure.savefig(out, bbox_inches="tight")
     plt.close(figure)
@@ -231,23 +230,19 @@ def size_chart(before: dict, after: dict, out: Path) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--baseline", default=str(ROOT / "bench/baseline.json"))
-    parser.add_argument("--after", default=str(ROOT / "bench/after.json"))
-    parser.add_argument("--k6-cpu", default=str(ROOT / "bench/k6-cpu.json"))
+    parser.add_argument("--results", default=str(ROOT / "bench/k6-results.json"))
     parser.add_argument("--out", default=str(ROOT / "docs/charts"))
     args = parser.parse_args()
 
-    before = load(Path(args.baseline))
-    after = load(Path(args.after))
-    k6 = json.loads(Path(args.k6_cpu).read_text())
+    results = load(Path(args.results))
     destination = Path(args.out)
     destination.mkdir(parents=True, exist_ok=True)
 
-    latency_chart(before, after, destination / "latency.png")
-    throughput_chart(before, after, destination / "throughput.png")
-    memory_chart(before, after, destination / "memory.png")
-    size_chart(before, after, destination / "binary-size.png")
-    cpu_chart(k6, destination / "cpu-per-request.png")
+    latency_chart(results, destination / "latency.png")
+    throughput_chart(results, destination / "throughput.png")
+    cpu_chart(results, destination / "cpu-per-request.png")
+    memory_chart(results, destination / "memory.png")
+    size_chart(results, destination / "binary-size.png")
     print(f"wrote 5 charts to {destination}")
     return 0
 

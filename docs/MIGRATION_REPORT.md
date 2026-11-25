@@ -60,31 +60,33 @@ risks.
 
 ## Benchmarks
 
-Same harness, same request counts, same seeded local libSQL database, one run
-per side on the development machine. `bench/baseline.json` and
-`bench/after.json` hold the raw documents; `docs/charts/` holds the charts.
+Grafana k6 drives the load: `bench/k6-read.js` runs 50 VUs for 20 s against the
+seeded local libSQL database, rotating 8,192 `X-Forwarded-For` addresses across
+six public routes. The Go oracle, the pre-optimization Rust build and the final
+Rust build ran the same script. `bench/k6-results.json` is the combined
+document, `bench/k6-*.json` holds the raw k6 summaries, and `docs/charts/` holds
+the charts.
 
-| Metric | Go oracle | Rust |
-| --- | ---: | ---: |
-| Read throughput | 6,106 req/s | 6,207 req/s |
-| Read p50 / p95 / p99 | 2.49 / 4.07 / 5.01 ms | 2.43 / 4.16 / 5.06 ms |
-| Login p50 / p95 / p99 | 480.0 / 926.1 / 983.2 ms | 159.4 / 265.9 / 313.9 ms |
-| Peak RSS after reads | 100.1 MiB | 17.0 MiB |
-| Peak RSS including logins | 539.0 MiB | 273.2 MiB |
-| Release binary | 14.7 MB | 20.5 MB |
-| Startup to healthy | 0.255 s | 0.052 s |
+| Metric | Go oracle | Rust before | Rust after |
+| --- | ---: | ---: | ---: |
+| Read throughput | 12,117 req/s | 13,044 req/s | 12,820 req/s |
+| Read p50 / p95 / p99 | 3.56 / 10.20 / 13.32 ms | 3.30 / 9.67 / 12.77 ms | 3.39 / 9.84 / 12.82 ms |
+| Server CPU per read | 42.2 µs | 33.7 µs | 23.6 µs |
+| Peak RSS after reads | 100.1 MiB | 20.8 MiB | 17.0 MiB |
+| Peak RSS including logins | 539.0 MiB | 276.6 MiB | 273.2 MiB |
+| Release binary | 14.7 MB | 26.9 MB | 20.5 MB |
+| Startup to healthy | 0.255 s | 0.355 s | 0.052 s |
 
-The read path includes the in-process read cache on both sides. Login uses the
-same Argon2id parameters (64 MiB, 3 passes, 4 lanes); the Go tail is dominated by
-CPU contention from four concurrent hashes. These are single runs, not a
-capacity claim. Runtime memory is about a sixth of Go; the binary is larger
-because the Rust release build keeps symbols while the Go build keeps DWARF.
-
-The keep-alive k6 probe (`bench/k6-read.js`) measures server CPU directly and is
-plotted in `docs/charts/cpu-per-request.png`: public reads cost 23.6 µs of server
-CPU per request against 33.7 µs before the hot-path work, and the
-20,000-address churn path costs 24.1 µs against 57.1 µs. The request-path
-diagram is `docs/diagrams/request-path.svg`.
+The read path includes the in-process read cache on both sides. Server CPU was
+read from `/proc/<pid>/stat` around each k6 run; it is the comparison metric
+because k6 saturates one core at roughly 12–13k requests/s. The 20,000-address
+churn path drops from 57.1 µs to 24.1 µs (`docs/charts/cpu-per-request.png`).
+Login uses the same Argon2id parameters (64 MiB, 3 passes, 4 lanes); four
+concurrent hashes dominate its wall-clock tail, so the read mix is the capacity
+signal. These are single runs, not a capacity claim. Runtime memory is about a
+sixth of Go; the binary is larger because the Rust release build keeps symbols
+while the Go build keeps DWARF. The request-path diagram is
+`docs/diagrams/request-path.svg`.
 
 ## Auth
 
@@ -136,8 +138,8 @@ Recorded in `MIGRATION.md`:
   write transaction, unlike the Go pool. Remote Turso uses a separate stream.
 - A session-store failure after user creation returns 500 with the account
   already committed (documented in the HTTP core report).
-- The benchmark is a single run; use repeated runs and CPU pinning for capacity
-  decisions.
+- The k6 benchmark is a single run per build; use repeated runs and CPU pinning
+  for capacity decisions.
 
 ## Reproduce
 
@@ -145,9 +147,11 @@ Recorded in `MIGRATION.md`:
 make dev-db
 make rust-check          # fmt, clippy, workspace tests (needs Turso)
 make oracle-diff         # all differential tests with --nocapture
-make bench-baseline      # Go oracle -> bench/baseline.json
-make rust-bench          # Rust -> bench/after.json
-python3 bench/charts.py
+make dev-api             # Go oracle on :8080; or run the Rust API there
+make k6-read
+make k6-login
+make charts              # docs/charts/*.png from bench/k6-results.json
+make diagrams            # docs/diagrams/request-path.svg
 python3 scripts/httpdiff/httpdiff.py --oracle http://127.0.0.1:18080 \
     --candidate http://127.0.0.1:18081 --group all
 ```

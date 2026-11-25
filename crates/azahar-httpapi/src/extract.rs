@@ -163,14 +163,32 @@ fn media_type_eq(value: &str, expected: &str) -> bool {
     value.eq_ignore_ascii_case(expected)
 }
 
+/// Whether a connected peer is a local reverse proxy, and so may speak for the
+/// client in `X-Forwarded-For`. Public peers are the client themselves: their
+/// header would be a spoofed address for the rate limiters and the captcha.
+fn is_trusted_proxy_peer(ip: std::net::IpAddr) -> bool {
+    match ip {
+        std::net::IpAddr::V4(address) => {
+            address.is_loopback() || address.is_private() || address.is_link_local()
+        }
+        std::net::IpAddr::V6(address) => {
+            address.is_loopback() || address.is_unique_local() || address.is_unicast_link_local()
+        }
+    }
+}
+
 /// Resolves the client address exactly like Go's `clientIP`.
 ///
 /// With `trust_proxy`, the first `X-Forwarded-For` entry wins when it is not
-/// empty. Otherwise the peer address loses its port (the text after the last
-/// `:`) and any IPv6 brackets.
+/// empty and the connection itself came from a local reverse proxy (or from a
+/// caller with no peer information, which is how oneshot tests connect).
+/// Otherwise the peer address loses its port (the text after the last `:`) and
+/// any IPv6 brackets.
 #[must_use]
 pub fn client_ip(headers: &HeaderMap, peer: Option<SocketAddr>, trust_proxy: bool) -> String {
-    if trust_proxy
+    let forwarded_from_proxy =
+        trust_proxy && peer.is_none_or(|address| is_trusted_proxy_peer(address.ip()));
+    if forwarded_from_proxy
         && let Some(forwarded) = headers
             .get("x-forwarded-for")
             .and_then(|value| value.to_str().ok())
@@ -228,5 +246,59 @@ mod tests {
         let ipv6: SocketAddr = "[::1]:54321".parse().unwrap();
         assert_eq!(client_ip(&headers, Some(ipv4), false), "127.0.0.1");
         assert_eq!(client_ip(&headers, Some(ipv6), false), "::1");
+    }
+
+    fn forwarded_headers(value: &'static str) -> HeaderMap {
+        let mut headers = HeaderMap::new();
+        headers.insert("x-forwarded-for", value.parse().unwrap());
+        headers
+    }
+
+    #[test]
+    fn a_local_proxy_peer_may_forward_the_client_address() {
+        for peer in [
+            "127.0.0.1:4000",
+            "10.1.2.3:4000",
+            "192.168.0.9:4000",
+            "169.254.1.1:4000",
+            "[::1]:4000",
+            "[fd00::1]:4000",
+            "[fe80::1]:4000",
+        ] {
+            let peer: SocketAddr = peer.parse().expect("peer");
+            assert_eq!(
+                client_ip(
+                    &forwarded_headers("203.0.113.7, 70.41.3.18"),
+                    Some(peer),
+                    true
+                ),
+                "203.0.113.7",
+                "peer {peer} is a local proxy"
+            );
+        }
+    }
+
+    #[test]
+    fn a_public_peer_cannot_forward_a_client_address() {
+        for peer in ["198.51.100.4:4000", "[2001:db8::1]:4000"] {
+            let peer: SocketAddr = peer.parse().expect("peer");
+            assert_eq!(
+                client_ip(&forwarded_headers("203.0.113.7"), Some(peer), true),
+                peer.ip().to_string(),
+                "peer {peer} is the client, not a proxy"
+            );
+        }
+    }
+
+    #[test]
+    fn a_missing_peer_still_honours_the_header() {
+        assert_eq!(
+            client_ip(&forwarded_headers("203.0.113.7"), None, true),
+            "203.0.113.7"
+        );
+        assert_eq!(
+            client_ip(&forwarded_headers("203.0.113.7"), None, false),
+            ""
+        );
     }
 }

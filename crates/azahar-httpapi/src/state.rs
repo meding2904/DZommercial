@@ -70,6 +70,13 @@ impl AppState {
         plugins: Registry,
         shipping: Arc<dyn Courier>,
     ) -> Self {
+        let is_production = cfg.is_production();
+        let captcha = CaptchaStore::new(CAPTCHA_TTL);
+        let captcha = if is_production {
+            captcha.without_test_seam()
+        } else {
+            captcha
+        };
         Self {
             inner: Arc::new(AppStateInner {
                 cfg,
@@ -96,7 +103,7 @@ impl AppState {
                     ADMIN_LIMIT,
                     std::time::Duration::from_secs(ADMIN_WINDOW_SECS),
                 ),
-                captcha: CaptchaStore::new(CAPTCHA_TTL),
+                captcha,
             }),
         }
     }

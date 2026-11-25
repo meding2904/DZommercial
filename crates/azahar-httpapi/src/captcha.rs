@@ -104,6 +104,7 @@ pub struct CaptchaStore {
     clock: CaptchaClock,
     cleanup_started: Arc<AtomicBool>,
     closed: Arc<AtomicBool>,
+    test_seam: bool,
 }
 
 impl CaptchaStore {
@@ -146,7 +147,18 @@ impl CaptchaStore {
             clock,
             cleanup_started: Arc::new(AtomicBool::new(false)),
             closed: Arc::new(AtomicBool::new(false)),
+            test_seam: true,
         }
+    }
+
+    /// Drops the test seam, so [`issue`](Self::issue) always generates a random
+    /// code even when `AZAHAR_TEST_CAPTCHA_CODE` is set. Production builds the
+    /// store this way: the variable pins the code, and a pinned code is a
+    /// captcha anyone can answer.
+    #[must_use]
+    pub fn without_test_seam(mut self) -> Self {
+        self.test_seam = false;
+        self
     }
 
     /// The current instant according to the store clock.
@@ -196,17 +208,26 @@ impl CaptchaStore {
     /// cannot be encoded.
     pub fn issue(&self, ip: &str) -> Result<IssuedCaptcha, CaptchaError> {
         // Test/oracle seam: both servers can issue a known code so the live
-        // checkout success path is diffable. Unset in normal operation.
-        let code = match std::env::var("AZAHAR_TEST_CAPTCHA_CODE") {
-            Ok(value)
-                if value.len() == CAPTCHA_CODE_LENGTH
-                    && value
-                        .chars()
-                        .all(|character| CAPTCHA_ALPHABET.contains(character)) =>
-            {
-                value
+        // checkout success path is diffable. Unset in normal operation, and
+        // ignored entirely once the store drops the seam in production.
+        let pinned = if self.test_seam {
+            match std::env::var("AZAHAR_TEST_CAPTCHA_CODE") {
+                Ok(value)
+                    if value.len() == CAPTCHA_CODE_LENGTH
+                        && value
+                            .chars()
+                            .all(|character| CAPTCHA_ALPHABET.contains(character)) =>
+                {
+                    Some(value)
+                }
+                _ => None,
             }
-            _ => random_code().map_err(CaptchaError::Code)?,
+        } else {
+            None
+        };
+        let code = match pinned {
+            Some(value) => value,
+            None => random_code().map_err(CaptchaError::Code)?,
         };
         let token = random_token().map_err(CaptchaError::Token)?;
         let image = captcha_image(&code).ok_or(CaptchaError::Image)?;

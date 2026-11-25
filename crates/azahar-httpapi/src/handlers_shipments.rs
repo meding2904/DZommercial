@@ -211,9 +211,9 @@ async fn store_shipment(
         Ok(tx) => tx,
         Err(_) => return Err(internal_error()),
     };
-    if state
+    if let Err(error) = state
         .store
-        .update_shipment(
+        .attach_shipment(
             tx.conn(),
             &order.id,
             &state.cfg.courier_key,
@@ -224,10 +224,12 @@ async fn store_shipment(
             now,
         )
         .await
-        .is_err()
     {
         let _ = tx.rollback().await;
-        return Err(internal_error());
+        return Err(match error {
+            StoreError::NotFound => problem(409, "conflict", "This order already has a shipment."),
+            _ => internal_error(),
+        });
     }
     if state
         .store

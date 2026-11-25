@@ -359,6 +359,44 @@ impl Store {
         Ok(())
     }
 
+    /// Attaches the first shipment to an order. The empty-tracking guard makes
+    /// two concurrent create-shipment requests race safely: only the first write
+    /// matches, so the loser gets `NotFound` instead of overwriting the parcel.
+    #[allow(clippy::too_many_arguments)]
+    pub async fn attach_shipment(
+        &self,
+        conn: &Connection,
+        id: &str,
+        courier_key: &str,
+        tracking_number: &str,
+        status: &str,
+        events: &[CourierEvent],
+        synced_at: Option<DateTime<Utc>>,
+        now: DateTime<Utc>,
+    ) -> Result<(), StoreError> {
+        let affected = conn
+            .execute(
+                "UPDATE orders SET courier_key = ?, tracking_number = ?, courier_status = ?,
+                 courier_events = ?, courier_synced_at = ?, updated_at = ?
+                 WHERE id = ? AND tracking_number = ''",
+                libsql::params![
+                    courier_key,
+                    tracking_number,
+                    status,
+                    encode_courier_events(events),
+                    format_optional_time(synced_at.as_ref()),
+                    format_time(&now),
+                    id,
+                ],
+            )
+            .await
+            .map_err(|err| StoreError::Database(format!("attach shipment: {err}")))?;
+        if affected == 0 {
+            return Err(StoreError::NotFound);
+        }
+        Ok(())
+    }
+
     pub async fn update_tracking(
         &self,
         conn: &Connection,

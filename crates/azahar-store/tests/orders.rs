@@ -591,6 +591,59 @@ async fn status_shipment_and_tracking_updates() {
 }
 
 #[tokio::test]
+async fn attach_shipment_wins_only_the_first_write() {
+    let store = memory_store().await;
+    let mut order = sample_order(
+        "ord_attach",
+        "AZ-2026-2002",
+        "tok_attach",
+        "2026-01-02T03:04:05Z",
+    );
+    order.tracking_number.clear();
+    order.courier_status.clear();
+    order.courier_events.clear();
+    order.courier_synced_at = None;
+    store
+        .create_order(store.conn(), &order, &[])
+        .await
+        .expect("create order");
+
+    let attached_at = ts("2026-01-06T00:00:00Z");
+    store
+        .attach_shipment(
+            store.conn(),
+            &order.id,
+            "dzship",
+            "TRK-FIRST",
+            "created",
+            &[],
+            Some(attached_at),
+            attached_at,
+        )
+        .await
+        .expect("first attach");
+
+    let second = store
+        .attach_shipment(
+            store.conn(),
+            &order.id,
+            "other",
+            "TRK-SECOND",
+            "created",
+            &[],
+            Some(attached_at),
+            attached_at,
+        )
+        .await
+        .expect_err("second attach loses the race");
+    assert!(second.is_not_found());
+
+    let stored = store.order_by_id(&order.id).await.expect("reload");
+    assert_eq!(stored.tracking_number, "TRK-FIRST");
+    assert_eq!(stored.courier_key, "dzship");
+}
+
+#[tokio::test]
 async fn metrics_aggregate_the_requested_range() {
     let store = memory_store().await;
     let conn = store.conn();

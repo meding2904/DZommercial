@@ -186,6 +186,31 @@ async fn run() -> anyhow::Result<()> {
         "api listening"
     );
 
+    // Kiri/libSQL closes an idle Hrana stream after ~40s. The Rust store keeps
+    // one connection, so a periodic probe keeps the stream warm and resets it
+    // if the database restarted underneath the process.
+    let keepalive_conn = store.conn().clone();
+    let keepalive_token = shutdown.clone();
+    tokio::spawn(async move {
+        let mut ticker = tokio::time::interval(std::time::Duration::from_secs(15));
+        ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        loop {
+            tokio::select! {
+                _ = keepalive_token.cancelled() => return,
+                _ = ticker.tick() => {
+                    let healthy = match keepalive_conn.query("SELECT 1", ()).await {
+                        Ok(mut rows) => rows.next().await.is_ok(),
+                        Err(_) => false,
+                    };
+                    if !healthy {
+                        tracing::warn!("database stream reset after a failed keepalive");
+                        keepalive_conn.reset().await;
+                    }
+                }
+            }
+        }
+    });
+
     let audit_shutdown = CancellationToken::new();
     let audit_task = tokio::spawn(azahar_auditbatch::run(
         store.clone(),

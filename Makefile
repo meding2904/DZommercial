@@ -10,7 +10,7 @@ WAILS_TAG_FLAGS = $(if $(strip $(WAILS_TAGS)),-tags "$(WAILS_TAGS)")
 VERSION ?= 2.0.0
 DESKTOP_GOARCH ?= $(shell go env GOARCH)
 
-.PHONY: help dev-db dev-api dev-web check desktop-sync desktop-check desktop-deps build smoke kiri-up kiri-local kiri-rust kiri-down desktop desktop-build desktop-package desktop-rust desktop-rust-build desktop-smoke loadtest rust-check rust-test bench-baseline rust-bench oracle-diff go-oracle-seam
+.PHONY: help dev-db dev-api dev-web check desktop-sync desktop-check desktop-deps build smoke kiri-up kiri-local kiri-rust kiri-down desktop desktop-build desktop-package desktop-rust desktop-rust-build desktop-smoke loadtest rust-check rust-test bench-baseline rust-bench k6-read k6-login oracle-diff go-oracle-seam
 
 help:
 	@echo "Azahar demo store"
@@ -31,6 +31,8 @@ help:
 	@echo "  make rust-check  fmt, clippy, and the whole Rust test suite"
 	@echo "  make rust-bench  build the Rust API and write bench/after.json"
 	@echo "  make rust-hotpath  keep-alive throughput probe, writes bench/hotpath.json"
+	@echo "  make k6-read   k6 read mix against $(API_URL)"
+	@echo "  make k6-login  k6 login flow against $(API_URL)"
 	@echo "  make kiri-up   build and run the three containers with Kiri"
 	@echo "  make kiri-local run host-built Go artifacts in Kiri containers (builder fallback)"
 	@echo "  make kiri-rust run the Rust API + web through Kiri"
@@ -93,6 +95,16 @@ rust-bench:
 rust-hotpath:
 	cargo build --release -p azahar-api
 	python3 bench/hotpath.py --bin target/release/azahar-api --label rust --out bench/hotpath.json
+
+K6_VUS ?= 50
+K6_DURATION ?= 20s
+K6_IP_POOL ?= 8192
+
+k6-read:
+	k6 run -e BASE_URL=$(API_URL) -e VUS=$(K6_VUS) -e DURATION=$(K6_DURATION) -e IP_POOL=$(K6_IP_POOL) bench/k6-read.js
+
+k6-login:
+	k6 run -e BASE_URL=$(API_URL) -e VUS=4 -e ITERATIONS=10 bench/k6-login.js
 
 oracle-diff:
 	cargo test --workspace --tests -- --nocapture

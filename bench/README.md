@@ -49,6 +49,44 @@ uses a release `cargo build`; both sizes are reported as produced.
 
 Charts generated from these documents live in `docs/charts/`.
 
+## k6
+
+Grafana k6 scripts drive the same read mix and login flow:
+
+```sh
+# Start the API yourself first, then:
+BASE_URL=http://127.0.0.1:18080 VUS=50 DURATION=20s IP_POOL=8192 \
+    k6 run bench/k6-read.js
+
+BASE_URL=http://127.0.0.1:18080 VUS=4 ITERATIONS=10 \
+    k6 run bench/k6-login.js
+```
+
+`k6-read.js` rotates `X-Forwarded-For` across `IP_POOL` addresses; keep it
+below 10,000 for the normal read path and above 10,000 to exercise rate-limiter
+eviction. k6 itself is the throughput bottleneck on a two-core machine (one
+pinned k6 core saturates at roughly 12-13k requests/s here), so read server CPU
+per request from `/proc/<pid>/stat` around the run for the comparison metric.
+
+Results with server pinned to CPU 0 and k6 to CPU 1, 50 VUs, 20 s, 8,192
+addresses:
+
+| run | throughput (rps) | server CPU (ms/request) | p50 (ms) | p99 (ms) |
+| --- | ---: | ---: | ---: | ---: |
+| Rust before | 13,044 | 0.0337 | 3.30 | 12.77 |
+| Go oracle | 12,117 | 0.0422 | 3.56 | 13.32 |
+| Rust after | 12,820 | 0.0236 | 3.39 | 12.82 |
+| Rust before, 20k addresses | 12,284 | 0.0571 | 3.42 | 13.48 |
+| Rust after, 20k addresses | 13,111 | 0.0241 | 3.33 | 12.52 |
+
+The 20k-address rows cross the limiter cap; the before run produced a single
+429 (one duplicated address), the after run produced none. Server CPU per
+request was read from `/proc/<pid>/stat` around each run.
+
+The raw k6 summaries are `k6-before-read.json`, `k6-go-read.json`,
+`k6-rust-read.json`, `k6-before-churn.json`, `k6-after-churn.json`,
+`k6-go-login.json` and `k6-rust-login.json`.
+
 ## Keep-alive probe
 
 `bench.py` opens a fresh TCP connection per request, which is the right shape
